@@ -5,28 +5,26 @@ import { useSelector } from 'react-redux'
 import { CSpinner, useColorModes } from '@coreui/react-pro'
 
 import './scss/style.scss'
+import './scss/tailwind.scss'
 
-// We use those styles to show code examples, you should remove them in your application.
-import './scss/examples.scss'
-
-import type { State } from './store'
+import type { RootState } from './store'
+import PublicRoute from './components/guards/PublicRoute'
+import ProtectedRoute from './components/guards/ProtectedRoute'
 
 // Containers
 const DefaultLayout = React.lazy(() => import('./layout/DefaultLayout'))
 
 const Login = React.lazy(() => import('./views/pages/login/Login'))
-const Register = React.lazy(() => import('./views/pages/register/Register'))
-const Page404 = React.lazy(() => import('./views/pages/page404/Page404'))
-const Page500 = React.lazy(() => import('./views/pages/page500/Page500'))
-
-// Email App
-const EmailApp = React.lazy(() => import('./views/apps/email/EmailApp'))
+const Page403 = React.lazy(() => import('./views/pages/Errors/Page403'))
+const Page404 = React.lazy(() => import('./views/pages/Errors/Page404'))
+const Page405 = React.lazy(() => import('./views/pages/Errors/Page405'))
+const Page500 = React.lazy(() => import('./views/pages/Errors/Page500'))
 
 const App = () => {
   const { isColorModeSet, setColorMode } = useColorModes(
     'coreui-pro-react-admin-template-theme-default',
   )
-  const storedTheme = useSelector((state: State) => state.theme)
+  const storedTheme = useSelector((state: RootState) => state.ui.theme)
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.href.split('?')[1])
@@ -57,12 +55,31 @@ const App = () => {
         }
       >
         <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+          {/* Public routes wrapped with PublicRoute (redirects to dashboard if logged in) */}
+          <Route
+            path="/login"
+            element={
+              <PublicRoute>
+                <Login />
+              </PublicRoute>
+            }
+          />
+
+          {/* Status & Error Pages (Sin DefaultLayout) */}
+          <Route path="/403" element={<Page403 />} />
           <Route path="/404" element={<Page404 />} />
+          <Route path="/405" element={<Page405 />} />
           <Route path="/500" element={<Page500 />} />
-          <Route path="/apps/email/*" element={<EmailApp />} />
-          <Route path="*" element={<DefaultLayout />} />
+
+          {/* Main Protected Layout */}
+          <Route
+            path="/*"
+            element={
+              <ProtectedRoute>
+                <DefaultLayout />
+              </ProtectedRoute>
+            }
+          />
         </Routes>
       </Suspense>
     </HashRouter>

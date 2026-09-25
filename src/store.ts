@@ -1,22 +1,21 @@
-import { legacy_createStore as createStore } from 'redux'
+import { configureStore } from '@reduxjs/toolkit'
+import authReducer from './authSlice'
 
-export type State = {
-  asideShow: boolean
+export type UiState = {
   sidebarShow: boolean
   theme: string
   sidebarUnfoldable: boolean
 }
 
-type Args = { type: string; [key: string]: boolean | string }
+export type State = UiState
 
-const initialState: State = {
-  asideShow: false,
+const initialUiState: UiState = {
   sidebarShow: true,
   theme: 'light',
   sidebarUnfoldable: false,
 }
 
-const changeState = (state = initialState, { type, ...rest }: Args) => {
+const uiReducer = (state = initialUiState, { type, ...rest }: any) => {
   switch (type) {
     case 'set':
       return { ...state, ...rest }
@@ -25,6 +24,13 @@ const changeState = (state = initialState, { type, ...rest }: Args) => {
   }
 }
 
-const store = createStore(changeState)
+const store = configureStore({
+  reducer: {
+    ui: uiReducer,
+    auth: authReducer,
+  },
+})
+
+export type RootState = ReturnType<typeof store.getState>
 
 export default store

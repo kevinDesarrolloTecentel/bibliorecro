@@ -1,10 +1,10 @@
 {
-  "short_name": "CoreUI-React",
-  "name": "CoreUI-React sample",
+  "short_name": "BiblioRecreo",
+  "name": "BiblioRecreo",
   "icons": [
     {
-      "src": "./assets/img/favicon.png",
-      "sizes": "100x100",
+      "src": "/recreo_logo.png",
+      "sizes": "192x192 512x512",
       "type": "image/png"
     }
   ],

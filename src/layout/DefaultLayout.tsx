@@ -1,5 +1,7 @@
-import React from 'react'
-import { AppAside, AppContent, AppSidebar, AppFooter, AppHeader } from '../components/index'
+import AppContent from "@/components/app/AppContent"
+import AppFooter from "@/components/app/AppFooter"
+import AppHeader from "@/components/app/AppHeader"
+import AppSidebar from "@/components/app/AppSidebar"
 
 const DefaultLayout = () => {
   return (
@@ -12,7 +14,6 @@ const DefaultLayout = () => {
         </div>
         <AppFooter />
       </div>
-      <AppAside />
     </>
   )
 }

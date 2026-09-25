@@ -65,3 +65,83 @@ body {
     --cui-footer-bg: var(--cui-body-bg);
   }
 }
+
+// Corrección de conflicto entre Tailwind CSS y CoreUI CCollapse
+.collapse.show {
+  visibility: visible !important;
+}
+
+// Estilos del Asidebar (BiblioRecreo)
+.sidebar {
+  --cui-sidebar-bg: #044c8c;
+  background-color: #044c8c !important;
+
+  .sidebar-header,
+  .sidebar-footer {
+    background-color: #044c8c !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+  }
+
+  .nav-title {
+    color: rgba(255, 255, 255, 0.6) !important;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+
+  .nav-link {
+    color: rgba(255, 255, 255, 0.9);
+    border-radius: 6px;
+    margin: 1px 8px;
+    transition: all 0.15s ease-in-out;
+
+    &:hover {
+      color: #ffffff;
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+
+    &.active {
+      color: #ffffff !important;
+      background-color: #2a303d !important;
+    }
+  }
+
+  .nav-group-toggle {
+    border-radius: 6px;
+    margin: 1px 8px;
+
+    &::after {
+      filter: brightness(0) invert(1);
+      opacity: 0.6;
+    }
+  }
+
+  .nav-group-items {
+    background-color: transparent !important;
+  }
+
+  .nav-icon-bullet {
+    background-color: transparent !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.75) !important;
+    border-radius: 50% !important;
+    width: 6px !important;
+    height: 6px !important;
+    display: inline-block;
+  }
+
+  // Eliminar scrollbars nativos del navegador
+  .sidebar-nav {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    &::-webkit-scrollbar {
+      display: none;
+      width: 0;
+      height: 0;
+    }
+  }
+
+  // Estilizar SimpleBar
+  .simplebar-scrollbar::before {
+    background-color: rgba(255, 255, 255, 0.25);
+  }
+}
