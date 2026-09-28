@@ -18,14 +18,14 @@ const Author: React.FC = () => {
   const autorHook = useAutor()
   const {
     handleOpen,
-    listaAutor,
     autoresFiltrados,
     busquedaAutor,
     setBusquedaAutor,
     autorSeleccionado,
     setAutorSeleccionado,
-    loadingAutor,
-    handleEliminarAutor,
+    listaAutores,
+    loadingAutores,
+    handleElminiarAutor
   } = autorHook
 
   const handleToggleSelect = (autor: any) => {
@@ -78,7 +78,7 @@ const Author: React.FC = () => {
                   </CBadge>
                 )}
                 <CBadge color="primary" shape="rounded-pill">
-                  {listaAutor.length} Registrados
+                  {listaAutores.length} Registrados
                 </CBadge>
               </div>
             </CCardHeader>
@@ -114,12 +114,12 @@ const Author: React.FC = () => {
                 className="border rounded p-2 overflow-auto"
                 style={{ maxHeight: '520px', minHeight: '360px' }}
               >
-                {loadingAutor ? (
+                {loadingAutores ? (
                   <div className="text-center py-5">
                     <CSpinner size="sm" color="success" />
                     <span className="ms-2 small text-muted">Cargando autores...</span>
                   </div>
-                ) : listaAutor.length === 0 ? (
+                ) : listaAutores.length === 0 ? (
                   <div className="text-center text-muted py-5 small">
                     <div className="mb-2">
                       <CIcon icon={cilUser} size="xxl" className="opacity-25" />
@@ -308,7 +308,7 @@ const Author: React.FC = () => {
                       color="danger"
                       variant="outline"
                       className="d-flex align-items-center gap-2 shadow-sm hover:text-white"
-                      onClick={() => handleEliminarAutor(autorSeleccionado)}
+                      onClick={() => handleElminiarAutor(autorSeleccionado)}
                     >
                       <CIcon icon={cilTrash} />
                       <span>Eliminar Autor</span>

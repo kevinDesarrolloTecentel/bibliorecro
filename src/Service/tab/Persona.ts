@@ -46,36 +46,53 @@ export const PersonasRegistradas = async () => {
 export const getInscripcionesUsuarios = PersonasRegistradas;
 
 // Reportes -- GET
+// 1. Reporte de Usuarios por Edad y Género
 export const ListarPersonaReport = async (params?: any) => {
     const { data } = await apiClient.get(`${API_BASE_URL_PERSONA}/personasReport`, { params });
     return data;
 };
 export const personasReporte = ListarPersonaReport;
+export const PersonasEdadGeneroReport = ListarPersonaReport;
 
-export const PersonasActivasReport = async () => {
-    const { data } = await apiClient.get(`${API_BASE_URL_PERSONA}/personasReportActivas`);
+// 2. Reporte de Usuarios Activos
+export const PersonasActivasReport = async (params?: any) => {
+    const { data } = await apiClient.get(`${API_BASE_URL_PERSONA}/personasReportActivas`, {params});
     return data;
 };
 
-export const PersonasActivasMesReport = async () => {
-    const { data } = await apiClient.get(`${API_BASE_URL_PERSONA}/personasReportActivasMes`);
+// 3. Reporte de Usuarios Activos por Mes y Día
+export const PersonasActivasMesReport = async (params?: any) => {
+    const { data } = await apiClient.get(`${API_BASE_URL_PERSONA}/personasReportActivasMes`, { params });
+    return data;
+};
+export const PersonasActivasMesDiaReport = PersonasActivasMesReport;
+
+// 4. Reporte de Renovaciones por Día / Mes / Año
+export const PersonasRenovacionesReport = async (params?: any) => {
+    const { data } = await apiClient.get(`${API_BASE_URL_PERSONA}/personasReportRenovaciones`, { params });
     return data;
 };
 
-export const PersonasRenovacionesReport = async () => {
-    const { data } = await apiClient.get(`${API_BASE_URL_PERSONA}/personasReportRenovaciones`);
+// 5. Reporte de Nuevos Usuarios por Día / Mes / Año
+export const PersonasNuevasReport = async (params?: any) => {
+    const { data } = await apiClient.get(`${API_BASE_URL_PERSONA}/personasReportNuevas`, { params });
     return data;
 };
+export const PersonasNuevasDiaMesAnoReport = PersonasNuevasReport;
 
-export const PersonasNuevasReport = async () => {
-    const { data } = await apiClient.get(`${API_BASE_URL_PERSONA}/personasReportNuevas`);
+// 6. Reporte de Historial de Libros por Usuario
+export const PersonasHistorialLibrosReport = async (params?: any) => {
+    const { data } = await apiClient.get(`${BACKEND_API_BASE}/prestamosReport`, { params });
     return data;
 };
+export const PrestamosReportPorUsuario = PersonasHistorialLibrosReport;
 
-export const PersonasMejoresReport = async () => {
-    const { data } = await apiClient.get(`${API_BASE_URL_PERSONA}/personasReportMejores`);
+// 7. Reporte de Mejores Usuarios (Ranking)
+export const PersonasMejoresReport = async (params?: any) => {
+    const { data } = await apiClient.get(`${API_BASE_URL_PERSONA}/personasReportMejores`, { params });
     return data;
 };
+export const personasMejoresReport = PersonasMejoresReport;
 
 // Mantenimiento
 export const ExportarExcel = async () => {
@@ -92,7 +109,6 @@ export const caducidad = async () => {
     const { data } = await apiClient.get(`${API_BASE_URL_PERSONA}/caducidad`);
     return data;
 };
-
 // CRUD Personas
 // GET
 export const verPersonas = async (id: any) => {
@@ -120,9 +136,9 @@ export const PersonaUsuario = async (payload?: any) => {
 export const ActualizarPersonaNueva = async (id: any, payload?: any) => {
     const { data } = await apiClient.put(`${API_BASE_URL_PERSONA}/personaNew/${id}`, payload);
     return data;
-};
-export const actualizarPersona = ActualizarPersonaNueva;
+}
 export const ActualizarPersona = ActualizarPersonaNueva;
+export const actualizarPersona = ActualizarPersonaNueva;
 
 export const PersonaWeb = async (id: any, payload?: any) => {
     const { data } = await apiClient.put(`${API_BASE_URL_PERSONA}/personaWeb/${id}`, payload);

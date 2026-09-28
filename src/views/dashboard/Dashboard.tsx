@@ -8,6 +8,8 @@ import { cilChartPie, cilSpeedometer, cilBarChart, cilGraph, cilPeople, cilBook,
 import UsuNRT from "@/components/Dashboard/UsuNRT"
 import LibIng from "@/components/Dashboard/LibrosIng"
 
+
+
 const meses = [ 'Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre', ]
 
 const Dashboard = () => {
@@ -63,19 +65,18 @@ const Dashboard = () => {
               size="sm"
               className="w-100 d-flex align-items-center justify-content-center"
             >
-              {
+              
                 <>
                   <CIcon icon={cilSync} className="me-2" />
                   <span className="hover:text-white">Actualizar</span>
                 </>
-              }
             </CButton>
           </CCol>
         </CCardBody>
       </CCard>
       <hr />
       <CCol>
-        <Estadistics/>
+        <Estadistics />
       </CCol>
       <hr />
 
@@ -99,7 +100,7 @@ const Dashboard = () => {
               <span className="fw-bold text-body">Total de Préstamos (Activos vs Entregados)</span>
             </CCardHeader>
             <CCardBody className="p-3">
-              <ChartLineExample />
+              <ChartLineExample/>
             </CCardBody>
           </CCard>
         </CCol>

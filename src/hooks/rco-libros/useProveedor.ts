@@ -7,6 +7,7 @@ import Swal from "sweetalert2";
 export type ProveedorItem = Proveedor
 
 export interface UseProveedorProps{
+  autoFetch?: boolean
   visible?: boolean
   setVisible?: (visible?: boolean) => void
   onProveedorCreado?: (proveedorNuevo: Proveedor) => void
@@ -23,6 +24,7 @@ const Toast = Swal.mixin({
 })
 
 export const useProveedor = ({
+  autoFetch = true,
   visible: visibleProp,
   setVisible: setVisibleProp,
   onProveedorCreado,
@@ -84,8 +86,10 @@ export const useProveedor = ({
   },[])
 
   useEffect(()=>{
-    fetchProveedores()
-  }, [fetchProveedores])
+    if(autoFetch){
+      fetchProveedores()
+    }
+  }, [autoFetch,fetchProveedores])
 
   const handleOpen = useCallback(
     (proveedor?: Proveedor) => {

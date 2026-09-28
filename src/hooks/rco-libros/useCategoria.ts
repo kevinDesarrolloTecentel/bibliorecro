@@ -7,6 +7,7 @@ import { ActualizarCatLib, CatLibros, EliminarCatLib, NuevaCatLib } from '@/Serv
 export type CategoriaItem = Categoria
 
 export interface UseCategoriaProps {
+  autoFetch?: boolean
   visible?: boolean
   setVisible?: (visible: boolean) => void
   onCategoriaCreada?: (categoriaNueva: Categoria) => void
@@ -27,6 +28,7 @@ const Toast = Swal.mixin({
 })
 
 export const useCategoria = ({
+  autoFetch = true,
   visible: visibleProp,
   setVisible: setVisibleProp,
   onCategoriaCreada,
@@ -91,8 +93,10 @@ export const useCategoria = ({
   }, [])
 
   useEffect(() => {
-    fetchCategorias()
-  }, [fetchCategorias])
+    if (autoFetch) {
+      fetchCategorias()
+    }
+  }, [autoFetch, fetchCategorias])
 
   const handleOpen = useCallback(
     (categoria?: Categoria) => {

@@ -93,13 +93,17 @@ export const getStoredUser = (): UserData | null => {
 
     let parsed: any = null
     if (savedUser) {
-      try {
-        parsed = JSON.parse(savedUser)
-      } catch {
+      if (savedUser.startsWith('U2FsdGVkX1')) {
         const decrypted = decryptToken(savedUser, ENCRYPTION_KEY)
         if (decrypted) {
-          parsed = JSON.parse(decrypted)
+          try {
+            parsed = JSON.parse(decrypted)
+          } catch { }
         }
+      } else {
+        try {
+          parsed = JSON.parse(savedUser)
+        } catch { }
       }
     }
 
@@ -163,20 +167,14 @@ export const isTokenExpired = (
 ): boolean => {
   const nowInSeconds = Math.floor(Date.now() / 1000)
 
-  if (typeof expOrToken === 'number') {
-    return expOrToken <= nowInSeconds
-  }
-
-  if (typeof expOrToken === 'string') {
-    const decoded = decodeJWT<{ exp?: number }>(expOrToken)
-    if (decoded?.exp) {
-      return decoded.exp <= nowInSeconds
-    }
-  }
-
+  // Validación de expiración basada en timestamp de login y duración en segundos
   if (timestamp && expiresInSeconds) {
     const sessionExpiresAt = Math.floor(timestamp / 1000) + expiresInSeconds
     return sessionExpiresAt <= nowInSeconds
+  }
+
+  if (typeof expOrToken === 'number') {
+    return expOrToken <= nowInSeconds
   }
 
   return false
@@ -188,13 +186,11 @@ export const isSessionValid = (user?: UserData | null): boolean => {
     try {
       const saved = window.localStorage.getItem(USER_STORAGE_KEY)
       if (saved) {
-        try {
-          targetUser = JSON.parse(saved)
-        } catch {
+        if (saved.startsWith('U2FsdGVkX1')) {
           const decrypted = decryptToken(saved, ENCRYPTION_KEY)
-          if (decrypted) {
-            targetUser = JSON.parse(decrypted)
-          }
+          if (decrypted) targetUser = JSON.parse(decrypted)
+        } else {
+          targetUser = JSON.parse(saved)
         }
       } else {
         const token = getStoredToken()
@@ -211,17 +207,17 @@ export const isSessionValid = (user?: UserData | null): boolean => {
     return false
   }
 
+  const token = getStoredToken()
+  if (!token) {
+    return false
+  }
+
   const expSec = targetUser.tiempo_expiracion ?? targetUser.expires_in
   if (expSec && targetUser.timestamp) {
     const sec = expSec <= 120 ? expSec * 60 : expSec
     if (isTokenExpired(undefined, targetUser.timestamp, sec)) {
       return false
     }
-  }
-
-  const token = getStoredToken()
-  if (token && isTokenExpired(token)) {
-    return false
   }
 
   return true
@@ -254,11 +250,16 @@ export const setAuthSession = (
     Cookies.remove(AUTH_COOKIE_NAME)
   } catch { }
 
-  // 3. Asegurar que en localStorage solo quede el token (eliminando authToken y userData)
+  // 3. Guardar datos de usuario encriptados en localStorage
   try {
     window.localStorage.removeItem('authToken')
-    window.localStorage.removeItem(USER_STORAGE_KEY)
-  } catch { }
+    if (user) {
+      const encryptedUser = encryptToken(JSON.stringify(user), ENCRYPTION_KEY)
+      window.localStorage.setItem(USER_STORAGE_KEY, encryptedUser)
+    }
+  } catch (e) {
+    console.error('Error guardando usuario en localStorage:', e)
+  }
 
   // 4. Eliminar cualquier residuo de sessionStorage
   try {

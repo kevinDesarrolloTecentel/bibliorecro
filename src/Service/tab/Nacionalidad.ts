@@ -4,7 +4,7 @@ const API_BASE_URL_NACIONALIDAD = `${BACKEND_API_BASE}/tab-nacionalidad`;
 
 // Metodo GET
 export const ListarNacionalidad = async () => {
-    const { data } = await apiClient.get(`${API_BASE_URL_NACIONALIDAD}/nacionalidas`);
+    const { data } = await apiClient.get(`${API_BASE_URL_NACIONALIDAD}/nacionalidads`);
     return data;
 };
 

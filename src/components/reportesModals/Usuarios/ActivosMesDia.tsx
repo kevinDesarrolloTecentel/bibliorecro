@@ -2,7 +2,7 @@ import React from 'react'
 import {
   useReporteUsuariosActivosMesDia,
   PersonaReporteItem,
-} from '@/hooks/reportes/useReporteUsuarios'
+} from '@/hooks/reportes/usuarios/useReportActivosMesDia'
 import {
   cilCloudDownload,
   cilExitToApp,
@@ -199,13 +199,7 @@ const MesDiaModal: React.FC<UsuMDModalProps> = ({ visible, setVisible }) => {
               columnSorter
               items={usuarios}
               itemsPerPage={60}
-              noItemsLabel={
-                isLoading
-                  ? 'Cargando registros...'
-                  : <div className='d-flex justify-content-center'>
-                    <CSpinner color='primary' size='sm' variant='grow'/>
-                  </div>
-              }
+              noItemsLabel={'Inserte un día, mes y año para generar el reporte'}
               scopedColumns={{
                 cedula: (item: PersonaReporteItem) => (
                   <td>

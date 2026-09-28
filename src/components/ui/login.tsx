@@ -22,9 +22,7 @@ import { cilLockLocked, cilLockUnlocked } from "@coreui/icons";
 
 const formSchema = z.object({
   email: z.string().min(1, { message: "Por favor ingrese su usuario o correo." }),
-  password: z
-    .string()
-    .min(4, { message: "La contraseña debe tener al menos 4 caracteres." }),
+  password: z.string().min(1, { message: "Por favor ingrese su contraseña." }),
   rememberMe: z.boolean().default(false).optional(),
 });
 

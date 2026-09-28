@@ -5,7 +5,15 @@ import { CChart } from '@coreui/react-chartjs'
 import { Chart } from 'chart.js'
 import type { ChartData, ChartOptions } from 'chart.js'
 
-export const ChartLineExample = () => {
+export interface ChartLineExampleProps {
+  data?: {
+    activos?: number[]
+    entregados?: number[]
+  }
+  loading?: boolean
+}
+
+export const ChartLineExample: React.FC<ChartLineExampleProps> = ({ data: propData, loading }) => {
   const chartRef = useRef<Chart<'line'> | null>(null)
 
   useEffect(() => {
@@ -47,7 +55,18 @@ export const ChartLineExample = () => {
     }
   }, [])
 
-  const data: ChartData<'line'> = {
+  const defaultArray = Array(12).fill(0)
+  const activosData = propData?.activos?.length ? propData.activos : defaultArray
+  const entregadosData = propData?.entregados?.length ? propData.entregados : defaultArray
+  const isAllZero = activosData.every((v) => v === 0) && entregadosData.every((v) => v === 0)
+
+  useEffect(() => {
+    if (chartRef.current) {
+      chartRef.current.update()
+    }
+  }, [activosData, entregadosData])
+
+  const chartData: ChartData<'line'> = {
     labels: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
     datasets: [
       {
@@ -55,7 +74,7 @@ export const ChartLineExample = () => {
         backgroundColor: 'rgba(201, 220, 231, 0.2)',
         borderColor: 'rgba(66, 211, 242, 1)',
         pointBackgroundColor: 'rgba(17, 65, 129, 1)',
-        data: [40, 20, 12, 39, 10, 40, 39, 80, 40, 80, 10, 0], 
+        data: activosData, 
         fill: true,
       },
       {
@@ -63,7 +82,7 @@ export const ChartLineExample = () => {
         backgroundColor: 'rgba(173, 241, 204, 0.2)',
         borderColor: 'rgba(118, 226, 176, 1)',
         pointBackgroundColor: 'rgba(24, 131, 3, 1)',
-        data: [50, 12, 28, 29, 7, 25, 12, 70, 60, 71, 26, 59],
+        data: entregadosData,
         fill: true,
       },
     ],
@@ -95,6 +114,7 @@ export const ChartLineExample = () => {
         },
         ticks: {
           color: getStyle('--cui-body-color') || '#4f5d73',
+          precision: 0,
         },
         beginAtZero: true,
       },
@@ -103,7 +123,32 @@ export const ChartLineExample = () => {
 
   return (
     <div style={{ width: '100%', height: '340px', position: 'relative' }}>
-      <CChart type="line" data={data} options={options} ref={chartRef} style={{ height: '100%', width: '100%' }} />
+      {loading && (
+        <div
+          className="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center bg-body bg-opacity-50"
+          style={{ zIndex: 5 }}
+        >
+          <div className="spinner-border text-info" role="status" style={{ width: '2rem', height: '2rem' }}>
+            <span className="visually-hidden">Cargando datos...</span>
+          </div>
+        </div>
+      )}
+      {isAllZero && !loading && (
+        <div
+          className="position-absolute top-50 start-50 translate-middle text-center p-2 rounded bg-body shadow-sm border small text-muted"
+          style={{ zIndex: 4, maxWidth: '80%' }}
+        >
+          No hay préstamos registrados para este período seleccionado.
+        </div>
+      )}
+      <CChart
+        key={`${activosData.join(',')}-${entregadosData.join(',')}`}
+        type="line"
+        data={chartData}
+        options={options}
+        ref={chartRef}
+        style={{ height: '100%', width: '100%' }}
+      />
     </div>
   )
 }

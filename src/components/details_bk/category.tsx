@@ -1,25 +1,7 @@
 import React from 'react'
-import {
-  CButton,
-  CCol,
-  CForm,
-  CFormInput,
-  CInputGroup,
-  CInputGroupText,
-  CModal,
-  CModalBody,
-  CModalFooter,
-  CModalHeader,
-  CModalTitle,
-  CSpinner,
-} from '@coreui/react-pro'
+import { CButton, CCol, CForm, CFormInput, CInputGroup, CInputGroupText, CModal, CModalBody, CModalFooter, CModalHeader, CModalTitle, CSpinner } from '@coreui/react-pro'
 import CIcon from '@coreui/icons-react'
-import {
-  cilBookmark,
-  cilExitToApp,
-  cilSave,
-  cilTag,
-} from '@coreui/icons'
+import { cilBookmark, cilExitToApp, cilSave, cilTag } from '@coreui/icons'
 import useCategoria, { UseCategoriaProps } from '@/hooks/rco-libros/useCategoria'
 
 export interface ModalCategoriaProps extends UseCategoriaProps {
@@ -27,7 +9,10 @@ export interface ModalCategoriaProps extends UseCategoriaProps {
 }
 
 const ModalCate: React.FC<ModalCategoriaProps> = (props) => {
-  const internalHook = useCategoria(props)
+  const internalHook = useCategoria({
+    ...props,
+    autoFetch: !props.categoriaState,
+  })
   const hook = props.categoriaState || internalHook
 
   const {
@@ -35,7 +20,7 @@ const ModalCate: React.FC<ModalCategoriaProps> = (props) => {
     handleClose,
     categoriaEnEdicion,
     codigoCategoria,
-    setCodigoCategoria,
+    setCodigoCategoria, 
     nombreCategoria,
     setNombreCategoria,
     guardando,

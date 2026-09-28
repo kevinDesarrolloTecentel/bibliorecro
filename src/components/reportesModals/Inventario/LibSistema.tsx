@@ -1,4 +1,4 @@
-import { useReporteLibrosSistema } from "@/hooks/reportes/useReporteInventario"
+import { useReporteLibrosSistema } from "@/hooks/reportes/inventario/LibroSistema"
 import { cilBookmark, cilCloudDownload, cilExitToApp, cilSave } from "@coreui/icons"
 import CIcon from "@coreui/icons-react"
 import { CBadge, CButton, CCard, CCardBody, CCardHeader, CCardTitle, CModal, CModalBody, CModalFooter, CModalHeader, CModalTitle, CSmartTable, CSpinner } from "@coreui/react-pro"

@@ -2,7 +2,7 @@ import React from 'react'
 import {
   useReporteUsuariosActivos,
   PersonaReporteItem,
-} from '@/hooks/reportes/useReporteUsuarios'
+} from '@/hooks/reportes/usuarios/useReportActivas'
 import {
   cilCloudDownload,
   cilExitToApp,
@@ -165,13 +165,7 @@ const UsuActModal: React.FC<UsuActModalProps> = ({ visible, setVisible }) => {
               itemsPerPageSelect
               itemsPerPage={60}
               tableFilterPlaceholder="Buscar en la tabla..."
-              noItemsLabel={
-                isLoading
-                  ? 'Cargando registros...'
-                  : <div className='d-flex justify-content-center'>
-                    <CSpinner size='sm' color='primary' variant='grow'/>
-                  </div>
-              }
+              noItemsLabel={'Seleccione un año para generar el reporte'}
               scopedColumns={{
                 cedula: (item: PersonaReporteItem) => (
                   <td>

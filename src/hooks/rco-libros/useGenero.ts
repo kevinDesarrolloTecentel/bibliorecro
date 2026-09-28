@@ -7,6 +7,7 @@ export type GeneroLItem = GeneroLib
 export type GeneroItem = GeneroLib
 
 export interface UseGeneroLProps {
+    autoFetch?:  boolean
     visible?: boolean
     setVisible?: (visible: boolean) => void
     onGenerolCreado?: (generolNuevo: GeneroLib) => void
@@ -32,6 +33,7 @@ const Toast = Swal.mixin({
 })
 
 export const useGeneroL = ({
+    autoFetch= true,
     visible: visibleProp,
     setVisible: setVisibleProp,
     onGenerolCreado,
@@ -100,8 +102,8 @@ export const useGeneroL = ({
     }, [])
 
     useEffect(()=>{
-        fetchGenerol()
-    },[fetchGenerol])
+        if(autoFetch){fetchGenerol()}
+    },[autoFetch, fetchGenerol])
 
     const handleOpen = useCallback(
         (generol?: GeneroLib) =>{

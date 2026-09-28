@@ -27,7 +27,10 @@ export interface ModalProveedorProps extends UseProveedorProps {
 }
 
 const ModalPv: React.FC<ModalProveedorProps> = (props) => {
-  const internalHook = useProveedor(props)
+  const internalHook = useProveedor({
+    ...props,
+    autoFetch: !props.proveedorState,
+  })
   const hook = props.proveedorState || internalHook
 
   const {

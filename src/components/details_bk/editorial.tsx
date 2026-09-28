@@ -9,7 +9,10 @@ export interface ModaleditorialProps extends UseEditorialProps {
 }
 
 const EditoModal: React.FC<ModaleditorialProps> = (props) => {
-    const internalHook = useEditorial(props)
+    const internalHook = useEditorial({
+        ...props,
+        autoFetch: !props.editorialState,
+    })
     const hook = props.editorialState || internalHook
     const {
         isVisible,

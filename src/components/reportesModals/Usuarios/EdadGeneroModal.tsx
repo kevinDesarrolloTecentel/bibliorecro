@@ -2,7 +2,7 @@ import React from 'react'
 import {
   useReporteUsuariosEdadGenero,
   PersonaReporteItem,
-} from '@/hooks/reportes/useReporteUsuarios'
+} from '@/hooks/reportes/usuarios/useReporteEdadGenero'
 import {
   cilCloudDownload,
   cilExitToApp,
@@ -212,14 +212,7 @@ const EGModal: React.FC<EGModalProps> = ({ visible, setVisible }) => {
               itemsPerPage={60}
               pagination
               tableFilterPlaceholder="Buscar en la tabla..."
-              noItemsLabel={
-                isLoading
-                  ? 'Cargando registros...'
-                  :
-                    <div className='text-center'>
-                      <CSpinner color='primary' size='sm' variant='grow'/>
-                    </div>
-              }
+              noItemsLabel={'Seleccione un Rango de Edad y el Genero para la consulta'}
               scopedColumns={{
                 cedula: (item: PersonaReporteItem) => (
                   <td>

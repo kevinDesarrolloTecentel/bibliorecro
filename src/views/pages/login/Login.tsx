@@ -1,5 +1,4 @@
 import { useEffect } from 'react'
-import Swal from 'sweetalert2'
 import { clearAuthSession } from '@/utils/auth'
 import { AuthFormSplitScreen } from '@/components/ui/login'
 import useAuth from '@/hooks/useAuth'
@@ -9,16 +8,13 @@ const Login = () => {
   const userState = useAuth()
 
   useEffect(() => {
-    const searchParams = new URLSearchParams(window.location.hash.split('?')[1] || window.location.search)
+    const hashParts = window.location.hash.split('?')
+    const searchParams = new URLSearchParams(hashParts[1] || window.location.search)
     if (searchParams.get('session_expired') === 'true') {
       clearAuthSession()
-      Swal.fire({
-        title: 'Sesión Expirada',
-        text: 'Tu sesión ha vencido. Por favor, ingresa tus credenciales nuevamente.',
-        icon: 'warning',
-        confirmButtonText: 'Entendido',
-        confirmButtonColor: '#321fdb',
-      })
+      if (window.location.hash.includes('session_expired')) {
+        window.history.replaceState(null, '', '#/login')
+      }
     }
   }, [])
     return (

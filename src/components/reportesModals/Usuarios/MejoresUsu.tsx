@@ -2,7 +2,7 @@ import React from 'react'
 import {
   useReporteMejoresUsuarios,
   PersonaReporteItem,
-} from '@/hooks/reportes/useReporteUsuarios'
+} from '@/hooks/reportes/usuarios/useReporteMejores'
 import {
   cilCloudDownload,
   cilExitToApp,
@@ -155,13 +155,7 @@ const MejoresUModal: React.FC<UseMejoresProps> = ({ visible, setVisible }) => {
               items={usuarios}
               itemsPerPageSelect
               itemsPerPage={60}
-              noItemsLabel={
-                isLoading
-                  ? 'Cargando registros...'
-                  : <div className='d-flex justify-content-center'>
-                    <CSpinner color='primary' variant='grow' size='sm'/>
-                  </div>
-              }
+              noItemsLabel={'Seleccione un año para generar el reporte'}
               scopedColumns={{
                 nombre: (item: PersonaReporteItem) => (
                   <td>

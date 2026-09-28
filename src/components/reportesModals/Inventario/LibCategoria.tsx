@@ -1,4 +1,4 @@
-import { CategoriaOption, useReporteLibrosCategoria } from "@/hooks/reportes/useReporteInventario"
+import { CategoriaOption, useReporteLibrosCategoria } from "@/hooks/reportes/inventario/LibroCategoria"
 import { cilBook, cilCloudDownload, cilExitToApp } from "@coreui/icons"
 import CIcon from "@coreui/icons-react"
 import { CButton, CCard, CCardBody, CCardHeader, CCol, CForm, CModal, CModalBody, CModalFooter, CModalHeader, CModalTitle, CSmartTable } from "@coreui/react-pro"

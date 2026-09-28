@@ -2,7 +2,7 @@ import React from 'react'
 import {
   useReporteRenovaciones,
   PersonaReporteItem,
-} from '@/hooks/reportes/useReporteUsuarios'
+} from '@/hooks/reportes/usuarios/useReporteRenovaciones'
 import {
   cilCloudDownload,
   cilExitToApp,
@@ -200,13 +200,7 @@ const MDAModal: React.FC<UsuMDAModalProps> = ({ visible, setVisible }) => {
               columnSorter
               items={usuarios}
               itemsPerPage={60}
-              noItemsLabel={
-                isLoading
-                  ? 'Cargando registros...'
-                  : <div className='d-flex justify-content-center'>
-                    <CSpinner color='primary' variant='grow' size='sm'/>
-                  </div>
-              }
+              noItemsLabel={'Inserte un día, mes y año para generar el reporte'}
               scopedColumns={{
                 cedula: (item: PersonaReporteItem) => (
                   <td>

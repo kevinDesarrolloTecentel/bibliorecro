@@ -8,7 +8,10 @@ export interface ModalGeneroProps extends UseGeneroProps {
 }
 
 const ModalGen: React.FC<ModalGeneroProps> = (props) => {
-    const internalHook = useGenero(props)
+    const internalHook = useGenero({
+        ...props,
+        autoFetch: !props.generoState,
+    })
     const hook = props.generoState || internalHook
     const {
         handleClose,

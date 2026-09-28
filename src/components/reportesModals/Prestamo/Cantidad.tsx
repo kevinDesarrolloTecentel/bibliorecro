@@ -2,7 +2,7 @@ import React from 'react'
 import {
   useReporteCantidadPrestamosHoy,
   PrestamoReporteItem,
-} from '@/hooks/reportes/useReportePrestamos'
+} from '@/hooks/reportes/prestamos/CantidadPrestamo'
 import {
   cilCloudDownload,
   cilExitToApp,

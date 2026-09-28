@@ -7,6 +7,7 @@ import { ActualizarEditLib, EliminarEditLib, ListarEditLib, NuevaEditLib } from 
 export type EditorialItem = Editorial
 
 export interface UseEditorialProps {
+  autoFetch?: boolean
   visible?: boolean
   setVisible?: (visible: boolean) => void
   onEditorialcreado?: (editorialNuevo: Editorial) => void
@@ -27,6 +28,7 @@ const Toast = Swal.mixin({
 })
 
 export const useEditorial = ({
+  autoFetch = true,
   visible: visibleProp,
   setVisible: setVisibleProp,
   onEditorialcreado,
@@ -90,8 +92,10 @@ export const useEditorial = ({
   }, [])
 
   useEffect(() => {
-    fetchEditoriales()
-  }, [fetchEditoriales])
+    if(autoFetch){
+      fetchEditoriales()
+    }
+  }, [autoFetch, fetchEditoriales])
 
   const handleOpen = useCallback(
     (editorial?: Editorial) => {

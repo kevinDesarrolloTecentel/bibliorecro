@@ -19,7 +19,8 @@ import {
 } from '@coreui/react-pro'
 import CIcon from '@coreui/icons-react'
 import { cilBan, cilCalendar, cilCloudDownload, cilExitToApp, cilSave } from '@coreui/icons'
-import { useReporteLibrosBaja } from '@/hooks/reportes/useReporteInventario'
+import { useReporteLibrosBaja } from '@/hooks/reportes/inventario/LibroBaja'
+
 
 export interface LibBajaProps {
   visible: boolean
@@ -27,16 +28,14 @@ export interface LibBajaProps {
 }
 
 const LibBajaModal: React.FC<LibBajaProps> = ({ visible, setVisible }) => {
-  const {
-    anoBaja,
-    setAnoBaja,
-    libros,
-    isLoading,
-    excelLink,
-    handleGetLibrosBaja,
-    handleDescargarExcel,
-    handleReset,
-  } = useReporteLibrosBaja()
+const {handleReset,
+  anoBaja,
+  setAnoBaja,
+  libros,
+  isLoading,
+  handleGetLibrosBaja,excelLink,
+  handleDescargarExcel
+} = useReporteLibrosBaja()
 
   const handleClose = () => {
     handleReset()

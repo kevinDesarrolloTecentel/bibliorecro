@@ -1,38 +1,8 @@
 import React from 'react'
-import {
-  cilBarcode,
-  cilBook,
-  cilBookmark,
-  cilCalendar,
-  cilCheckCircle,
-  cilDescription,
-  cilDollar,
-  cilExitToApp,
-  cilGlobeAlt,
-  cilLayers,
-  cilLibraryBuilding,
-  cilSave,
-  cilTag,
-  cilTruck,
-  cilUser,
-} from '@coreui/icons'
+import { cilBarcode, cilBook,
+  cilBookmark, cilCalendar, cilCheckCircle, cilDescription, cilDollar, cilExitToApp, cilGlobeAlt, cilLayers, cilLibraryBuilding, cilSave, cilTag, cilTruck, cilUser } from '@coreui/icons'
 import CIcon from '@coreui/icons-react'
-import {
-  CButton,
-  CCol,
-  CForm,
-  CFormInput,
-  CFormSelect,
-  CFormTextarea,
-  CInputGroup,
-  CInputGroupText,
-  CModal,
-  CModalBody,
-  CModalFooter,
-  CModalHeader,
-  CModalTitle,
-  CSpinner,
-} from '@coreui/react-pro'
+import { CButton, CCol, CForm, CFormInput, CFormSelect, CFormTextarea, CInputGroup, CInputGroupText, CModal, CModalBody, CModalFooter, CModalHeader, CModalTitle, CSpinner } from '@coreui/react-pro'
 import useLibroRegister, { UseLibroRegisterProps } from '@/hooks/rco-libros/useLibroRegister'
 
 interface RegisterBkProps extends UseLibroRegisterProps {}

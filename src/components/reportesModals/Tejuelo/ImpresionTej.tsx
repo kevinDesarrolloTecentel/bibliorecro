@@ -19,7 +19,7 @@ import {
   CInputGroupText,
   CSpinner,
 } from '@coreui/react-pro'
-import useReportTej from '@/hooks/reportes/useReportTej'
+import useReportTej from '@/hooks/reportes/tejuelo/Tejuelo'
 
 const borderBoxStyle: React.CSSProperties = {
   padding: '0.6rem 0.4rem',
