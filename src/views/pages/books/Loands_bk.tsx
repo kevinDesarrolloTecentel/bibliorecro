@@ -103,7 +103,7 @@ const Loands: React.FC = () => {
               ),
               Cedula: (item: any) => (
                 <td>
-                  <span className="font-monospace small fw-semibol badge text-dark">{item.Cedula || '-'}</span>
+                  <span className="font-monospace small fw-semibold badge text-dark">{item.Cedula || '-'}</span>
                 </td>
               ),
               Fecha_prestamo: (item: any) => (

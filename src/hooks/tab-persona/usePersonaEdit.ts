@@ -64,42 +64,19 @@ export const usePersonaEdit = ({
     if (currentUser && isVisible) {
       const raw = currentUser.raw || currentUser || {}
       const fotoRaw =
-        currentUser.FOTO_PERSONA ||
         currentUser.fotografia ||
         raw.FOTO_PERSONA ||
-        raw.IMAGEN_PERSONA ||
         ''
       setFotoActual(getUserImageUrl(fotoRaw))
       setPreviewFoto(null)
 
-      const tipoId =
-        raw.ID_TIPOIDENTIFICACION?.ID_TIPOIDENTIFICACION ??
-        raw.ID_TIPOIDENTIFICCACION?.ID_TIPOIDENTIFICACION ??
-        raw.ID_TIPOIDENTIFICACION ??
-        raw.ID_TIPOIDENTIFICCACION ??
-        currentUser.id_tipo_identificacion ??
-        ''
-      const nacId =
-        raw.ID_NACIONALIDAD?.ID_NACIONALIDAD ??
-        raw.ID_NACIONALIDAD ??
-        currentUser.id_nacionalidad ??
-        ''
-      const genId =
-        raw.ID_GENERO?.ID_GENERO ??
-        raw.ID_GENERO ??
-        currentUser.id_genero ??
-        ''
-      const estCivId =
-        raw.ID_ESTADOCIVIL?.ID_ESTADOCIVIL ??
-        raw.ID_ESTADOCIVIL?.ID_ESTADO_CIVIL ??
-        raw.ID_ESTADO_CIVIL ??
-        raw.ID_ESTADOCIVIL ??
-        currentUser.id_estado_civil ??
-        ''
+      const tipoId = raw.ID_TIPOIDENTIFICACION ?? currentUser.id_tipo_identificacion ?? ''
+      const nacId = raw.ID_NACIONALIDAD ?? currentUser.id_nacionalidad ?? ''
+      const genId = raw.ID_GENERO ?? currentUser.id_genero ?? ''
+      const estCivId = raw.ID_ESTADOCIVIL ?? currentUser.id_estado_civil ?? ''
 
       const fechaRaw =
         raw.FECHA_PERSONA ??
-        raw.fecha_nacimiento ??
         currentUser.fecha_nacimiento ??
         ''
       const fechaNac =
@@ -111,7 +88,7 @@ export const usePersonaEdit = ({
 
       let initialEstado = '1'
       const rawEstado = String(
-        raw.ESTADO_PERSONA ?? currentUser.estado ?? raw.estado ?? '1',
+        raw.ESTADO_PERSONA ?? currentUser.estado ?? '1',
       ).trim()
       if (rawEstado === '0' || rawEstado.toLowerCase().includes('inactiv')) {
         initialEstado = '0'
@@ -128,42 +105,35 @@ export const usePersonaEdit = ({
         ID_GENERO: String(genId || ''),
         ID_ESTADOCIVIL: String(estCivId || ''),
         IDENTIFICACION_PERSONA: String(
-          raw.IDENTIFICACION_PERSONA ??
-          currentUser.identificación ??
-          raw.identificacion ??
-          '',
+          raw.IDENTIFICACION_PERSONA ?? currentUser.identificacion ?? '',
         ),
         NOMBRE_PERSONA: String(
-          raw.NOMBRE_PERSONA ?? currentUser.nombre ?? raw.nombres ?? '',
+          raw.NOMBRE_PERSONA ?? currentUser.nombre ?? '',
         ),
         APELLIDO_PERSONA: String(
-          raw.APELLIDO_PERSONA ?? currentUser.apellido ?? raw.apellidos ?? '',
+          raw.APELLIDO_PERSONA ?? currentUser.apellido ?? '',
         ),
         TELEFONO_PERSONA: String(
-          raw.TELEFONO_PERSONA ?? currentUser.telefono ?? raw.telefono ?? '',
+          raw.TELEFONO_PERSONA ?? currentUser.telefono ?? '',
         ),
         CELULAR_PERSONA: String(
-          raw.CELULAR_PERSONA ?? currentUser.celular ?? raw.celular ?? '',
+          raw.CELULAR_PERSONA ?? currentUser.celular ?? '',
         ),
         CORREO_PERSONA: String(
-          raw.CORREO_PERSONA ??
-          currentUser.correo ??
-          currentUser.email ??
-          raw.correo ??
-          '',
+          raw.CORREO_PERSONA ?? currentUser.email ?? '',
         ),
         DIRECCION_PERSONA: String(
-          raw.DIRECCION_PERSONA ?? currentUser.direccion ?? raw.direccion ?? '',
+          raw.DIRECCION_PERSONA ?? currentUser.direccion ?? '',
         ),
         DETALLE_PERSONA: String(
-          raw.DETALLE_PERSONA ?? currentUser.detalles ?? raw.detalles ?? '',
+          raw.DETALLE_PERSONA ?? currentUser.detalles ?? '',
         ),
         FECHAREGISTRO_PERSONA: raw.FECHAREGISTRO_PERSONA ?? '',
         FOTO_PERSONA: '',
         FECHA_PERSONA: String(fechaNac || ''),
         ESTADO_PERSONA: initialEstado,
         ESTADOINSCRIPCION_PERSONA: String(raw.ESTADOINSCRIPCION_PERSONA ?? ''),
-        EDAD_PERSONA: String(raw.EDAD_PERSONA ?? currentUser.edad ?? raw.edad ?? ''),
+        EDAD_PERSONA: String(raw.EDAD_PERSONA ?? currentUser.edad ?? ''),
       })
     }
   }, [currentUser, isVisible])
@@ -298,17 +268,14 @@ export const usePersonaEdit = ({
       const fechaReg =
         formData.FECHAREGISTRO_PERSONA ||
         currentUser?.raw?.FECHAREGISTRO_PERSONA ||
-        currentUser?.inicio_inscripcion ||
         fechaHoy
 
       const fechaIniInsc =
         currentUser?.raw?.FECHAINICIO_INSCRIPCION ||
-        currentUser?.inicio_inscripcion ||
         fechaReg
 
       const fechaFinInsc =
         currentUser?.raw?.FECHAFIN_INSCRIPCION ||
-        currentUser?.fin_inscripcion ||
         fechaFinDefault
 
       const cleanDate = (d: any) => {

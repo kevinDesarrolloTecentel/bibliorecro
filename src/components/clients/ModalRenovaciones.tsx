@@ -37,11 +37,7 @@ const ModalRenova: React.FC<ModalRenovaProps> = ({ item, onRenovado }) => {
 
   const handleRenovarInscripcion = async () => {
     const idPersona = item.id || item.raw?.ID_PERSONA
-    const idInscripcion =
-      item.raw?.ID_INSCRIPCION ||
-      item.id_inscripcion ||
-      item.raw?.inscripcion?.ID_INSCRIPCION ||
-      item.raw?.inscripciones?.[0]?.ID_INSCRIPCION
+    const idInscripcion = item.raw?.ID_INSCRIPCION ?? item.id_inscripcion ?? ''
 
     if (!idPersona) {
       Swal.fire({
@@ -118,7 +114,7 @@ const ModalRenova: React.FC<ModalRenovaProps> = ({ item, onRenovado }) => {
               {item.nombre} {item.apellido}
             </div>
             <div className="text-muted small font-monospace">
-              Identificación: {item.identificación || item.raw?.IDENTIFICACION_PERSONA || '-'}
+              Identificación: {item.identificacion || item.raw?.IDENTIFICACION_PERSONA || '-'}
             </div>
           </div>
           <CForm className="row g-3">

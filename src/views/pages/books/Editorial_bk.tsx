@@ -50,8 +50,6 @@ const Editorial = () => {
     }
   }
 
-  console.log('[DEBUG] listado de Editoriales:', listaEditorial)
-
   return (
     <>
       <ModalEditorial editorialState={editoHook} />

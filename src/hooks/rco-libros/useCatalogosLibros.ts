@@ -1,6 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import { CatalogoOption } from '@/models/rco/libros'
 import { Autores } from '@/Service/rco/AutorLib'
+import { CatLibros } from '@/Service/rco/CatLib'
+import { ListarGeneroLib } from '@/Service/rco/GenLib'
+import { ListarEditLib } from '@/Service/rco/EditLib'
+import { ListarProveedorLib } from '@/Service/rco/ProveedorLib'
+import { listarFormatLib } from '@/Service/rco/FormatLib'
+import { ListarTipoLib } from '@/Service/rco/TipLib'
 
 export const useCatalogosLibros = (autoFetch: boolean = true) => {
   const [loading, setLoading] = useState(false)
@@ -24,12 +30,12 @@ export const useCatalogosLibros = (autoFetch: boolean = true) => {
         resTipo,
         resAut,
       ] = await Promise.allSettled([
-        Categorias(),
-        GenerosLib(),
-        Editoriales(),
-        Proveedores(),
-        Formatos(),
-        Tipos(),
+        CatLibros(),
+        ListarGeneroLib(),
+        ListarEditLib(),
+        ListarProveedorLib(),
+        listarFormatLib(),
+        ListarTipoLib(),
         Autores(),
       ])
 

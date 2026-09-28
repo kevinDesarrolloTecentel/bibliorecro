@@ -50,8 +50,6 @@ const Category = () => {
     }
   }
 
-  console.log('[DEBUG] listado de Categorías:', listaCategorias)
-
   return (
     <>
       <ModalCate categoriaState={categoriaHook} />

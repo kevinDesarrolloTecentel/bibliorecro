@@ -1,15 +1,13 @@
 import { useState, useCallback } from 'react'
-import axios from 'axios'
 import Swal from 'sweetalert2'
+import apiClient, { BACKEND_API_BASE } from '@/Service/apiClient'
+import { STORAGE_BASE_URL } from '@/.env'
 
 export interface LibroTejueloItem {
   ID_LIBROS?: number | string
   CODIGO_CATEGORIA?: string
-  codigo_categoria?: string
   AUTORTEJUELO_LIBROS?: string
-  autortejuelo_libros?: string
   TITULOTEJUELO_LIBROS?: string
-  titulotejuelo_libros?: string
   [key: string]: any
 }
 
@@ -30,9 +28,6 @@ export interface UseReportTejReturn {
   handleDescargarPdf: () => void
   handleImprimir: () => void
 }
-
-const API_PDF_URL = 'https://bibliobackend.ccelrecreo.com:1500/server.php/api/pdf'
-const STORAGE_BASE_URL = 'https://bibliobackend.ccelrecreo.com:1500/storage/app/public'
 
 export const useReportTej = (): UseReportTejReturn => {
   const [startDate, setStartDate] = useState<string>('')
@@ -81,7 +76,7 @@ export const useReportTej = (): UseReportTejReturn => {
 
     setIsLoading(true)
     try {
-      const response = await axios.get(API_PDF_URL, {
+      const response = await apiClient.get(`${BACKEND_API_BASE}/pdf`, {
         params: {
           fechaDesde: startDate,
           fechaHasta: endDate,
@@ -123,10 +118,10 @@ export const useReportTej = (): UseReportTejReturn => {
         'Ocurrió un error al procesar la solicitud de tejuelos.'
       Swal.mixin({
         toast: true,
-        position:'top-end',
-        timer:2500,
-        timerProgressBar:false,
-        showConfirmButton:false
+        position: 'top-end',
+        timer: 2500,
+        timerProgressBar: false,
+        showConfirmButton: false,
       }).fire({
         icon: 'error',
         title: errorMsg,

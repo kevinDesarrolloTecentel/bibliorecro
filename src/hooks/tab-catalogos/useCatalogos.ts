@@ -2,6 +2,7 @@
 import { ListarEstadoCivil } from '@/Service/tab/EstadoCivil'
 import { ListarGenero } from '@/Service/tab/Genero'
 import { ListarNacionalidad } from '@/Service/tab/Nacionalidad'
+import { listarTipoIdentificacion } from '@/Service/tab/TipoIdentificacion'
 import { useState, useEffect, useCallback } from 'react'
 
 export interface CatalogoItem {
@@ -32,7 +33,7 @@ export const useCatalogos = (autoFetch: boolean = true) => {
     setLoading(true)
     try {
       const [resTipos, resNac, resGen, resEst] = await Promise.allSettled([
-        (true),
+        listarTipoIdentificacion(),
         ListarNacionalidad(),
         ListarGenero(),
         ListarEstadoCivil(),

@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from 'react'
 import Swal from 'sweetalert2'
+import { listarPersonas, personasReporte } from '@/Service/tab/Persona'
 
 
 export interface UsuarioReporteItem {
@@ -222,32 +223,21 @@ export const useReporteEdadGenero = () => {
         const parsed: UsuarioReporteItem[] = (rawList || []).map((item: any, idx: number) => {
           const id = item.ID_PERSONA ?? item.id ?? item.ID ?? idx + 1
           const cedula = String(
-            item.IDENTIFICACION_PERSONA ??
-              item.identificacion ??
-              item.identificación ??
-              item.cedula ??
-              item.CEDULA ??
-              ''
+            item.IDENTIFICACION_PERSONA ?? item.identificacion ?? ''
           ).trim()
           const nombre = String(
-            item.NOMBRE_PERSONA ?? item.nombre ?? item.nombres ?? item.NOMBRE ?? ''
+            item.NOMBRE_PERSONA ?? item.nombre ?? ''
           ).trim()
           const apellido = String(
-            item.APELLIDO_PERSONA ?? item.apellido ?? item.apellidos ?? item.APELLIDO ?? ''
+            item.APELLIDO_PERSONA ?? item.apellido ?? ''
           ).trim()
           const fechaNacRaw =
-            item.FECHA_PERSONA ??
-            item.fecha_nacimiento ??
-            item.FECHA_NACIMIENTO_PERSONA ??
-            item.fechaNacimiento ??
-            item.FECHA_NACIMIENTO ??
-            item.FECHA_NAC ??
-            ''
-          const edadDirecta = item.EDAD_PERSONA ?? item.edad ?? item.EDAD
+            item.FECHA_PERSONA ?? item.fecha_nacimiento ?? ''
+          const edadDirecta = item.EDAD_PERSONA ?? item.edad
           const edad = calcularEdad(fechaNacRaw, edadDirecta)
           const gen = normalizarGenero(item)
           const correo = String(
-            item.CORREO_PERSONA ?? item.correo ?? item.email ?? item.EMAIL ?? item.CORREO ?? ''
+            item.CORREO_PERSONA ?? item.correo ?? ''
           ).trim()
 
           return {

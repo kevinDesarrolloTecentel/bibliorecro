@@ -91,13 +91,15 @@ const Profile = () => {
                     },
                     Estado: (item: any) => (
                         <td>
-                            <CBadge style={{ marginLeft: "100px" }} color={getBadge(item.Estado)}>{item.Estado}</CBadge>
+                            <CBadge color={getBadge(item.Estado)} shape="rounded-pill" className="px-2 py-1">
+                                {item.Estado}
+                            </CBadge>
                         </td>
                     ),
-                    'Editar': () => (
+                    Editar: () => (
                         <td>
-                            <CButton style={{ marginLeft: "50px" }} size="sm" color="light" onClick={userState.handleOpenEditModal}>
-                                <CIcon size="lg" icon={cilColorBorder} />
+                            <CButton size="sm" color="primary" variant="ghost" onClick={userState.handleOpenEditModal} title="Editar perfil">
+                                <CIcon size="sm" icon={cilColorBorder} />
                             </CButton>
                         </td>
                     )

@@ -1,9 +1,10 @@
 import { useState, useCallback, useEffect } from 'react'
-import axios from 'axios'
 import Swal from 'sweetalert2'
+import apiClient, { BACKEND_API_BASE } from '@/Service/apiClient'
+import { STORAGE_BASE_URL } from '@/.env'
 
-const API_BASE_URL = 'https://bibliobackend.ccelrecreo.com:1500/server.php/api'
-const STORAGE_BASE_URL = 'https://bibliobackend.ccelrecreo.com:1500/storage/app/public'
+export { STORAGE_BASE_URL }
+export const API_BASE_URL = BACKEND_API_BASE
 
 export interface LibroInventarioItem {
   ID_LIBROS?: number | string
@@ -30,8 +31,7 @@ export const useReporteLibrosSistema = () => {
   const handleGetLibrosSistema = useCallback(async () => {
     setIsLoading(true)
     try {
-      const endpoint = `${API_BASE_URL}/librosC`
-      const { data } = await axios.get(endpoint)
+      const { data } = await apiClient.get(`${BACKEND_API_BASE}/librosC`)
 
       const rawItems: LibroInventarioItem[] = data.data || []
       const filtrados = rawItems.filter(
@@ -85,8 +85,8 @@ export const useReporteLibrosCategoria = () => {
   const [excelLink, setExcelLink] = useState<string | null>(null)
 
   useEffect(() => {
-    axios
-      .get(`${API_BASE_URL}/categorias`)
+    apiClient
+      .get(`${BACKEND_API_BASE}/categorias`)
       .then(({ data }) => {
         const optionsData: CategoriaOption[] = (data || []).map((cat: any) => ({
           label: cat.NOMBRE_CATEGORIA,
@@ -102,25 +102,24 @@ export const useReporteLibrosCategoria = () => {
   const handleGetLibrosCategoria = useCallback(async () => {
     if (!selectedValue || !selectedValue.value) {
       Swal.mixin({
-        toast:true,
+        toast: true,
         position: 'top-end',
         showConfirmButton: false,
-        timer:2500,
-        timerProgressBar:false,
+        timer: 2500,
+        timerProgressBar: false,
       }).fire({
-        icon:'warning',
-        title:'Por favor, seleccione una categoría'
+        icon: 'warning',
+        title: 'Por favor, seleccione una categoría',
       })
       return
     }
 
     setIsLoading(true)
     try {
-      const endpoint = `${API_BASE_URL}/libroscategoria`
       const params = {
         generoId: selectedValue.value,
       }
-      const { data } = await axios.get(endpoint, { params })
+      const { data } = await apiClient.get(`${BACKEND_API_BASE}/libroscategoria`, { params })
       const rawData: LibroInventarioItem[] = data.data || []
       const ordenados = rawData.sort(
         (a, b) => Number(a.ID_LIBROS || 0) - Number(b.ID_LIBROS || 0),
@@ -131,10 +130,10 @@ export const useReporteLibrosCategoria = () => {
       console.error(error)
       Swal.mixin({
         toast: true,
-        position:'top-end',
-        showConfirmButton:false,
-        timer:2500,
-        timerProgressBar: false
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 2500,
+        timerProgressBar: false,
       }).fire({
         icon: 'error',
         title: 'Error!',
@@ -185,10 +184,10 @@ export const useReporteLibrosBaja = () => {
     if (!anoBaja.trim()) {
       Swal.mixin({
         toast: true,
-        position:'top-end',
-        timer:2500,
-        timerProgressBar:false,
-        showConfirmButton:false
+        position: 'top-end',
+        timer: 2500,
+        timerProgressBar: false,
+        showConfirmButton: false,
       }).fire({
         icon: 'warning',
         title: 'Por favor, ingresa o selecciona un año.',
@@ -198,11 +197,10 @@ export const useReporteLibrosBaja = () => {
 
     setIsLoading(true)
     try {
-      const endpoint = `${API_BASE_URL}/librosbaja`
       const params = {
         fechaMes: anoBaja.trim(),
       }
-      const { data } = await axios.get(endpoint, { params })
+      const { data } = await apiClient.get(`${BACKEND_API_BASE}/librosbaja`, { params })
       const rawData: LibroInventarioItem[] = data.data || []
       const ordenados = rawData.sort(
         (a, b) => Number(a.ID_LIBROS || 0) - Number(b.ID_LIBROS || 0),
@@ -212,14 +210,14 @@ export const useReporteLibrosBaja = () => {
     } catch (error: any) {
       console.error(error)
       Swal.mixin({
-        toast:true,
-        position:'top-end',
-        timer:2500,
-        timerProgressBar:false,
-        showConfirmButton:false
+        toast: true,
+        position: 'top-end',
+        timer: 2500,
+        timerProgressBar: false,
+        showConfirmButton: false,
       }).fire({
         icon: 'error',
-        title: 'No se encontraron libros dados de baja en el año especificado.'
+        title: 'No se encontraron libros dados de baja en el año especificado.',
       })
       setLibros([])
       setExcelLink(null)

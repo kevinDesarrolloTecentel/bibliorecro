@@ -129,9 +129,9 @@ const ClienteDs = () => {
                     <div className="p-3 p-md-4 bg-body-tertiary border-top border-bottom rounded-bottom">
                       <CRow className="g-3">
                         <CCol xs={12} md={4} lg={3} className="d-flex flex-column align-items-center justify-content-center font-monospace text-center border-end-md pb-3 pb-md-0">
-                          {item.FOTO_PERSONA ? (
+                          {item.fotografia ? (
                             <img
-                              src={item.FOTO_PERSONA}
+                              src={item.fotografia}
                               alt={`${item.nombre} ${item.apellido}`}
                               className="rounded-circle mb-2 shadow-sm border border-2 border-info"
                               style={{ width: '140px', height: '140px', objectFit: 'cover' }}
@@ -159,7 +159,7 @@ const ClienteDs = () => {
                               <CCard className="h-100 shadow-sm border-0 bg-body">
                                 <CCardBody className="p-3">
                                   <span className="text-body small d-block mb-1">Nº Identificación</span>
-                                  <span className='font-monospace text-body badge bg-body border rounded-pill'>{item.identificación}</span>
+                                  <span className='font-monospace text-body badge bg-body border rounded-pill'>{item.identificacion}</span>
                                 </CCardBody>
                               </CCard>
                             </CCol>

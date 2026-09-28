@@ -3,6 +3,7 @@ import Swal from 'sweetalert2'
 
 import { LibroOption, UsuarioOption } from '@/models/rco/prestamos'
 import { Lista, NuevoPrestamo } from '@/Service/rco/Prestamos'
+import { getInscripcionesUsuarios } from '@/Service/tab/Persona'
 
 export interface UsePrestamoModalProps {
   visible?: boolean
@@ -78,12 +79,10 @@ export const usePrestamoModal = ({
   const handleBuscarLibro = (e: React.ChangeEvent<HTMLInputElement>) => {
     const q = e.target.value
     setBusquedaLibro(q)
-    fetchLibros(q)
   }
 
   const handleBuscarLibroText = (q: string) => {
     setBusquedaLibro(q)
-    fetchLibros(q)
   }
 
   const handleOpen = () => {

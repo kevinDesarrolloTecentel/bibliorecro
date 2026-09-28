@@ -17,8 +17,6 @@ const HeaderPrestamos: React.FC<HeaderPrestamosProps> = ({ prestamoState }) => {
     handleLimpiarBusqueda,
     fetchPrestamos,
     setModalRegister,
-    currentPage,
-    activeQuery,
   } = prestamoState
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -73,7 +71,7 @@ const HeaderPrestamos: React.FC<HeaderPrestamosProps> = ({ prestamoState }) => {
           variant="outline"
           disabled={loading}
           className="d-flex align-items-center gap-1 shadow-sm"
-          onClick={() => fetchPrestamos(currentPage, activeQuery)}
+          onClick={() => fetchPrestamos()}
           title="Actualizar tabla"
         >
           <CIcon icon={cilReload} className={loading ? 'rotate-animation' : ''} />

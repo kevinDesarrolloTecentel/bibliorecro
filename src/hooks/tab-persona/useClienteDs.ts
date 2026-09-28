@@ -49,63 +49,25 @@ export const formatFecha = (f: any) => {
 }
 
 export const mapearPersona = (item: any, index: number): ClienteItem => {
-  const id = item.ID_PERSONA ?? item.id ?? item.ID ?? (index + 1)
+  const id = item.ID_PERSONA ?? item.id ?? (index + 1)
   const identificacion = item.IDENTIFICACION_PERSONA ?? item.identificacion ?? ''
   const nombre = item.NOMBRE_PERSONA ?? item.nombres ?? ''
   const apellido = item.APELLIDO_PERSONA ?? item.apellidos ?? ''
   const email = item.CORREO_PERSONA ?? item.correo ?? ''
   const inicio_inscripcion =
     item.FECHAINICIO_INSCRIPCION ??
-    item.FECHA_INICIO_INSCRIPCION ??
-    item.FECHAINICIO ??
-    item.FECHA_INICIO ??
-    item.fecha_inicio_inscripcion ??
-    item.fecha_inicio ??
-    item.inicio_inscripcion ??
-    item.Fecha_inscripcion ??
-    item.fecha_inscripcion ??
-    item.FECHA_INSCRIPCION ??
-    item.FECHAREGISTRO_PERSONA ??
     item.inscripcion?.FECHAINICIO_INSCRIPCION ??
-    item.inscripcion?.FECHA_INICIO_INSCRIPCION ??
-    item.inscripciones?.[0]?.FECHAINICIO_INSCRIPCION ??
-    item.inscripciones?.[0]?.fecha_inicio ??
-    item.renovacion?.FECHAINICIO_RENOVACIONES ??
-    item.renovaciones?.[0]?.FECHAINICIO_RENOVACIONES ??
+    item.FECHAREGISTRO_PERSONA ??
     null
 
   const fin_inscripcion =
     item.FECHAFIN_INSCRIPCION ??
-    item.FECHA_FIN_INSCRIPCION ??
-    item.FECHAFIN ??
-    item.FECHA_FIN ??
-    item.fecha_fin_inscripcion ??
-    item.fecha_fin ??
-    item.fin_inscripcion ??
-    item.Fecha_fin_inscripcion ??
-    item.fecha_fin_inscripcion ??
-    item.FECHA_FIN_INSCRIPCION ??
     item.inscripcion?.FECHAFIN_INSCRIPCION ??
-    item.inscripcion?.FECHA_FIN_INSCRIPCION ??
-    item.inscripcion?.FECHAFIN ??
-    item.inscripcion?.fecha_fin ??
-    item.inscripcions?.[0]?.FECHAFIN_INSCRIPCION ??
-    item.inscripcions?.[0]?.FECHA_FIN_INSCRIPCION ??
-    item.inscripciones?.[0]?.FECHAFIN_INSCRIPCION ??
-    item.inscripciones?.[0]?.FECHA_FIN_INSCRIPCION ??
-    item.inscripciones?.[0]?.fecha_fin ??
-    item.renovacion?.FECHAFIN_RENOVACIONES ??
-    item.renovaciones?.[0]?.FECHAFIN_RENOVACIONES ??
     inicio_inscripcion
 
   const costo =
     item.COSTO_INSCRIPCION ??
-    item.COSTO ??
-    item.costo ??
     item.inscripcion?.COSTO_INSCRIPCION ??
-    item.inscripcion?.costo ??
-    item.inscripcions?.[0]?.COSTO_INSCRIPCION ??
-    item.inscripciones?.[0]?.COSTO_INSCRIPCION ??
     '10.00'
 
   const sancion =
@@ -125,28 +87,23 @@ export const mapearPersona = (item: any, index: number): ClienteItem => {
   const fotografia = getUserImageUrl(fotoRaw)
 
   const tipoIdentificacionId =
-    item.ID_TIPOIDENTIFICCACION?.ID_TIPOIDENTIFICACION ??
     item.ID_TIPOIDENTIFICACION?.ID_TIPOIDENTIFICACION ??
+    item.ID_TIPOIDENTIFICACION ??
     ''
 
   const nacionalidadId =
     item.ID_NACIONALIDAD?.ID_NACIONALIDAD ??
     item.ID_NACIONALIDAD ??
-    item.id_nacionalidad ??
     ''
 
   const generoId =
     item.ID_GENERO?.ID_GENERO ??
     item.ID_GENERO ??
-    item.id_genero ??
     ''
 
   const estadoCivilId =
     item.ID_ESTADOCIVIL?.ID_ESTADOCIVIL ??
-    item.ID_ESTADOCIVIL?.ID_ESTADO_CIVIL ??
-    item.ID_ESTADO_CIVIL ??
     item.ID_ESTADOCIVIL ??
-    item.id_estado_civil ??
     ''
 
   const edad = item.EDAD_PERSONA ?? item.edad ?? ''
@@ -154,13 +111,11 @@ export const mapearPersona = (item: any, index: number): ClienteItem => {
 
   return {
     id,
-    identificación: String(identificacion),
+    identificacion: String(identificacion),
     nombre: String(nombre),
     apellido: String(apellido),
     fotografia,
-    FOTO_PERSONA: fotografia,
     email: String(email),
-    correo: String(email),
     inicio_inscripcion: formatFecha(inicio_inscripcion),
     fin_inscripcion: formatFecha(fin_inscripcion),
     costo: String(costo),
@@ -230,36 +185,11 @@ export const parseDateToTimestamp = (val: any): number => {
 
 export const obtenerTimestampInscripcion = (cliente: ClienteItem | any): number => {
   const raw = cliente?.raw || cliente || {}
-  const insc =
-    raw.inscripcion ||
-    (Array.isArray(raw.inscripciones) ? raw.inscripciones[0] : null) ||
-    (Array.isArray(raw.inscripcions) ? raw.inscripcions[0] : null) ||
-    {}
-  const reno =
-    raw.renovacion ||
-    (Array.isArray(raw.renovaciones) ? raw.renovaciones[0] : null) ||
-    {}
+  const insc = raw.inscripcion ?? raw.renovacion ?? {}
 
   const candidates = [
-    insc.FECHAINICIO_INSCRIPCION,
-    insc.FECHA_INICIO_INSCRIPCION,
-    insc.fecha_inicio,
-    reno.FECHAINICIO_RENOVACIONES,
-    raw.FECHAINICIO_INSCRIPCION,
-    raw.FECHA_INICIO_INSCRIPCION,
-    raw.FECHAINICIO,
-    raw.FECHA_INICIO,
-    raw.fecha_inicio_inscripcion,
-    raw.fecha_inicio,
-    raw.inicio_inscripcion,
-    raw.Fecha_inscripcion,
-    raw.fecha_inscripcion,
-    raw.FECHA_INSCRIPCION,
-    raw.FECHAREGISTRO_PERSONA,
-    raw.FECHA_REGISTRO_PERSONA,
-    raw.created_at,
-    raw.CREATED_AT,
-    cliente?.inicio_inscripcion,
+    raw.FECHAINICIO_INSCRIPCION ?? insc.FECHAINICIO_INSCRIPCION,
+    raw.FECHAREGISTRO_PERSONA ?? cliente?.inicio_inscripcion,
   ]
 
   for (const c of candidates) {
@@ -274,7 +204,7 @@ export const obtenerTimestampInscripcion = (cliente: ClienteItem | any): number 
 
 export const clienteColumns = [
   {
-    key: 'identificación',
+    key: 'identificacion',
     label: 'Identificación',
     _style: { width: '15%' },
   },

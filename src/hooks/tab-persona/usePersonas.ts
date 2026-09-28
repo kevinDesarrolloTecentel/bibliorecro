@@ -1,7 +1,16 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Swal from 'sweetalert2'
 import { Persona } from '@/models/tab/persona.model'
-import { ActualizarPersonaNueva, CrearPersonas, EliminarPersona, PersonaEstado, PersonaNueva, verPersonas } from '@/Service/tab/Persona'
+import {
+  ActualizarPersonaNueva,
+  actualizarPersona,
+  CrearPersonas,
+  EliminarPersona,
+  listarPersonas,
+  PersonaEstado,
+  PersonaNueva,
+  verPersonas,
+} from '@/Service/tab/Persona'
 
 
 
@@ -165,18 +174,8 @@ const usePersonas = (autoFetch: boolean = true) => {
   const ordenarPorFechaReciente = (lista: any[]) => {
     if (!Array.isArray(lista)) return []
     return [...lista].sort((a: any, b: any) => {
-      const rawA =
-        a?.FECHAINICIO_INSCRIPCION ||
-        a?.FECHAREGISTRO_PERSONA ||
-        a?.inscripcion?.FECHAINICIO_INSCRIPCION ||
-        a?.created_at ||
-        ''
-      const rawB =
-        b?.FECHAINICIO_INSCRIPCION ||
-        b?.FECHAREGISTRO_PERSONA ||
-        b?.inscripcion?.FECHAINICIO_INSCRIPCION ||
-        b?.created_at ||
-        ''
+      const rawA = a?.FECHAINICIO_INSCRIPCION ?? a?.FECHAREGISTRO_PERSONA ?? ''
+      const rawB = b?.FECHAINICIO_INSCRIPCION ?? b?.FECHAREGISTRO_PERSONA ?? ''
 
       const timeA = parseDateFallback(rawA)
       const timeB = parseDateFallback(rawB)
@@ -293,15 +292,6 @@ const usePersonas = (autoFetch: boolean = true) => {
 
         const totalUiPages = Math.max(1, Math.ceil(T / S))
         const sortedItems = ordenarPorFechaReciente(pageItems)
-
-        console.log('[DEBUG] Personas cargadas para página ' + targetUiPage + ':', {
-          paginaActual: targetUiPage,
-          totalPaginas: totalUiPages,
-          totalRegistros: T,
-          porPagina: S,
-          cantidadEnPagina: sortedItems.length,
-          items: sortedItems,
-        })
 
         setTotalPaginas(totalUiPages)
         setTotalRegistros(T)

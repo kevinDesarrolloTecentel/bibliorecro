@@ -1,9 +1,11 @@
 import { useState, useCallback, useEffect } from 'react'
-import axios from 'axios'
 import Swal from 'sweetalert2'
+import apiClient, { BACKEND_API_BASE } from '@/Service/apiClient'
+import { STORAGE_BASE_URL } from '@/.env'
+import { ListarGenero } from '@/Service/tab/Genero'
 
-export const API_BASE_URL = 'https://bibliobackend.ccelrecreo.com:1500/server.php/api'
-export const STORAGE_BASE_URL = 'https://bibliobackend.ccelrecreo.com:1500/storage/app/public'
+export { STORAGE_BASE_URL }
+export const API_BASE_URL = BACKEND_API_BASE
 
 export interface PersonaReporteItem {
   ID_PERSONA?: number | string
@@ -48,31 +50,30 @@ export const useReporteUsuariosEdadGenero = () => {
   const [excelLink, setExcelLink] = useState<string | null>(null)
 
   useEffect(() => {
-    axios
-      .get(`${API_BASE_URL}/generos`)
-      .then(({ data }) => {
-        const filteredData = (Array.isArray(data) ? data : data?.data || []).filter(
-          (g: any) => g.ID_GENERO,
-        )
-        const optionsData: GeneroOption[] = filteredData.map((g: any) => ({
-          label: g.NOMBRE_GENERO,
-          value: g.ID_GENERO,
-        }))
+    ListarGenero()
+      .then((data: any) => {
+        const raw = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
+        const optionsData: GeneroOption[] = raw
+          .filter((g: any) => g.ID_GENERO)
+          .map((g: any) => ({
+            label: g.NOMBRE_GENERO,
+            value: g.ID_GENERO,
+          }))
         setGeneros(optionsData)
       })
       .catch((error) => {
-        console.error(error)
+        console.error('Error al cargar géneros en reporte:', error)
       })
   }, [])
 
   const handleGet = useCallback(async () => {
     if (!edadDesde || !edadHasta) {
       Swal.mixin({
-        toast:true,
-        position:'top-end',
-        timer:2500,
-        timerProgressBar:false,
-        showConfirmButton:false
+        toast: true,
+        position: 'top-end',
+        timer: 2500,
+        timerProgressBar: false,
+        showConfirmButton: false,
       }).fire({
         icon: 'error',
         title: 'Por favor, ingrese todos los valores requeridos.',
@@ -82,7 +83,6 @@ export const useReporteUsuariosEdadGenero = () => {
 
     setIsLoading(true)
     try {
-      const endpoint = `${API_BASE_URL}/personasReport`
       const params: Record<string, any> = {
         edadDesde,
         edadHasta,
@@ -91,7 +91,7 @@ export const useReporteUsuariosEdadGenero = () => {
         params.generoId = generoId
       }
 
-      const { data } = await axios.get(endpoint, { params })
+      const { data } = await apiClient.get(`${BACKEND_API_BASE}/personasReport`, { params })
       const rawList = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
       const personasFiltradas = rawList
         .filter((item: PersonaReporteItem) => item.ESTADOINSCRIPCION_PERSONA !== 1)
@@ -102,11 +102,11 @@ export const useReporteUsuariosEdadGenero = () => {
     } catch (error) {
       console.error('Error al obtener las personas', error)
       Swal.mixin({
-        toast:true,
-        position:'top-end',
-        timer:2500,
-        timerProgressBar:false,
-        showConfirmButton:false
+        toast: true,
+        position: 'top-end',
+        timer: 2500,
+        timerProgressBar: false,
+        showConfirmButton: false,
       }).fire({
         icon: 'error',
         title: 'Error!',
@@ -157,11 +157,11 @@ export const useReporteUsuariosActivos = () => {
   const handleGetActivas = useCallback(async () => {
     if (!anoRegistro) {
       Swal.mixin({
-        toast:true,
-        position:'top-end',
-        timer:2500,
-        timerProgressBar:false,
-        showConfirmButton:false
+        toast: true,
+        position: 'top-end',
+        timer: 2500,
+        timerProgressBar: false,
+        showConfirmButton: false,
       }).fire({
         icon: 'error',
         title: 'Por favor, ingrese el año.',
@@ -171,9 +171,8 @@ export const useReporteUsuariosActivos = () => {
 
     setIsLoading(true)
     try {
-      const endpoint = `${API_BASE_URL}/personasReportActivas`
       const params = { anoRegistro }
-      const { data } = await axios.get(endpoint, { params })
+      const { data } = await apiClient.get(`${BACKEND_API_BASE}/personasReportActivas`, { params })
       const rawList = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
       const personasFiltradas = rawList
         .filter((item: PersonaReporteItem) => item.ESTADOINSCRIPCION_PERSONA !== 1)
@@ -184,11 +183,11 @@ export const useReporteUsuariosActivos = () => {
     } catch (error) {
       console.error('Error al obtener las personas activas', error)
       Swal.mixin({
-        toast:true,
-        position:'top-end',
-        timer:2500,
-        timerProgressBar:false,
-        showConfirmButton:false
+        toast: true,
+        position: 'top-end',
+        timer: 2500,
+        timerProgressBar: false,
+        showConfirmButton: false,
       }).fire({
         icon: 'warning',
         title: 'Hubo un problema al obtener los usuarios activos.',
@@ -233,11 +232,11 @@ export const useReporteUsuariosActivosMesDia = () => {
   const handleGetActivasMes = useCallback(async () => {
     if (!mesRegistro || !anoRegistro) {
       Swal.mixin({
-        toast:true,
-        position:'top-end',
-        timer:2500,
-        timerProgressBar:false,
-        showConfirmButton:false
+        toast: true,
+        position: 'top-end',
+        timer: 2500,
+        timerProgressBar: false,
+        showConfirmButton: false,
       }).fire({
         icon: 'warning',
         title: 'Por favor, ingrese el día y mes.',
@@ -247,7 +246,6 @@ export const useReporteUsuariosActivosMesDia = () => {
 
     setIsLoading(true)
     try {
-      const endpoint = `${API_BASE_URL}/personasReportActivasMes`
       const params: Record<string, any> = {
         mesRegistro,
         anoRegistro,
@@ -256,7 +254,7 @@ export const useReporteUsuariosActivosMesDia = () => {
         params.diaRegistro = diaRegistro
       }
 
-      const { data } = await axios.get(endpoint, { params })
+      const { data } = await apiClient.get(`${BACKEND_API_BASE}/personasReportActivasMes`, { params })
       const rawList = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
       const personasFiltradas = rawList
         .filter((item: PersonaReporteItem) => item.ESTADOINSCRIPCION_PERSONA !== 1)
@@ -267,11 +265,11 @@ export const useReporteUsuariosActivosMesDia = () => {
     } catch (error) {
       console.error('Error al obtener las personas activas por mes/día', error)
       Swal.mixin({
-        toast:true,
-        position:'top-end',
-        timer:2500,
-        timerProgressBar:false,
-        showConfirmButton:false
+        toast: true,
+        position: 'top-end',
+        timer: 2500,
+        timerProgressBar: false,
+        showConfirmButton: false,
       }).fire({
         icon: 'warning',
         title: 'Hubo un problema al obtener los usuarios activos.',
@@ -322,11 +320,11 @@ export const useReporteRenovaciones = () => {
   const handleGetRenovaciones = useCallback(async () => {
     if (!mesRegistro || !anoRegistro) {
       Swal.mixin({
-        toast:true,
-        position:'top-end',
-        timer:2500,
-        timerProgressBar:false,
-        showConfirmButton:false
+        toast: true,
+        position: 'top-end',
+        timer: 2500,
+        timerProgressBar: false,
+        showConfirmButton: false,
       }).fire({
         icon: 'error',
         title: 'Por favor, ingrese el día, mes y año.',
@@ -336,7 +334,6 @@ export const useReporteRenovaciones = () => {
 
     setIsLoading(true)
     try {
-      const endpoint = `${API_BASE_URL}/personasReportRenovaciones`
       const params: Record<string, any> = {
         mesRegistro,
         anoRegistro,
@@ -345,7 +342,7 @@ export const useReporteRenovaciones = () => {
         params.diaRegistro = diaRegistro
       }
 
-      const { data } = await axios.get(endpoint, { params })
+      const { data } = await apiClient.get(`${BACKEND_API_BASE}/personasReportRenovaciones`, { params })
       const rawList = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
       const personasFiltradas = rawList
         .filter((item: PersonaReporteItem) => item.ESTADO_RENOVACIONES === 1)
@@ -356,7 +353,7 @@ export const useReporteRenovaciones = () => {
     } catch (error) {
       console.warn('Endpoint personasReportRenovaciones falló, intentando fallback con personasNuevas...', error)
       try {
-        const { data } = await axios.get(`${API_BASE_URL}/personasNuevas`, {
+        const { data } = await apiClient.get(`${BACKEND_API_BASE}/personasNuevas`, {
           params: {
             anio: anoRegistro,
             mes: Number(mesRegistro),
@@ -463,11 +460,11 @@ export const useReporteMejoresUsuarios = () => {
   const handleGetMejores = useCallback(async () => {
     if (!anoMejor) {
       Swal.mixin({
-        toast:true,
-        position:'top-end',
-        timer:2500,
-        timerProgressBar:false,
-        showConfirmButton:false
+        toast: true,
+        position: 'top-end',
+        timer: 2500,
+        timerProgressBar: false,
+        showConfirmButton: false,
       }).fire({
         icon: 'error',
         title: 'Por favor, ingrese el año.',
@@ -477,9 +474,8 @@ export const useReporteMejoresUsuarios = () => {
 
     setIsLoading(true)
     try {
-      const endpoint = `${API_BASE_URL}/personasReportMejores`
       const params = { anoMejor }
-      const { data } = await axios.get(endpoint, { params })
+      const { data } = await apiClient.get(`${BACKEND_API_BASE}/personasReportMejores`, { params })
       const rawList = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
       const personasFiltradas = rawList
         .filter((item: PersonaReporteItem) => item.ESTADOINSCRIPCION_PERSONA !== 1)
@@ -493,11 +489,11 @@ export const useReporteMejoresUsuarios = () => {
     } catch (error) {
       console.error('Error al obtener los mejores usuarios', error)
       Swal.mixin({
-        toast:true,
-        position:'top-end',
-        timer:2500,
-        timerProgressBar:false,
-        showConfirmButton:false
+        toast: true,
+        position: 'top-end',
+        timer: 2500,
+        timerProgressBar: false,
+        showConfirmButton: false,
       }).fire({
         icon: 'warning',
         title: 'Hubo un problema al obtener los datos de mejores usuarios.',
@@ -540,11 +536,11 @@ export const useReporteHistorialLibrosUsuario = () => {
   const handleGetPrestamos = useCallback(async () => {
     if (!cedula) {
       Swal.mixin({
-        toast:true,
-        position:'top-end',
-        timer:2500,
-        timerProgressBar:false,
-        showConfirmButton:false,
+        toast: true,
+        position: 'top-end',
+        timer: 2500,
+        timerProgressBar: false,
+        showConfirmButton: false,
       }).fire({
         icon: 'error',
         title: 'Por favor, ingrese la cédula.',
@@ -554,9 +550,8 @@ export const useReporteHistorialLibrosUsuario = () => {
 
     setIsLoading(true)
     try {
-      const endpoint = `${API_BASE_URL}/prestamosReport`
       const params = { cedula }
-      const { data } = await axios.get(endpoint, { params })
+      const { data } = await apiClient.get(`${BACKEND_API_BASE}/prestamosReport`, { params })
       const rawList = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
       const librosFiltrados = rawList
         .filter((item: PrestamoReporteItem) => item.ESTADOINSCRIPCION_PERSONA !== 1)
@@ -570,11 +565,11 @@ export const useReporteHistorialLibrosUsuario = () => {
     } catch (error) {
       console.error('Error al obtener historial de libros', error)
       Swal.mixin({
-        toast:true,
-        position:'top-end',
-        timer:2500,
-        timerProgressBar:false,
-        showConfirmButton:false
+        toast: true,
+        position: 'top-end',
+        timer: 2500,
+        timerProgressBar: false,
+        showConfirmButton: false,
       }).fire({
         icon: 'warning',
         title: 'Hubo un problema al obtener los préstamos. Por favor, inténtelo de nuevo más tarde.',
@@ -619,11 +614,11 @@ export const useReporteNuevosUsuarios = () => {
   const handleGetNuevosUsuarios = useCallback(async () => {
     if (!mesRegistro || !anoRegistro) {
       Swal.mixin({
-        toast:true,
-        position:'top-end',
-        timer:2500,
-        timerProgressBar:false,
-        showConfirmButton: false
+        toast: true,
+        position: 'top-end',
+        timer: 2500,
+        timerProgressBar: false,
+        showConfirmButton: false,
       }).fire({
         icon: 'error',
         title: 'Por favor, ingrese el día, mes y año.',
@@ -633,7 +628,6 @@ export const useReporteNuevosUsuarios = () => {
 
     setIsLoading(true)
     try {
-      const endpoint = `${API_BASE_URL}/personasReportNuevas`
       const params: Record<string, any> = {
         mesRegistro,
         anoRegistro,
@@ -642,7 +636,7 @@ export const useReporteNuevosUsuarios = () => {
         params.diaRegistro = diaRegistro
       }
 
-      const { data } = await axios.get(endpoint, { params })
+      const { data } = await apiClient.get(`${BACKEND_API_BASE}/personasReportNuevas`, { params })
       if (data?.error) {
         Swal.fire({
           icon: 'info',
@@ -661,11 +655,11 @@ export const useReporteNuevosUsuarios = () => {
     } catch (error: any) {
       console.error('Error al obtener nuevos usuarios', error)
       Swal.mixin({
-        toast:true,
-        position:'top-end',
-        timer:2500,
-        timerProgressBar:false,
-        showConfirmButton:false
+        toast: true,
+        position: 'top-end',
+        timer: 2500,
+        timerProgressBar: false,
+        showConfirmButton: false,
       }).fire({
         icon: 'warning',
         title: 'Hubo un problema al obtener los nuevos usuarios.',

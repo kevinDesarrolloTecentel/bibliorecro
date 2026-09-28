@@ -16,12 +16,12 @@ export interface Prestamo {
   CELULAR_PERSONA?: string | null
   TITULO_LIBROS?: string | null
   ISBN_LIBROS?: string | null
-  [key: string]: any
 }
 
 export type Prestamos = Prestamo
 
 export interface PrestamoItem {
+  [key: string]: any
   id: number | string
   ID_PRESTAMO: number | string
   ID_LIBROS?: number | string
@@ -39,8 +39,7 @@ export interface PrestamoItem {
   ESTADO_PRESTAMO?: number | string
   EXTENDER_PRESTAMO?: number | string
   Detalle?: string
-  raw?: any
-  [key: string]: any
+  raw?: Prestamo
 }
 
 export interface PrestamoFormData {

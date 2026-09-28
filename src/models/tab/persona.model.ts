@@ -49,13 +49,11 @@ export const initialPersona: Persona = {
 export interface ClienteItem {
   [key: string]: any
   id: string | number
-  identificación: string
+  identificacion: string
   nombre: string
   apellido: string
   fotografia: string
-  FOTO_PERSONA: string
   email: string
-  correo: string
   inicio_inscripcion: string
   fin_inscripcion: string
   costo: string
@@ -71,5 +69,5 @@ export interface ClienteItem {
   celular: string
   direccion: string
   fecha_nacimiento: string
-  raw: Persona | any
+  raw: Persona
 }

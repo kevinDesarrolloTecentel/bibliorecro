@@ -1,9 +1,10 @@
 import { useState, useCallback } from 'react'
-import axios from 'axios'
 import Swal from 'sweetalert2'
+import apiClient, { BACKEND_API_BASE } from '@/Service/apiClient'
+import { STORAGE_BASE_URL } from '@/.env'
 
-export const API_BASE_URL = 'https://bibliobackend.ccelrecreo.com:1500/server.php/api'
-export const STORAGE_BASE_URL = 'https://bibliobackend.ccelrecreo.com:1500/storage/app/public'
+export { STORAGE_BASE_URL }
+export const API_BASE_URL = BACKEND_API_BASE
 
 export interface PrestamoReporteItem {
   ID_PERSONA?: number | string
@@ -32,11 +33,11 @@ export const useReportePendientesDevolver = () => {
   const handleGetPendientes = useCallback(async () => {
     if (!fechaDesde || !fechaHasta) {
       Swal.mixin({
-        toast:true,
-        position:'top-end',
-        timer:2500,
-        timerProgressBar:false,
-        showConfirmButton:false
+        toast: true,
+        position: 'top-end',
+        timer: 2500,
+        timerProgressBar: false,
+        showConfirmButton: false,
       }).fire({
         icon: 'error',
         title: 'Por favor, ingrese todos los valores requeridos.',
@@ -46,12 +47,11 @@ export const useReportePendientesDevolver = () => {
 
     setIsLoading(true)
     try {
-      const endpoint = `${API_BASE_URL}/prestamosPendientes`
       const params = {
         fecha_desde: fechaDesde,
         fecha_hasta: fechaHasta,
       }
-      const { data } = await axios.get(endpoint, { params })
+      const { data } = await apiClient.get(`${BACKEND_API_BASE}/prestamosPendientes`, { params })
       const rawList = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
       const filtrados = rawList.filter(
         (p: PrestamoReporteItem) => p.ESTADOINSCRIPCION_PERSONA !== 1,
@@ -108,11 +108,11 @@ export const useReporteNoDevueltosDanados = () => {
   const handleGetCaducados = useCallback(async () => {
     if (!fechaDesde || !fechaHasta) {
       Swal.mixin({
-        toast:true,
-        position:'top-end',
-        timer:2500,
-        timerProgressBar:false,
-        showConfirmButton:false
+        toast: true,
+        position: 'top-end',
+        timer: 2500,
+        timerProgressBar: false,
+        showConfirmButton: false,
       }).fire({
         icon: 'error',
         title: 'Por favor, ingrese todos los valores requeridos.',
@@ -122,12 +122,11 @@ export const useReporteNoDevueltosDanados = () => {
 
     setIsLoading(true)
     try {
-      const endpoint = `${API_BASE_URL}/prestamosCaducados`
       const params = {
         fecha_desde: fechaDesde,
         fecha_hasta: fechaHasta,
       }
-      const { data } = await axios.get(endpoint, { params })
+      const { data } = await apiClient.get(`${BACKEND_API_BASE}/prestamosCaducados`, { params })
       const rawList = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
       const filtrados = rawList.filter(
         (p: PrestamoReporteItem) => p.ESTADOINSCRIPCION_PERSONA !== 1,
@@ -138,11 +137,11 @@ export const useReporteNoDevueltosDanados = () => {
     } catch (error) {
       console.error('Error al obtener libros no devueltos y dañados', error)
       Swal.mixin({
-        toast:true,
-        position:'top-end',
-        timer:2500,
-        timerProgressBar:false,
-        showConfirmButton:false
+        toast: true,
+        position: 'top-end',
+        timer: 2500,
+        timerProgressBar: false,
+        showConfirmButton: false,
       }).fire({
         icon: 'error',
         title: 'Hubo un problema al obtener los libros no devueltos o dañados.',
@@ -188,11 +187,11 @@ export const useReporteCantidadPrestamosHoy = () => {
   const handleGetHoy = useCallback(async () => {
     if (!fechaHoy) {
       Swal.mixin({
-        toast:true,
-        position:'top-end',
-        timer:2500,
-        timerProgressBar:false,
-        showConfirmButton:false
+        toast: true,
+        position: 'top-end',
+        timer: 2500,
+        timerProgressBar: false,
+        showConfirmButton: false,
       }).fire({
         icon: 'error',
         title: 'Por favor, ingrese la fecha requerida.',
@@ -202,11 +201,10 @@ export const useReporteCantidadPrestamosHoy = () => {
 
     setIsLoading(true)
     try {
-      const endpoint = `${API_BASE_URL}/prestamoshoy`
       const params = {
         fechaHoy,
       }
-      const { data } = await axios.get(endpoint, { params })
+      const { data } = await apiClient.get(`${BACKEND_API_BASE}/prestamoshoy`, { params })
       const rawList = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
       const filtrados = rawList.filter(
         (p: PrestamoReporteItem) => p.ESTADOINSCRIPCION_PERSONA !== 1,
@@ -217,11 +215,11 @@ export const useReporteCantidadPrestamosHoy = () => {
     } catch (error: any) {
       console.error('Error al obtener cantidad de préstamos', error)
       Swal.mixin({
-        toast:true,
-        position:'top-end',
-        timer:2500,
-        timerProgressBar:false,
-        showConfirmButton:false
+        toast: true,
+        position: 'top-end',
+        timer: 2500,
+        timerProgressBar: false,
+        showConfirmButton: false,
       }).fire({
         icon: 'warning',
         title: 'Error al obtener los préstamos de la fecha.',
@@ -264,11 +262,11 @@ export const useReportePrestamosMensuales = () => {
   const handleGetMes = useCallback(async () => {
     if (!fechaMes) {
       Swal.mixin({
-        toast:true,
-        position:'top-end',
-        timer:2500,
-        timerProgressBar:false,
-        showConfirmButton:false
+        toast: true,
+        position: 'top-end',
+        timer: 2500,
+        timerProgressBar: false,
+        showConfirmButton: false,
       }).fire({
         icon: 'error',
         title: 'Por favor, ingrese el año y mes requeridos.',
@@ -278,11 +276,10 @@ export const useReportePrestamosMensuales = () => {
 
     setIsLoading(true)
     try {
-      const endpoint = `${API_BASE_URL}/prestamosmes`
       const params = {
         fechaMes,
       }
-      const { data } = await axios.get(endpoint, { params })
+      const { data } = await apiClient.get(`${BACKEND_API_BASE}/prestamosmes`, { params })
       const rawList = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
       const filtrados = rawList.filter(
         (p: PrestamoReporteItem) => p.ESTADOINSCRIPCION_PERSONA !== 1,
@@ -293,11 +290,11 @@ export const useReportePrestamosMensuales = () => {
     } catch (error) {
       console.error('Error al obtener préstamos mensuales', error)
       Swal.mixin({
-        toast:true,
-        position:'top-end',
-        timer:2500,
-        timerProgressBar:false,
-        showConfirmButton:false
+        toast: true,
+        position: 'top-end',
+        timer: 2500,
+        timerProgressBar: false,
+        showConfirmButton: false,
       }).fire({
         icon: 'warning',
         title: 'Hubo un problema al obtener los préstamos mensuales.',
@@ -340,11 +337,11 @@ export const useReportePrestamosAnuales = () => {
   const handleGetAnual = useCallback(async () => {
     if (!fechaAno) {
       Swal.mixin({
-        toast:true,
-        position:'top-end',
-        timer:2500,
-        timerProgressBar:false,
-        showConfirmButton:false
+        toast: true,
+        position: 'top-end',
+        timer: 2500,
+        timerProgressBar: false,
+        showConfirmButton: false,
       }).fire({
         icon: 'error',
         title: 'Por favor, ingrese el año requerido.',
@@ -354,11 +351,10 @@ export const useReportePrestamosAnuales = () => {
 
     setIsLoading(true)
     try {
-      const endpoint = `${API_BASE_URL}/prestamosaño`
       const params = {
         fechaMes: fechaAno,
       }
-      const { data } = await axios.get(endpoint, { params })
+      const { data } = await apiClient.get(`${BACKEND_API_BASE}/prestamosaño`, { params })
       const rawList = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
       const filtrados = rawList.filter(
         (p: PrestamoReporteItem) => p.ESTADOINSCRIPCION_PERSONA !== 1,
@@ -369,11 +365,11 @@ export const useReportePrestamosAnuales = () => {
     } catch (error) {
       console.error('Error al obtener préstamos anuales', error)
       Swal.mixin({
-        toast:true,
-        position:'top-end',
-        timer:2500,
-        timerProgressBar:false,
-        showConfirmButton:false
+        toast: true,
+        position: 'top-end',
+        timer: 2500,
+        timerProgressBar: false,
+        showConfirmButton: false,
       }).fire({
         icon: 'warning',
         title: 'Hubo un problema al obtener los préstamos anuales.',

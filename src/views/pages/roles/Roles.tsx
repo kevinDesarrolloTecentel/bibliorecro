@@ -18,9 +18,9 @@ export const Roles = () => {
 
     const items = userState.roles.map((r: any) => {
         const id = r.ID_ROL ?? r.id ?? ''
-        const nombre = r.NOMBRE_ROL ?? r.nombre ?? r.name ?? ''
-        const nivel = r.NIVEL_ROL ?? r.nivel_rol ?? r.nivel ?? 1
-        const estadoRaw = r.ESTADO_ROL ?? r.estado ?? r.status ?? 'Activo'
+        const nombre = r.NOMBRE_ROL ?? r.nombre ?? ''
+        const nivel = r.NIVEL_ROL ?? r.nivel ?? 1
+        const estadoRaw = r.ESTADO_ROL ?? r.estado ?? 'Activo'
         const estado = (String(estadoRaw).toLowerCase() === '1' || String(estadoRaw).toLowerCase() === 'activo') ? 'Activo' : 'Inactivo'
 
         return {

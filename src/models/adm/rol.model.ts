@@ -1,8 +1,8 @@
 export interface Rol {
-  id?: number | string
   ID_ROL?: number | string
-  nombre?: string
   NOMBRE_ROL?: string
-  descripcion?: string
-  estado?: number | string
+  DESCRIPCION_ROL?: string
+  NIVEL_ROL?: number | string
+  ESTADO_ROL?: number | string
+  id?: number | string
 }

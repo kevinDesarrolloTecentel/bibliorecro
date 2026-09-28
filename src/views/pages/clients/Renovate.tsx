@@ -185,8 +185,8 @@ const Renovate = () => {
                     {fotoUrl ? (
                       <CImage
                         src={fotoUrl}
-                        width={100}
-                        height={100}
+                        width={46}
+                        height={46}
                         rounded
                         className="object-fit-cover border"
                       />
@@ -243,25 +243,25 @@ const Renovate = () => {
                     <CButton
                       color="info"
                       variant="outline"
-                      className='hover:text-white'
+                      className="hover:text-white d-flex align-items-center gap-1"
                       size="sm"
                       onClick={() => handleAbrirEditar(item)}
                       title="Ver o editar datos completos"
                     >
-                      <CIcon icon={cilContact} size='xl'/>
-                      Ver Datos
+                      <CIcon icon={cilContact} size="sm" />
+                      <span>Ver Datos</span>
                     </CButton>
                     {item.ESTADO_PERSONA === 0 && (
                       <CButton
                         color="warning"
                         variant="outline"
-                        className='hover:text-white'
+                        className="hover:text-white d-flex align-items-center gap-1"
                         size="sm"
                         onClick={() => handleAbrirAceptar(item)}
                         title="Aceptar y activar inscripción"
                       >
-                        <CIcon icon={cilCheckCircle} size='xl'/>
-                        Aceptar Solicitud
+                        <CIcon icon={cilCheckCircle} size="sm" />
+                        <span>Aceptar Solicitud</span>
                       </CButton>
                     )}
                   </div>

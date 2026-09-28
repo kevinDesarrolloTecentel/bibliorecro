@@ -125,7 +125,7 @@ export const useLibro = () => {
     if (!id) return
 
     const estadoNum = Number(libro.ESTADO_LIBROS)
-    if (estadoNum === 0 || libro.Estado === 'Inactivo') {
+    if (estadoNum === 0) {
       Swal.fire({
         icon: 'info',
         title: 'Libro ya dado de baja',
@@ -137,7 +137,7 @@ export const useLibro = () => {
 
     const confirmResult = await Swal.fire({
       title: 'Confirmar Dar de baja',
-      text: `¿Estás seguro de que quieres inactivar el libro "${libro.TITULO_LIBROS || libro.Titulo}"?`,
+      text: `¿Estás seguro de que quieres inactivar el libro "${libro.TITULO_LIBROS || 'este libro'}"?`,
       icon: 'question',
       showCancelButton: true,
       confirmButtonColor: '#044c8c',
@@ -176,7 +176,7 @@ export const useLibro = () => {
 
     const confirmResult = await Swal.fire({
       title: '¿Está Seguro?',
-      text: `¡No podrás revertir esto! Se eliminará el libro "${target.TITULO_LIBROS || target.Titulo}".`,
+      text: `¡No podrás revertir esto! Se eliminará el libro "${target.TITULO_LIBROS || 'este libro'}".`,
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#044c8c',

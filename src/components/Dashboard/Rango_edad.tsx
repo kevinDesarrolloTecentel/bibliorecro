@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import 'chart.js/auto'
 import { CChartPolarArea } from '@coreui/react-chartjs'
 import { CButton, CButtonGroup } from '@coreui/react-pro'

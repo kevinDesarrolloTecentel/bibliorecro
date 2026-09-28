@@ -17,8 +17,6 @@ const HeaderLibros: React.FC<HeaderLibrosProps> = ({ libroState }) => {
     handleLimpiarBusqueda,
     fetchLibros,
     handleAbrirCrear,
-    currentPage,
-    activeQuery,
   } = libroState
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -73,7 +71,7 @@ const HeaderLibros: React.FC<HeaderLibrosProps> = ({ libroState }) => {
           variant="outline"
           disabled={loading}
           className="d-flex align-items-center gap-1 shadow-sm"
-          onClick={() => fetchLibros(currentPage, activeQuery)}
+          onClick={() => fetchLibros()}
           title="Actualizar tabla"
         >
           <CIcon icon={cilReload} className={loading ? 'rotate-animation' : ''} />

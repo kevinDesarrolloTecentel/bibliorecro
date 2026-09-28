@@ -128,9 +128,9 @@ export const useRoles = () => {
     const r = item.raw || item
     const id = String(item.ID || r.ID_ROL || r.id || '')
     const nombre = String(item.Nombre || r.NOMBRE_ROL || r.nombre || '')
-    const rawDesc = r.DESCRIPCION_ROL ?? r.DESCRIPCION ?? r.descripcion_rol ?? r.descripcion ?? r.description ?? r.DETALLE_ROL ?? r.DETALLE ?? r.detalle ?? ''
+    const rawDesc = r.DESCRIPCION_ROL ?? r.DESCRIPCION ?? ''
     const descripcion = String(item.Descripcion && item.Descripcion !== '-' ? item.Descripcion : rawDesc)
-    const nivel = Number(r.NIVEL_ROL ?? r.nivel_rol ?? r.nivel ?? 1)
+    const nivel = Number(r.NIVEL_ROL ?? r.nivel ?? 1)
     const estado = item.Estado || 'Activo'
 
     setEditFormData({

@@ -10,7 +10,7 @@ import {
 } from '@/utils/validations'
 import usePersonas from './usePersonas'
 import { initialPersona, Persona } from '@/models/tab/persona.model'
-import { PersonaNueva } from '@/Service/tab/Persona'
+import { PersonasNueva } from '@/Service/tab/Persona'
 
 export const initialRegisterFormData: Persona = initialPersona
 
@@ -181,7 +181,7 @@ export const usePersonaRegister = ({
       if (personaState?.handleCrearPersonaNew) {
         ok = await personaState.handleCrearPersonaNew(formDataToSend)
       } else {
-        await PersonaNueva(formDataToSend)
+        await PersonasNueva(formDataToSend)
         ok = true
       }
 

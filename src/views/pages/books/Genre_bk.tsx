@@ -31,7 +31,7 @@ const Genre = () => {
   return (
     <>
       <ModalGen generoState={generoHook} />
-      <div className="d-flex flex-wrap justify-content-between align-item-center mb-4 gap-2">
+      <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
         <div>
           <h4 className="fw-bold mb-1 text-body d-flex align-items-center gap-2">
             <CIcon icon={cilNewspaper} size="lg" style={{ color: '#1C69A8' }} />

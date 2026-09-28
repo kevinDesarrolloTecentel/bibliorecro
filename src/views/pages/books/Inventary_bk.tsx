@@ -1,33 +1,7 @@
 import React from 'react'
-import {
-  cilBan,
-  cilBarcode,
-  cilBook,
-  cilCalendar,
-  cilClipboard,
-  cilColorBorder,
-  cilCommentSquare,
-  cilDescription,
-  cilEducation,
-  cilGlobeAlt,
-  cilLibraryBuilding,
-  cilTag,
-  cilTrash,
-  cilTruck,
-  cilUser,
-  cilWallet,
-} from '@coreui/icons'
+import { cilBan, cilBarcode, cilBook, cilCalendar, cilClipboard, cilColorBorder, cilCommentSquare, cilDescription, cilEducation, cilGlobeAlt, cilLibraryBuilding, cilTag, cilTrash, cilTruck, cilUser, cilWallet, } from '@coreui/icons'
 import CIcon from '@coreui/icons-react'
-import {
-  CBadge,
-  CButton,
-  CCard,
-  CCardBody,
-  CCardHeader,
-  CCol,
-  CCollapse,
-  CContainer,
-  CRow, CSmartPagination, CSmartTable } from '@coreui/react-pro'
+import { CBadge, CButton, CCard, CCardBody, CCardHeader, CCol, CCollapse, CContainer, CRow, CSmartPagination, CSmartTable } from '@coreui/react-pro'
 import useLibro from '@/hooks/rco-libros/useLibros'
 import HeaderLibros from '@/components/details_bk/HeaderLibros'
 import Registro_bk from '@/components/details_bk/Register_bk'
@@ -109,18 +83,18 @@ const Inventary: React.FC = () => {
           <CSmartTable
             items={libros.map((l) => ({
               ...l,
-              ISBN_LIBROS: l.ISBN_LIBROS || l.ISBN || 'S/N',
-              TITULO_LIBROS: l.TITULO_LIBROS || l.Titulo || '-',
-              NOMBRE_AUTOR: l.NOMBRE_AUTOR || l.Autor || 'Sin autor',
-              NOMBRE_CATEGORIA: l.NOMBRE_CATEGORIA || l.Categoria || 'Sin categoría',
-              NOMBRE_EDITORIAL: l.NOMBRE_EDITORIAL || l.Editorial || 'Sin editorial',
-              NOMBRE_PROVEEDOR: l.NOMBRE_PROVEEDOR || l.Proveedor || 'Sin proveedor',
-              NOMBRE_FORMATOS: l.NOMBRE_FORMATOS || l.Formatos || 'Libros',
-              NOMBRE_TIPO: l.NOMBRE_TIPO || l.Tipo || 'General',
-              FECHAEDICION_LIBROS: l.FECHA_EDICION_FORMAT || l.FechaEdicion || '-',
-              ESTADOS_PRESTAMO: l.Disponibilidad || (l.EN_PRESTAMO === 0 ? 'Disponible' : 'En préstamo'),
-              FECHAREGISTRO_LIBROS: l.FECHA_REGISTRO_FORMAT || l.FechaRegistro || '-',
-              ESTADO: l.Estado || (Number(l.ESTADO_LIBROS) === 1 ? 'Activo' : 'Inactivo'),
+              ISBN_LIBROS: l.ISBN_LIBROS || 'S/N',
+              TITULO_LIBROS: l.TITULO_LIBROS || '-',
+              NOMBRE_AUTOR: l.NOMBRE_AUTOR || 'Sin autor',
+              NOMBRE_CATEGORIA: l.NOMBRE_CATEGORIA || 'Sin categoría',
+              NOMBRE_EDITORIAL: l.NOMBRE_EDITORIAL || 'Sin editorial',
+              NOMBRE_PROVEEDOR: l.NOMBRE_PROVEEDOR || 'Sin proveedor',
+              NOMBRE_FORMATOS: l.NOMBRE_FORMATOS || 'Libros',
+              NOMBRE_TIPO: l.NOMBRE_TIPO || 'General',
+              FECHAEDICION_LIBROS: l.FECHA_EDICION_FORMAT || '-',
+              ESTADOS_PRESTAMO: l.EN_PRESTAMO === 0 ? 'Disponible' : 'En préstamo',
+              FECHAREGISTRO_LIBROS: l.FECHA_REGISTRO_FORMAT || '-',
+              ESTADO: Number(l.ESTADO_LIBROS) === 1 ? 'Activo' : 'Inactivo',
             }))}
             columns={columns}
             loading={loading}

@@ -57,8 +57,6 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   }
 
   if (!isSessionValid(user)) {
-    clearAuthSession()
-    dispatch(sessionExpired())
     return <Navigate to={`${redirectTo}?session_expired=true`} replace />
   }
 

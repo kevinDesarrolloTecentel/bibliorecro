@@ -84,7 +84,7 @@ const Dashboard = () => {
           <CCard className="h-100 shadow-sm border-0">
             <CCardHeader className="bg-body py-3 border-bottom d-flex align-items-center gap-2">
               <CIcon icon={cilBarChart} className="text-primary" size="xl" />
-              <span className="fw-bold text-nody">Nuevos Usuarios y Renovaciones</span>
+              <span className="fw-bold text-body">Nuevos Usuarios y Renovaciones</span>
             </CCardHeader>
             <CCardBody className="p-3">
               <ChartBarExample />

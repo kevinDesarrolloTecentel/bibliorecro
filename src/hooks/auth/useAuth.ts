@@ -53,17 +53,17 @@ export const useAuth = () => {
         rawExpiresIn = 3600
       }
 
-      const idUsuario = rawUser?.id_usuario ?? rawUser?.ID_USUARIO ?? rawUser?.id
-      let rolUsuario = rawUser?.rol ?? rawUser?.ID_ROL ?? rawUser?.rol_id ?? rawUser?.id_rol
+      const idUsuario = rawUser?.ID_USUARIO ?? rawUser?.id
+      let rolUsuario = rawUser?.ID_ROL ?? rawUser?.rol
       if (typeof rolUsuario === 'object' && rolUsuario !== null) {
-        rolUsuario = rolUsuario.ID_ROL ?? rolUsuario.id ?? rolUsuario.id_rol ?? rolUsuario.NOMBRE_ROL ?? rolUsuario.nombre
+        rolUsuario = rolUsuario.ID_ROL ?? rolUsuario.id
       }
       if (!rolUsuario && Array.isArray(rawUser?.roles) && rawUser.roles.length > 0) {
         const firstRole = rawUser.roles[0]
-        rolUsuario = typeof firstRole === 'object' ? (firstRole.ID_ROL ?? firstRole.id ?? firstRole.nombre) : firstRole
+        rolUsuario = typeof firstRole === 'object' ? (firstRole.ID_ROL ?? firstRole.id) : firstRole
       }
       const nombreRol = rawUser?.NOMBRE_ROL || rawUser?.nombre_rol || (String(rolUsuario) === '1' ? 'Administrador' : String(rolUsuario) === '2' ? 'Bibliotecario' : String(rolUsuario || ''))
-      const nickUsuario = rawUser?.nick_usuario ?? rawUser?.NICK_USUARIO ?? data.email
+      const nickUsuario = rawUser?.NICK_USUARIO ?? data.email
 
       const fullUserData: UserData = {
         ...rawUser,

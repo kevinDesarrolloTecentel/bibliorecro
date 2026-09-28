@@ -80,12 +80,10 @@ export const useAutor = ({
       };
 
       let initialResponse: any = null;
-      let usedEndpoint: "autores" | "autors" = "autores";
       try {
         const resAutores = await Autores();
         const itemsAutores = extractItems(resAutores);
         initialResponse = resAutores;
-        usedEndpoint = "autores";
         const lastPage = Number(resAutores?.last_page ?? resAutores?.meta?.last_page) || 1;
         if (lastPage > 1 || resAutores?.next_page_url) {
           try {
@@ -94,14 +92,12 @@ export const useAutor = ({
             const lastPageListar = Number(resListar?.last_page ?? resListar?.meta?.last_page) || 1;
             if (lastPageListar === 1 && !resListar?.next_page_url && itemsListar.length > itemsAutores.length) {
               initialResponse = resListar;
-              usedEndpoint = "autors";
             }
           } catch {
           }
         }
       } catch (err: any) {
         initialResponse = await ListarAutorLib();
-        usedEndpoint = "autors";
       }
 
       let allRawItems: any[] = extractItems(initialResponse);
@@ -141,18 +137,13 @@ export const useAutor = ({
       }
 
       const parsedList: Autor[] = uniqueRawList.map((item: any, index: number) => {
-        const rawName =
-          item.NOMBRE_AUTOR ?? item.nombre ?? item.autor ?? item.nombre_autor ?? item.name;
+        const rawName = item.NOMBRE_AUTOR ?? item.nombre ?? 'Sin nombre';
+        const id = item.ID_AUTOR ?? item.id ?? index + 1;
         return {
-          id: item.ID_AUTOR ?? item.id ?? item.id_autor ?? index + 1,
-          ID_AUTOR: item.ID_AUTOR ?? item.id ?? item.id_autor ?? index + 1,
-          NOMBRE_AUTOR: rawName ? String(rawName).trim() : "Sin nombre",
-          FECHAINGRESO_AUTOR:
-            item.FECHAINGRESO_AUTOR ??
-            item.fecha_ingreso ??
-            item.fecha_registro ??
-            item.created_at ??
-            null,
+          id,
+          ID_AUTOR: id,
+          NOMBRE_AUTOR: String(rawName).trim(),
+          FECHAINGRESO_AUTOR: item.FECHAINGRESO_AUTOR ?? item.created_at ?? null,
         };
       });
       setListaAutor(parsedList);

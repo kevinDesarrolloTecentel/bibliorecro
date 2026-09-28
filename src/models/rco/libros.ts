@@ -1,4 +1,4 @@
-export interface Libros {
+export interface Libro {
   id?: number | string
   ID_LIBROS?: number | string
   ID_CATEGORIA?: number | string | null
@@ -33,31 +33,10 @@ export interface Libros {
   ESTADO_LIBRO?: string | null
   FECHA_REGISTRO_FORMAT?: string | null
   FECHA_EDICION_FORMAT?: string | null
-
-  ISBN?: string
-  Titulo?: string
-  Autor?: string
-  Categoria?: string
-  Editorial?: string
-  Proveedor?: string
-  Formatos?: string
-  Tipo?: string
-  Genero?: string
-  FechaEdicion?: string
-  Disponibilidad?: string
-  FechaRegistro?: string
-  Estado?: string
-  Pais?: string
-  Precio?: number | string
-  Volumen?: string
-  CodigoBarras?: string
-  TituloTejuelo?: string
-  AutorTejuelo?: string
-  Descripcion?: string
-  raw?: any
 }
 
-export type LibroItem = Libros
+export type Libros = Libro
+export type LibroItem = Libro
 
 export interface LibroFormData {
   ID_CATEGORIA: string | number

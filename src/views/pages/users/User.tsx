@@ -51,12 +51,6 @@ export const User = () => {
             }
         })
 
-    console.log('[DEBUG] Usuarios Sistema (User.tsx):', {
-        total: items.length,
-        filtroRol: userState.filtroRol,
-        items,
-    })
-
     const columns = [
         { key: 'Usuario', _style: { width: '14%' } },
         { key: 'Contraseña', _style: { width: '15%' } },

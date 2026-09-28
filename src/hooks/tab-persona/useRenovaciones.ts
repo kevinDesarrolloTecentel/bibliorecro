@@ -1,9 +1,14 @@
 import { useState, useCallback, useEffect } from 'react'
-import axios from 'axios'
 import Swal from 'sweetalert2'
+import apiClient, { BACKEND_API_BASE } from '@/Service/apiClient'
+import { STORAGE_BASE_URL } from '@/.env'
+import { ListarGenero } from '@/Service/tab/Genero'
+import { listarTipoIdentificacion } from '@/Service/tab/TipoIdentificacion'
+import { ListarNacionalidad } from '@/Service/tab/Nacionalidad'
+import { ListarEstadoCivil } from '@/Service/tab/EstadoCivil'
 
-export const API_BASE_URL = 'https://bibliobackend.ccelrecreo.com:1500/server.php/api'
-export const STORAGE_BASE_URL = 'https://bibliobackend.ccelrecreo.com:1500/storage/app/public'
+export { STORAGE_BASE_URL }
+export const API_BASE_URL = BACKEND_API_BASE
 
 export interface PersonaRenovacion {
   ID_PERSONA?: number | string
@@ -58,8 +63,7 @@ export const useRenovaciones = () => {
   const fetchSolicitudes = useCallback(async () => {
     setLoading(true)
     try {
-      const endpoint = `${API_BASE_URL}/personasE`
-      const { data } = await axios.get(endpoint)
+      const { data } = await apiClient.get(`${BACKEND_API_BASE}/personasE`)
       const list = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
       setPersonas(list)
     } catch (error) {
@@ -77,65 +81,68 @@ export const useRenovaciones = () => {
   useEffect(() => {
     fetchSolicitudes()
 
-    axios
-      .get(`${API_BASE_URL}/generos`)
-      .then(({ data }) => {
-        const raw = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
-        setGeneros(
-          raw
-            .filter((g: any) => g.ID_GENERO)
-            .map((g: any) => ({
-              label: g.NOMBRE_GENERO,
-              value: g.ID_GENERO,
-            })),
-        )
-      })
-      .catch((err) => console.error('Error al cargar géneros', err))
+    const cargarCatalogos = async () => {
+      try {
+        const [resGen, resTipos, resNac, resEst] = await Promise.allSettled([
+          ListarGenero(),
+          listarTipoIdentificacion(),
+          ListarNacionalidad(),
+          ListarEstadoCivil(),
+        ])
 
-    axios
-      .get(`${API_BASE_URL}/tipoIdentificacions`)
-      .then(({ data }) => {
-        const raw = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
-        setTiposIdentificacion(
-          raw
-            .filter((t: any) => t.ID_TIPOIDENTIFICACION)
-            .map((t: any) => ({
-              label: t.NOMBRE_TIPOIDENTIFICACION,
-              value: t.ID_TIPOIDENTIFICACION,
-            })),
-        )
-      })
-      .catch((err) => console.error('Error al cargar tipos de identificación', err))
+        if (resGen.status === 'fulfilled') {
+          const raw = Array.isArray(resGen.value?.data) ? resGen.value.data : Array.isArray(resGen.value) ? resGen.value : []
+          setGeneros(
+            raw
+              .filter((g: any) => g.ID_GENERO)
+              .map((g: any) => ({
+                label: g.NOMBRE_GENERO,
+                value: g.ID_GENERO,
+              })),
+          )
+        }
 
-    axios
-      .get(`${API_BASE_URL}/nacionalidads`)
-      .then(({ data }) => {
-        const raw = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
-        setNacionalidades(
-          raw
-            .filter((n: any) => n.ID_NACIONALIDAD)
-            .map((n: any) => ({
-              label: n.NOMBRE_NACIONALIDAD,
-              value: n.ID_NACIONALIDAD,
-            })),
-        )
-      })
-      .catch((err) => console.error('Error al cargar nacionalidades', err))
+        if (resTipos.status === 'fulfilled') {
+          const raw = Array.isArray(resTipos.value?.data) ? resTipos.value.data : Array.isArray(resTipos.value) ? resTipos.value : []
+          setTiposIdentificacion(
+            raw
+              .filter((t: any) => t.ID_TIPOIDENTIFICACION)
+              .map((t: any) => ({
+                label: t.NOMBRE_TIPOIDENTIFICACION,
+                value: t.ID_TIPOIDENTIFICACION,
+              })),
+          )
+        }
 
-    axios
-      .get(`${API_BASE_URL}/estadoCivils`)
-      .then(({ data }) => {
-        const raw = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
-        setEstadosCiviles(
-          raw
-            .filter((e: any) => e.ID_ESTADOCIVIL)
-            .map((e: any) => ({
-              label: e.NOMBRE_ESTADOCIVIL,
-              value: e.ID_ESTADOCIVIL,
-            })),
-        )
-      })
-      .catch((err) => console.error('Error al cargar estados civiles', err))
+        if (resNac.status === 'fulfilled') {
+          const raw = Array.isArray(resNac.value?.data) ? resNac.value.data : Array.isArray(resNac.value) ? resNac.value : []
+          setNacionalidades(
+            raw
+              .filter((n: any) => n.ID_NACIONALIDAD)
+              .map((n: any) => ({
+                label: n.NOMBRE_NACIONALIDAD,
+                value: n.ID_NACIONALIDAD,
+              })),
+          )
+        }
+
+        if (resEst.status === 'fulfilled') {
+          const raw = Array.isArray(resEst.value?.data) ? resEst.value.data : Array.isArray(resEst.value) ? resEst.value : []
+          setEstadosCiviles(
+            raw
+              .filter((e: any) => e.ID_ESTADOCIVIL)
+              .map((e: any) => ({
+                label: e.NOMBRE_ESTADOCIVIL,
+                value: e.ID_ESTADOCIVIL,
+              })),
+          )
+        }
+      } catch (err) {
+        console.error('Error al cargar catálogos en renovaciones', err)
+      }
+    }
+
+    cargarCatalogos()
   }, [fetchSolicitudes])
 
   const handleAbrirEditar = (item: PersonaRenovacion) => {
@@ -153,8 +160,7 @@ export const useRenovaciones = () => {
     if (!solicitudSeleccionada || submitting) return
     setSubmitting(true)
     try {
-      const endpoint = `${API_BASE_URL}/aceptarNew`
-      await axios.post(endpoint, {
+      await apiClient.post(`${BACKEND_API_BASE}/aceptarNew`, {
         ID_PERSONA: solicitudSeleccionada.ID_PERSONA,
         tipo_usuario: solicitudSeleccionada.tipo_usuario,
         ID_INSCRIPCION: solicitudSeleccionada.ID_INSCRIPCION,
@@ -188,9 +194,8 @@ export const useRenovaciones = () => {
   const handleActualizarPersona = async (formData: FormData, idPersona: number | string) => {
     setSubmitting(true)
     formData.append('_method', 'PUT')
-    const endpoint = `${API_BASE_URL}/persona/${idPersona}`
     try {
-      await axios.post(endpoint, formData, {
+      await apiClient.post(`${BACKEND_API_BASE}/persona/${idPersona}`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },

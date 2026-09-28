@@ -7,6 +7,7 @@ export const VITE_SERVER_URL: string = (
 ).replace(/\/+$/, '')
 
 export const USER_IMAGES_URL = VITE_SERVER_URL
+export const STORAGE_BASE_URL = VITE_SERVER_URL
 export const getUserImageUrl = (fotoRaw?: string | null): string => {
   if (!fotoRaw || typeof fotoRaw !== 'string') return ''
   const cleanFoto = fotoRaw.trim()

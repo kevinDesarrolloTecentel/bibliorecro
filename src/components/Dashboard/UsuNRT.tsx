@@ -36,29 +36,7 @@ export interface UsuNRTProps {
     setVisible?: (visible: boolean) => void
 }
 
-const UsuNRT =() => {
-
-
-    const normalizarUsuario = (u: any) => {
-        const rawTipo = String(
-            u.tipo || u.TIPO_PERSONA || (u.es_renovacion ? 'renovacion' : 'nuevo') || '',
-        ).toLowerCase()
-
-        const esNuevo = rawTipo.includes('nuevo')
-
-        return {
-            ...u,
-            cedula: u.cedula || u.IDENTIFICACION_PERSONA || '-',
-            nombre: u.nombre || u.NOMBRE_PERSONA || '-',
-            apellido: u.apellido || u.APELLIDO_PERSONA || '-',
-            correo: u.correo || u.CORREO_PERSONA || '-',
-            edad: u.edad ?? u.EDAD_PERSONA ?? '-',
-            telefono: u.telefono || u.TELEFONO_PERSONA || '-',
-            tipo: esNuevo ? 'Nuevo' : 'Renovación',
-            tipoBadgeColor: esNuevo ? 'success' : 'primary',
-            fecha: u.fecha || u.FECHAREGISTRO_PERSONA || u.FECHAINICIO_INSCRIPCION || u.FECHA_PERSONA || '',
-        }
-    }
+const UsuNRT = () => {
 
 
     const columns = [
