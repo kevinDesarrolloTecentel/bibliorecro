@@ -233,25 +233,30 @@ const usePersonas = (autoFetch: boolean = true) => {
         }
 
         if (missingPages.length > 0) {
-          const responses = await Promise.all(
+          const results = await Promise.allSettled(
             missingPages.map((b) => listarPersonas(b, B))
           )
 
           let metadataChanged = false
-          responses.forEach((res: any, idx: number) => {
-            const info = extraerInfoPaginacion(res)
+          results.forEach((result, idx) => {
             const bPage = missingPages[idx]
-            backendPageCache.current.set(bPage, info.items)
+            if (result.status === 'fulfilled') {
+              const info = extraerInfoPaginacion(result.value)
+              backendPageCache.current.set(bPage, info.items)
 
-            if (info.total > 0 && info.total !== knownTotal.current) {
-              knownTotal.current = info.total
-              T = info.total
-              metadataChanged = true
-            }
-            if (info.perPage > 0 && info.perPage !== knownBackendPerPage.current) {
-              knownBackendPerPage.current = info.perPage
-              B = info.perPage
-              metadataChanged = true
+              if (info.total > 0 && info.total !== knownTotal.current) {
+                knownTotal.current = info.total
+                T = info.total
+                metadataChanged = true
+              }
+              if (info.perPage > 0 && info.perPage !== knownBackendPerPage.current) {
+                knownBackendPerPage.current = info.perPage
+                B = info.perPage
+                metadataChanged = true
+              }
+            } else {
+              console.warn(`[usePersonas] Página ${bPage} no pudo cargarse:`, result.reason)
+              backendPageCache.current.set(bPage, [])
             }
           })
 
@@ -268,12 +273,17 @@ const usePersonas = (autoFetch: boolean = true) => {
               }
             }
             if (extraMissing.length > 0) {
-              const extraResponses = await Promise.all(
+              const extraResults = await Promise.allSettled(
                 extraMissing.map((b) => listarPersonas(b, B))
               )
-              extraResponses.forEach((res: any, idx: number) => {
-                const info = extraerInfoPaginacion(res)
-                backendPageCache.current.set(extraMissing[idx], info.items)
+              extraResults.forEach((res, idx) => {
+                const bPage = extraMissing[idx]
+                if (res.status === 'fulfilled') {
+                  const info = extraerInfoPaginacion(res.value)
+                  backendPageCache.current.set(bPage, info.items)
+                } else {
+                  backendPageCache.current.set(bPage, [])
+                }
               })
             }
           }
@@ -290,6 +300,24 @@ const usePersonas = (autoFetch: boolean = true) => {
           })
         }
 
+        // Si no se obtuvieron registros mediante cálculo inverso, usar consulta directa como respaldo
+        if (pageItems.length === 0) {
+          try {
+            const fallbackRes = await listarPersonas(targetUiPage, actualPerPage)
+            const fallbackInfo = extraerInfoPaginacion(fallbackRes)
+            if (fallbackInfo.items.length > 0) {
+              setTotalPaginas(fallbackInfo.lastPage || 1)
+              setTotalRegistros(fallbackInfo.total || fallbackInfo.items.length)
+              setPaginaActual(targetUiPage)
+              setPorPagina(actualPerPage)
+              setPersonas(ordenarPorFechaReciente(fallbackInfo.items))
+              return
+            }
+          } catch (e) {
+            console.warn('[usePersonas] Fallback de paginación falló:', e)
+          }
+        }
+
         const totalUiPages = Math.max(1, Math.ceil(T / S))
         const sortedItems = ordenarPorFechaReciente(pageItems)
 
@@ -299,9 +327,12 @@ const usePersonas = (autoFetch: boolean = true) => {
         setPorPagina(S)
         setPersonas(sortedItems)
       } catch (error: any) {
-        const msg = formatApiError(error, 'Error al obtener la lista de clientes.')
-        setErrorMsg(msg)
-        Toast.fire({ icon: 'error', title: msg })
+        console.error('[usePersonas] Error al obtener clientes:', error)
+        if (personas.length === 0) {
+          const msg = formatApiError(error, 'Error al obtener la lista de clientes.')
+          setErrorMsg(msg)
+          Toast.fire({ icon: 'error', title: msg })
+        }
       } finally {
         setLoading(false)
       }

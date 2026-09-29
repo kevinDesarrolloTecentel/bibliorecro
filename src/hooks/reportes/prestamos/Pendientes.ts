@@ -60,7 +60,22 @@ export const useReportePendientesDevolver = () => {
 
       setPrestamos(filtrados)
       setExcelLink(data?.excel_path || null)
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        setPrestamos([])
+        setExcelLink(null)
+        Swal.mixin({
+          toast: true,
+          position: 'top-end',
+          timer: 3000,
+          timerProgressBar: false,
+          showConfirmButton: false,
+        }).fire({
+          icon: 'info',
+          title: error.response.data?.message || 'No se encontraron préstamos pendientes en el rango seleccionado.',
+        })
+        return
+      }
       console.error('Error al obtener préstamos pendientes', error)
       Swal.fire({
         icon: 'error',

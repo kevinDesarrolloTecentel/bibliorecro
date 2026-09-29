@@ -3,7 +3,72 @@ import Swal from 'sweetalert2'
 
 import { LibroOption, UsuarioOption } from '@/models/rco/prestamos'
 import { Lista, NuevoPrestamo } from '@/Service/rco/Prestamos'
-import { getInscripcionesUsuarios } from '@/Service/tab/Persona'
+import apiClient, { BACKEND_API_BASE } from '@/Service/apiClient'
+import {
+  getInscripcionesUsuarios,
+  Personas,
+  PersonasActivasReport,
+  PersonasE,
+} from '@/Service/tab/Persona'
+
+const toArray = (val: any): any[] => {
+  if (!val) return []
+  if (Array.isArray(val)) return val
+  if (Array.isArray(val.data)) return val.data
+  if (Array.isArray(val.data?.data)) return val.data.data
+  if (Array.isArray(val.personas)) return val.personas
+  if (Array.isArray(val.usuarios)) return val.usuarios
+  if (Array.isArray(val.inscripciones)) return val.inscripciones
+  if (Array.isArray(val.registradas)) return val.registradas
+  return []
+}
+
+const fetchInscripcionesData = async (): Promise<any[]> => {
+  // 1. Intentar POST /tab-persona/personasRegistradas (definida en Laravel como POST)
+  try {
+    const res = await apiClient.post(`${BACKEND_API_BASE}/tab-persona/personasRegistradas`, {})
+    const list = toArray(res?.data)
+    if (list.length > 0) return list
+  } catch (err) {
+    console.warn('POST /tab-persona/personasRegistradas no respondió o falló:', err)
+  }
+
+  // 2. Intentar getInscripcionesUsuarios() del servicio (GET /personasRegistradas)
+  try {
+    const res = await getInscripcionesUsuarios()
+    const list = toArray(res)
+    if (list.length > 0) return list
+  } catch (err) {
+    console.warn('getInscripcionesUsuarios() falló:', err)
+  }
+
+  // 3. Intentar PersonasActivasReport() (usuarios con inscripción activa)
+  try {
+    const res = await PersonasActivasReport()
+    const list = toArray(res)
+    if (list.length > 0) return list
+  } catch (err) {
+    console.warn('PersonasActivasReport() falló:', err)
+  }
+
+  // 4. Intentar Personas() con paginación amplia
+  try {
+    const res = await Personas(1, 500)
+    const list = toArray(res)
+    if (list.length > 0) return list
+  } catch (err) {
+    console.warn('Personas() falló:', err)
+  }
+
+  // 5. Intentar PersonasE()
+  try {
+    const res = await PersonasE()
+    return toArray(res)
+  } catch (err) {
+    console.error('Todos los intentos de carga de usuarios fallaron:', err)
+    return []
+  }
+}
 
 export interface UsePrestamoModalProps {
   visible?: boolean
@@ -32,19 +97,60 @@ export const usePrestamoModal = ({
 
   const fetchUsuarios = useCallback(async () => {
     try {
-      const data = await getInscripcionesUsuarios()
-      if (Array.isArray(data)) {
-        const mapped: UsuarioOption[] = data
-          .filter((p: any) => p.ID_INSCRIPCION)
-          .map((p: any) => ({
-            value: p.ID_INSCRIPCION,
-            label: `${p.IDENTIFICACION_PERSONA || ''} - ${p.NOMBRE_PERSONA || ''} ${p.APELLIDO_PERSONA || ''}`.trim(),
-            cedula: p.IDENTIFICACION_PERSONA || '',
-            nombre: p.NOMBRE_PERSONA || '',
-            apellido: p.APELLIDO_PERSONA || '',
-          }))
-        setUsuarios(mapped)
-      }
+      const rawData = await fetchInscripcionesData()
+      const mapped: UsuarioOption[] = rawData
+        .map((p: any) => {
+          const idInscripcion =
+            p.ID_INSCRIPCION ??
+            p.id_inscripcion ??
+            p.idInscripcion ??
+            p.inscripcion?.ID_INSCRIPCION ??
+            p.inscripcion?.id ??
+            p.ID_PERSONA ??
+            p.id_persona ??
+            p.id
+
+          const cedula = String(
+            p.IDENTIFICACION_PERSONA ??
+            p.identificacion ??
+            p.identificacion_persona ??
+            p.cedula ??
+            p.CEDULA ??
+            '',
+          ).trim()
+
+          const nombre = String(
+            p.NOMBRE_PERSONA ??
+            p.nombre ??
+            p.nombres ??
+            p.NOMBRES_PERSONA ??
+            '',
+          ).trim()
+
+          const apellido = String(
+            p.APELLIDO_PERSONA ??
+            p.apellido ??
+            p.apellidos ??
+            p.APELLIDOS_PERSONA ??
+            '',
+          ).trim()
+
+          const fullName = `${nombre} ${apellido}`.trim()
+          const labelParts: string[] = []
+          if (cedula) labelParts.push(cedula)
+          if (fullName) labelParts.push(fullName)
+
+          return {
+            value: idInscripcion,
+            label: labelParts.join(' - ') || `Usuario #${idInscripcion}`,
+            cedula,
+            nombre,
+            apellido,
+          }
+        })
+        .filter((u: UsuarioOption) => u.value !== undefined && u.value !== null && u.value !== '')
+
+      setUsuarios(mapped)
     } catch (err) {
       console.error('Error al cargar inscripciones de usuarios:', err)
     }

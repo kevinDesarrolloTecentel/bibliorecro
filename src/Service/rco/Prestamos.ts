@@ -30,57 +30,30 @@ export const listarPrestamosCedula = async (params?: any) => {
 };
 
 export const Pendientes = async (params?: any) => {
-    try {
-        const { data } = await apiClient.get(`${API_BASE_URL_PRESTAMOS}/pendientes`, { params });
-        return data;
-    } catch {
-        const { data } = await apiClient.get(`${BACKEND_API_BASE}/prestamosPendientes`, { params });
-        return data;
-    }
+    const { data } = await apiClient.get(`${API_BASE_URL_PRESTAMOS}/pendientes`, { params });
+    return data;
 };
-export const prestamosPendientesReport = Pendientes;
 
 export const Caducados = async (params?: any) => {
-    try {
-        const { data } = await apiClient.get(`${API_BASE_URL_PRESTAMOS}/caducados`, { params });
-        return data;
-    } catch {
-        const { data } = await apiClient.get(`${BACKEND_API_BASE}/prestamosCaducados`, { params });
-        return data;
-    }
+    const { data } = await apiClient.get(`${API_BASE_URL_PRESTAMOS}/caducados`, { params });
+    return data;
 };
-export const prestamosCaducadosReport = Caducados;
 
 export const Hoy = async (params?: any) => {
-    try {
-        const { data } = await apiClient.get(`${API_BASE_URL_PRESTAMOS}/hoy`, { params });
-        return data;
-    } catch {
-        const { data } = await apiClient.get(`${BACKEND_API_BASE}/prestamoshoy`, { params });
-        return data;
-    }
+    const { data } = await apiClient.get(`${API_BASE_URL_PRESTAMOS}/hoy`, { params });
+    return data;
 };
 export const prestamosHoyReport = Hoy;
 
 export const Mes = async (params?: any) => {
-    try {
-        const { data } = await apiClient.get(`${API_BASE_URL_PRESTAMOS}/mes`, { params });
-        return data;
-    } catch {
-        const { data } = await apiClient.get(`${BACKEND_API_BASE}/prestamosmes`, { params });
-        return data;
-    }
+    const { data } = await apiClient.get(`${API_BASE_URL_PRESTAMOS}/mes`, { params });
+    return data;
 };
 export const prestamosMesReport = Mes;
 
 export const Anio = async (params?: any) => {
-    try {
-        const { data } = await apiClient.get(`${API_BASE_URL_PRESTAMOS}/anio`, { params });
-        return data;
-    } catch {
-        const { data } = await apiClient.get(`${BACKEND_API_BASE}/prestamosaño`, { params });
-        return data;
-    }
+    const { data } = await apiClient.get(`${API_BASE_URL_PRESTAMOS}/anio`, { params });
+    return data;
 };
 export const prestamosAnioReport = Anio;
 

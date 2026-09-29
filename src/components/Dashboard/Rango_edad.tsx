@@ -5,11 +5,18 @@ import { CButton, CButtonGroup } from '@coreui/react-pro'
 
 
 
-export const ChartPolarAreaExample= () => {
+export interface ChartPolarAreaExampleProps {
+  data?: any[]
+  loading?: boolean
+}
+
+export const ChartPolarAreaExample: React.FC<ChartPolarAreaExampleProps> = ({
+  data: propData,
+  loading = false,
+}) => {
   const chartRef = useRef<any>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [filtro, setFiltro] = useState<'todos' | 'hombres' | 'mujeres'>('todos')
-
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -25,13 +32,14 @@ export const ChartPolarAreaExample= () => {
   }, [])
 
   const getPolarData = () => {
-    const items: any[] = [
+    const defaultItems: any[] = [
       { rango_edad: '0-17', hombres: 124, mujeres: 172 },
       { rango_edad: '18-25', hombres: 51, mujeres: 74 },
       { rango_edad: '26-35', hombres: 53, mujeres: 80 },
       { rango_edad: '36-50', hombres: 59, mujeres: 70 },
       { rango_edad: '51+', hombres: 30, mujeres: 39 },
     ]
+    const items: any[] = propData && propData.length > 0 ? propData : defaultItems
 
     if (filtro === 'hombres') {
       return {
@@ -137,6 +145,16 @@ export const ChartPolarAreaExample= () => {
       </div>
 
       <div ref={containerRef} style={{ width: '100%', height: '360px', position: 'relative' }}>
+        {loading && (
+          <div
+            className="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center bg-body bg-opacity-50"
+            style={{ zIndex: 5 }}
+          >
+            <div className="spinner-border text-primary" role="status" style={{ width: '2rem', height: '2rem' }}>
+              <span className="visually-hidden">Cargando...</span>
+            </div>
+          </div>
+        )}
         <CChartPolarArea
           key={filtro}
           ref={chartRef}

@@ -1,16 +1,7 @@
 import React from 'react'
 import { CBadge, CButton, CCard, CCardBody, CCardHeader, CCol, CFormInput, CInputGroup, CInputGroupText, CRow, CSpinner } from '@coreui/react-pro'
 import CIcon from '@coreui/icons-react'
-import {
-  cilCheckCircle,
-  cilInfo,
-  cilPencil,
-  cilPlus,
-  cilSearch,
-  cilTrash,
-  cilUser,
-  cilX,
-} from '@coreui/icons'
+import { cilCheckCircle, cilInfo, cilPencil, cilPlus, cilSearch, cilTrash, cilUser, cilX } from '@coreui/icons'
 import useAutor from '@/hooks/rco-libros/useAutor'
 import ModalAt from '@/components/details_bk/author'
 
@@ -20,12 +11,12 @@ const Author: React.FC = () => {
     handleOpen,
     autoresFiltrados,
     busquedaAutor,
+    listaAutores,
+    handleElminiarAutor,
+    loadingAutores,
     setBusquedaAutor,
     autorSeleccionado,
     setAutorSeleccionado,
-    listaAutores,
-    loadingAutores,
-    handleElminiarAutor
   } = autorHook
 
   const handleToggleSelect = (autor: any) => {

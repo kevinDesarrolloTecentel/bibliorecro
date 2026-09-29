@@ -190,7 +190,11 @@ const Modal_Edit_bk: React.FC<ModalEditBkProps> = (props) => {
                 invalid={!!errors.ID_AUTOR}
                 required
               >
-                <option value="">Seleccionar...</option>
+                <option value="">
+                  {catalogos.loading && catalogos.autores.length === 0
+                    ? 'Cargando autores...'
+                    : 'Seleccionar...'}
+                </option>
                 {catalogos.autores.map((aut) => (
                   <option key={aut.value} value={aut.value}>
                     {aut.label}

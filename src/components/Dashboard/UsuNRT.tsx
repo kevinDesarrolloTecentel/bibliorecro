@@ -34,9 +34,16 @@ export interface UsuNRTProps {
     loading?: boolean
     visible?: boolean
     setVisible?: (visible: boolean) => void
+    onExportarExcel?: () => void
 }
 
-const UsuNRT = () => {
+const UsuNRT: React.FC<UsuNRTProps> = ({
+    usuariosNuevos = [],
+    usuariosRenovaciones = [],
+    todosUsuarios = [],
+    loading = false,
+    onExportarExcel,
+}) => {
 
 
     const columns = [
@@ -138,30 +145,39 @@ const UsuNRT = () => {
                     Renovaciones 
                 </CTab>
                 <CButton 
-                color='success' 
-                variant='outline' 
-                size='sm' 
-                className='hover:text-white fw-semibold' >
+                    color='success' 
+                    variant='outline' 
+                    size='sm' 
+                    className='hover:text-white fw-semibold'
+                    onClick={onExportarExcel}
+                    disabled={loading || (todosUsuarios.length === 0 && usuariosNuevos.length === 0 && usuariosRenovaciones.length === 0)}
+                >
                     <CIcon icon={cibLibreoffice} className='me-1' />
                     Exportar Excel
                 </CButton>
             </CTabList>
             <hr />
-            <div className='d-flex gap-2'>
-                <span className='badge border rounded-pill bg-secondary font-monospace px-3 py-2'><CIcon icon={cilCalendar} className='me-1'/></span>
-                <span className='badge border rounded-pill bg-primary font-monospace px-3 py-2'><CIcon icon={cilBadge} className='me-1'/> Nuevos: </span>
-                <span className='badge border rounded-pill bg-info font-monospace px-3 py-2'><CIcon icon={cilCheckCircle} className='me-1'/>Renovaciones: </span>
+            <div className='d-flex flex-wrap gap-2'>
+                <span className='badge border rounded-pill bg-secondary font-monospace px-3 py-2'>
+                    <CIcon icon={cilCalendar} className='me-1'/> Total: {todosUsuarios.length}
+                </span>
+                <span className='badge border rounded-pill bg-primary font-monospace px-3 py-2'>
+                    <CIcon icon={cilBadge} className='me-1'/> Nuevos: {usuariosNuevos.length}
+                </span>
+                <span className='badge border rounded-pill bg-info font-monospace px-3 py-2'>
+                    <CIcon icon={cilCheckCircle} className='me-1'/> Renovaciones: {usuariosRenovaciones.length}
+                </span>
             </div>
             <hr />
             <CTabContent>
                 <CTabPanel className="p-3" itemKey="home">
-                    {renderTabla([])}
+                    {renderTabla(todosUsuarios)}
                 </CTabPanel>
                 <CTabPanel className="p-3" itemKey="profile">
-                    {renderTabla([])}
+                    {renderTabla(usuariosNuevos)}
                 </CTabPanel>
                 <CTabPanel className="p-3" itemKey="contact">
-                    {renderTabla([])}
+                    {renderTabla(usuariosRenovaciones)}
                 </CTabPanel>
             </CTabContent>
         </CTabs>

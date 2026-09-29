@@ -60,7 +60,22 @@ export const useReporteNoDevueltosDanados = () => {
 
       setPrestamos(filtrados)
       setExcelLink(data?.excel_path || null)
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        setPrestamos([])
+        setExcelLink(null)
+        Swal.mixin({
+          toast: true,
+          position: 'top-end',
+          timer: 3000,
+          timerProgressBar: false,
+          showConfirmButton: false,
+        }).fire({
+          icon: 'info',
+          title: error.response.data?.message || 'No se encontraron registros en el rango seleccionado.',
+        })
+        return
+      }
       console.error('Error al obtener libros no devueltos y dañados', error)
       Swal.mixin({
         toast: true,

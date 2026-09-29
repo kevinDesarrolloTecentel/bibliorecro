@@ -1,0 +1,255 @@
+Route::group([
+    'prefix' => 'adm-user'
+], function () {
+    Route::post('/login', [AdminUsuarioV2Controller::class, 'login']);
+
+    Route::group([
+        'middleware' => ['auth:api']
+    ], function () {
+        Route::controller(AdminUsuarioV2Controller::class)->group(function () {
+            // Gestión de usuarios
+            Route::get('/listar', 'index');
+            Route::get('/ver/{id}', 'show');
+            Route::post('/crear', 'store');
+            Route::put('/actualizar/{id}', 'update');
+            Route::delete('/eliminar/{id}', 'destroy');
+            Route::post('/logout', 'logout');
+            Route::get('/perfil', 'me');
+            Route::post('/refrescar', 'refresh');
+        });
+    });
+});
+/**
+ * roles
+ */
+Route::middleware(['auth:api'])
+    ->prefix('admin-roles')
+    ->controller(AdminRolController::class)
+    ->group(function () {
+
+        Route::get('/roles', 'index');
+        Route::post('/rol', 'store');
+        Route::get('/rol/{id}', 'show');
+        Route::put('/rol/{id}', 'update');
+        Route::delete('/rol/{id}', 'destroy');
+    });
+
+/**
+ * peronas
+ */
+Route::middleware(['auth:api'])
+    ->prefix('tab-persona')
+    ->controller(TabPersonaV2Controller::class)
+    ->group(function () {
+        // Endpoints de consulta WEB
+        Route::get('/persWeb', 'indexWEB');
+        Route::get('/personasNuevas', 'indexUsuariosNuevos');
+        Route::get('/aniosDisponibles', 'getAniosDisponibles');
+        Route::get('/personasEG', 'getUsuariosActivosPorEdadYGenero');
+        Route::get('/personas', 'indexNewBiblio');
+        Route::post('/personasRegistradas', 'indexNew');
+        Route::get('/personasE', 'indexE');
+
+        // Endpoints de reportes
+        Route::get('/personasReport', 'listarPersonas');
+        Route::get('/personasReportActivas', 'listarPersonasActivas');
+        Route::get('/personasReportActivasMes', 'listarPersonasActivasMes');
+        Route::get('/personasReportRenovaciones', 'listarPersonasRenovaciones');
+        Route::get('/personasReportNuevas', 'listarNuevosUsuariosMes');
+        Route::get('/personasReportMejores', 'listarPersonasMejores');
+
+        // Endpoints de mantenimiento
+        Route::get('/exportarPersonasExcel', 'exportarExcel');
+        Route::get('/verificacion', 'updateFecha');
+        Route::get('/caducidad', 'verificarCaducidadInscripcionesDiarias');
+
+        // CRUD de personas
+        Route::post('/persona', 'store');
+        Route::post('/personaNew', 'storeNew');
+        Route::post('/personaUsuario', 'storeUsuario');
+        Route::get('/persona/{id}', 'show');
+        Route::put('/persona/{id}', 'update');
+        Route::put('/personaNew/{id}', 'updateNew');
+        Route::put('/personaWeb/{id}', 'updatepersonaWeb');
+        Route::put('/personaEstado/{id}', 'updateEstado');
+
+        // Endpoints de aceptación de inscripción
+        Route::post('/aceoptar', 'aceptarInscripcion');
+        Route::post('/aceptarNew', 'aceptarInscripcionNew');
+
+        Route::delete('/persona/{id}', 'destroy');
+    });
+
+Route::middleware(['auth:api'])
+    ->prefix('tab-tipoidentificacion')
+    ->controller(TabTipoIdentificacionController::class)
+    ->group(function () {
+        Route::get('/tipoIdentificacions', 'index');
+        Route::post('/tipoIdentificacion', 'store');
+        Route::get('/tipoIdentificacion/{id}', 'show');
+        Route::put('/tipoIdentificacion/{id}', 'update');
+    });
+
+Route::middleware(['auth:api'])
+    ->prefix('tab-nacionalidad')
+    ->controller(TabNacionalidadController::class)
+    ->group(function () {
+        Route::get('/nacionalidads', 'index');
+        Route::post('/nacionalidad', 'store');
+        Route::get('/nacionalidad/{id}', 'show');
+        Route::put('/nacionalidad/{id}', 'update');
+    });
+
+Route::middleware(['auth:api'])
+    ->prefix('tab-estadoCivil')
+    ->controller(TabEstadoCivilController::class)
+    ->group(function () {
+        Route::get('/estadoCivils', 'index');
+        Route::post('/estadoCivil', 'store');
+        Route::get('/estadoCivil/{id}', 'show');
+        Route::put('/estadoCivil/{id}', 'update');
+    });
+
+Route::middleware(['auth:api'])
+    ->prefix('tab-genero')
+    ->controller(TabGeneroController::class)
+    ->group(function () {
+        Route::get('/generos', 'index');
+        Route::post('/genero', 'store');
+        Route::get('/genero/{id}', 'show');
+        Route::put('/genero/{id}', 'update');
+    });
+
+// Grupo con middleware y prefijo
+Route::middleware(['auth:api', 'throttle:60,1'])
+    ->prefix('api/v1/prestamos')
+    ->controller(RcoPrestamoController::class)
+    ->group(function () {
+        // Consultas
+        Route::get('/list', 'index');
+        Route::get('/buscar', 'indexNew');
+        Route::get('/dashboard/totales', 'obtenerTotalesPrestamos');
+        Route::get('/reportes', 'listarPrestamosBI');
+        Route::get('/reporte-por-cedula', 'listarPrestamos');
+        Route::get('/pendientes', 'listarPrestamosPorFecha');
+        Route::get('/caducados', 'listarPrestamosCaducados');
+        Route::get('/hoy', 'listarPrestamosHoy');
+        Route::get('/mes', 'listarPrestamosMes');
+        Route::get('/anio', 'listarPrestamosAño');
+        Route::get('/{id}', 'show');
+
+        // Creación
+        Route::post('/create', 'store');
+        Route::post('/nuevo', 'storeNew');
+
+        // Actualización
+        Route::put('/{id}', 'update');
+        Route::put('/{id}/estado', 'cambiarEstado');
+        Route::put('/{id}/sancion', 'cambiarEstadoSancion');
+        Route::put('/{id}/extender', 'extenderFecha');
+        Route::put('/{id}/danado', 'cambiarEstadoLibronew');
+
+        // Eliminación
+        Route::delete('/{id}', 'destroy');
+    });
+
+Route::middleware(['auth:api', 'throttle:60,1'])
+    ->prefix('api/v1/libros')
+    ->controller(RcoLibroController::class)
+    ->group(function () {
+        Route::get('/libros', 'index');
+        Route::post('/librosNew', 'indexNew');
+        Route::get('/libros/reporte-ingresos', 'reporteIngresos');
+
+        Route::get('/libros/reporte-ingresos/excel', 'reporteIngresosExcel');
+        Route::get('/libros/reporte-ingresos/pdf', 'reporteIngresosPdf');
+        Route::get('/librosC', 'listarLibros');
+        Route::get('/libroscategoria', 'listarLibrosPorCategoria');
+        Route::get('/librosbaja', 'listarLibrosBaja');
+        Route::get('/pdf', 'generarPdf');
+        Route::get('/librosA', 'indexLib');
+        Route::post('/libro', 'store');
+        Route::get('/libro/{id}', 'show');
+        Route::put('/libro/{id}', 'update');
+        Route::put('/estado/{id}', 'updateEstado');
+        Route::delete('/libro/{id}', 'destroy');
+    });
+
+Route::middleware(['auth:api', 'throttle:60,1'])
+    ->prefix('api/v1/categoriaLib')
+    ->controller(RcoCategoriaController::class)
+    ->group(function () {
+        Route::get('/categorias', 'index');
+        Route::post('/categoria', 'store');
+        Route::get('/categoria/{id}', 'show');
+        Route::put('/categoria/{id}', 'update');
+        Route::delete('/categoria/{id}', 'destroy');
+    });
+
+Route::middleware(['auth:api', 'throttle:60,1'])
+    ->prefix('api/v1/editorialLib')
+    ->controller(RcoEditorialController::class)
+    ->group(function () {
+        Route::get('/editorials', 'index');
+        Route::post('/editorial', 'store');
+        Route::get('/editorial/{id}', 'show');
+        Route::put('/editorial/{id}', 'update');
+        Route::delete('/editorial/{id}', 'destroy');
+    });
+
+Route::middleware(['auth:api', 'throttle:60,1'])
+    ->prefix('api/v1/proveedorLib')
+    ->controller(RcoProveedorController::class)
+    ->group(function () {
+        Route::get('/proveedores', 'index');
+        Route::post('/proveedor', 'store');
+        Route::get('/proveedor/{id}', 'show');
+        Route::put('/proveedor/{id}', 'update');
+        Route::delete('/proveedor/{id}', 'destroy');
+    });
+
+Route::middleware(['auth:api', 'throttle:60,1'])
+    ->prefix('api/v1/formatoLib')
+    ->controller(RcoFormatoController::class)
+    ->group(function () {
+        Route::get('/formatos', 'index');
+        Route::post('/formato', 'store');
+        Route::get('/formato/{id}', 'show');
+        Route::put('/formato/{id}', 'update');
+        Route::delete('/formato/{id}', 'destroy');
+    });
+
+Route::middleware(['auth:api', 'throttle:60,1'])
+    ->prefix('api/v1/tipoLib')
+    ->controller(RcoTipoController::class)
+    ->group(function () {
+        Route::get('/tipos', 'index');
+        Route::post('/tipo', 'store');
+        Route::get('/tipo/{id}', 'show');
+        Route::put('/tipo/{id}', 'update');
+        Route::delete('/tipo/{id}', 'destroy');
+    });
+
+Route::middleware(['auth:api', 'throttle:60,1'])
+    ->prefix('api/v1/autorLib')
+    ->controller(RcoAutorController::class)
+    ->group(function () {
+        Route::get('/autors', 'index');
+        Route::get('/autores', 'indexA');
+        Route::post('/autor', 'store');
+        Route::get('/autor/{id}', 'show');
+        Route::put('/autor/{id}', 'update');
+        Route::delete('/autor/{id}', 'destroy');
+    });
+
+
+Route::middleware(['auth:api', 'throttle:60,1'])
+    ->prefix('api/v1/generoLib')
+    ->controller(RcoGeneroController::class)
+    ->group(function () {
+        Route::get('/generosLib', 'index');
+        Route::post('/generoLi', 'store');
+        Route::get('/generoLi/{id}', 'show');
+        Route::put('/generoLi/{id}', 'update');
+        Route::delete('/generoLi/{id}', 'destroy');
+    });

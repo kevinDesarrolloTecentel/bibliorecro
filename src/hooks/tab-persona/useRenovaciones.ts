@@ -6,6 +6,7 @@ import { ListarGenero } from '@/Service/tab/Genero'
 import { listarTipoIdentificacion } from '@/Service/tab/TipoIdentificacion'
 import { ListarNacionalidad } from '@/Service/tab/Nacionalidad'
 import { ListarEstadoCivil } from '@/Service/tab/EstadoCivil'
+import { PersonasE } from '@/Service/tab/Persona'
 
 export { STORAGE_BASE_URL }
 export const API_BASE_URL = BACKEND_API_BASE
@@ -63,7 +64,7 @@ export const useRenovaciones = () => {
   const fetchSolicitudes = useCallback(async () => {
     setLoading(true)
     try {
-      const { data } = await apiClient.get(`${BACKEND_API_BASE}/personasE`)
+      const data = await PersonasE()
       const list = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
       setPersonas(list)
     } catch (error) {
@@ -160,7 +161,7 @@ export const useRenovaciones = () => {
     if (!solicitudSeleccionada || submitting) return
     setSubmitting(true)
     try {
-      await apiClient.post(`${BACKEND_API_BASE}/aceptarNew`, {
+      await apiClient.post(`${BACKEND_API_BASE}/tab-persona/aceptarNew`, {
         ID_PERSONA: solicitudSeleccionada.ID_PERSONA,
         tipo_usuario: solicitudSeleccionada.tipo_usuario,
         ID_INSCRIPCION: solicitudSeleccionada.ID_INSCRIPCION,
@@ -195,7 +196,7 @@ export const useRenovaciones = () => {
     setSubmitting(true)
     formData.append('_method', 'PUT')
     try {
-      await apiClient.post(`${BACKEND_API_BASE}/persona/${idPersona}`, formData, {
+      await apiClient.post(`${BACKEND_API_BASE}/tab-persona/persona/${idPersona}`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },

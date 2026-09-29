@@ -24,43 +24,23 @@ export const ReporteIngesosPDF = async (params?: any) => {
 };
 
 export const listarLibros = async (params?: any) => {
-  try {
-    const { data } = await apiClient.get(`${API_BASE_URL_LIBROS}/librosC`, { params });
-    return data;
-  } catch {
-    const { data } = await apiClient.get(`${BACKEND_API_BASE}/librosC`, { params });
-    return data;
-  }
+  const { data } = await apiClient.get(`${API_BASE_URL_LIBROS}/librosC`, { params });
+  return data;
 };
 
 export const librosPorCategoria = async (params?: any) => {
-  try {
-    const { data } = await apiClient.get(`${API_BASE_URL_LIBROS}/libroscategoria`, { params });
-    return data;
-  } catch {
-    const { data } = await apiClient.get(`${BACKEND_API_BASE}/libroscategoria`, { params });
-    return data;
-  }
+  const { data } = await apiClient.get(`${API_BASE_URL_LIBROS}/libroscategoria`, { params });
+  return data;
 };
 
 export const librosBaja = async (params?: any) => {
-  try {
-    const { data } = await apiClient.get(`${API_BASE_URL_LIBROS}/librosbaja`, { params });
-    return data;
-  } catch {
-    const { data } = await apiClient.get(`${BACKEND_API_BASE}/librosbaja`, { params });
-    return data;
-  }
+  const { data } = await apiClient.get(`${API_BASE_URL_LIBROS}/librosbaja`, { params });
+  return data;
 };
 
 export const librosPDF = async (params?: any) => {
-  try {
-    const { data } = await apiClient.get(`${API_BASE_URL_LIBROS}/pdf`, { params });
-    return data;
-  } catch {
-    const { data } = await apiClient.get(`${BACKEND_API_BASE}/pdf`, { params });
-    return data;
-  }
+  const { data } = await apiClient.get(`${API_BASE_URL_LIBROS}/pdf`, { params });
+  return data;
 };
 
 export const librosA = async (params?: any) => {

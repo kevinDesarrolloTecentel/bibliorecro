@@ -146,10 +146,12 @@ const Modal_prestamo: React.FC<ModalPrestamoProps> = (props) => {
                       >
                         <div>
                           <div className="fw-bold text-body mb-1 text-uppercase">
-                            {usuario.nombre} {usuario.apellido}
+                            {usuario.nombre || usuario.apellido
+                              ? `${usuario.nombre || ''} ${usuario.apellido || ''}`.trim()
+                              : usuario.label}
                           </div>
                           <div className="text-muted small font-monospace">
-                            {usuario.cedula}
+                            {usuario.cedula || 'Sin cédula'}
                           </div>
                         </div>
                         <div>

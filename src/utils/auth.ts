@@ -8,7 +8,6 @@ export const USER_STORAGE_KEY = 'userData'
 export const TOKEN_STORAGE_KEY = 'kt'
 let inMemoryToken: string | null = null
 
-// Recuperar token de localStorage inmediatamente si existe
 export const base64url = (source: unknown): string => {
   try {
     const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(source))))
@@ -19,7 +18,7 @@ export const base64url = (source: unknown): string => {
 }
 
 export const encodeJWT = (payload: unknown, secret: string = ENCRYPTION_KEY): string => {
-  const header = { alg: 'HS256', typ: 'JWT', nonce:'a8f3b9c1-42e1-4c7b'}
+  const header = { alg: 'HS256', typ: 'JWT', nonce: 'a8f3b9c1-42e1-4c7b' }
   const stringifiedHeader = base64url(header)
   const stringifiedPayload = base64url(payload)
 
@@ -60,24 +59,73 @@ export const decryptToken = (ciphertext: string, secret: string = ENCRYPTION_KEY
   }
 }
 
-export const getStoredToken = (): string | null => {
-  if (inMemoryToken) return inMemoryToken
+export const isTokenExpired = (
+  expOrToken?: number | string,
+  timestamp?: number,
+  expiresInSeconds?: number,
+): boolean => {
+  const nowInSeconds = Math.floor(Date.now() / 1000)
 
-  // 1. Recuperar directamente de localStorage (descifrándolo si está encriptado)
-  try {
-    const directStorageToken =
-      window.localStorage.getItem(TOKEN_STORAGE_KEY) ||
-      window.localStorage.getItem('authToken')
-    if (directStorageToken) {
-      if (directStorageToken.startsWith('U2FsdGVkX1')) {
-        const decrypted = decryptToken(directStorageToken)
-        if (decrypted) {
-          inMemoryToken = decrypted
-          return decrypted
-        }
-      }
-      inMemoryToken = directStorageToken
+  // 1. Si se pasa el token JWT en string, decodificar el claim 'exp' directamente
+  if (typeof expOrToken === 'string' && expOrToken.trim()) {
+    const decoded = decodeJWT<{ exp?: number }>(expOrToken)
+    if (decoded && typeof decoded.exp === 'number') {
+      return decoded.exp <= nowInSeconds
+    }
+  }
+
+  // 2. Si se pasa directamente el timestamp numérico de expiración
+  if (typeof expOrToken === 'number') {
+    return expOrToken <= nowInSeconds
+  }
+
+  // 3. Fallback: validación basada en timestamp de login y duración en segundos
+  if (timestamp && expiresInSeconds) {
+    const sessionExpiresAt = Math.floor(timestamp / 1000) + expiresInSeconds
+    return sessionExpiresAt <= nowInSeconds
+  }
+
+  return false
+}
+
+export const getStoredToken = (): string | null => {
+  if (inMemoryToken) {
+    if (!isTokenExpired(inMemoryToken)) {
       return inMemoryToken
+    }
+    inMemoryToken = null
+  }
+
+  // 1. Recuperar desde Cookie (almacenado cifrado con AES)
+  try {
+    const cookieToken = Cookies.get(AUTH_COOKIE_NAME)
+    if (cookieToken) {
+      const decrypted = cookieToken.startsWith('U2FsdGVkX1')
+        ? decryptToken(cookieToken, ENCRYPTION_KEY)
+        : cookieToken
+      if (decrypted && !isTokenExpired(decrypted)) {
+        inMemoryToken = decrypted
+        return decrypted
+      }
+    }
+  } catch { }
+
+  // 2. Recuperar desde localStorage o sessionStorage (texto plano con soporte retrocompatible cifrado)
+  try {
+    const storageToken =
+      window.localStorage.getItem(TOKEN_STORAGE_KEY) ||
+      window.localStorage.getItem('authToken') ||
+      window.sessionStorage.getItem(TOKEN_STORAGE_KEY)
+
+    if (storageToken) {
+      const token = storageToken.startsWith('U2FsdGVkX1')
+        ? decryptToken(storageToken, ENCRYPTION_KEY)
+        : storageToken
+
+      if (token && !isTokenExpired(token)) {
+        inMemoryToken = token
+        return token
+      }
     }
   } catch { }
 
@@ -88,7 +136,9 @@ export const getStoredUser = (): UserData | null => {
   try {
     let savedUser: string | null = null
     try {
-      savedUser = window.localStorage.getItem(USER_STORAGE_KEY)
+      savedUser =
+        window.localStorage.getItem(USER_STORAGE_KEY) ||
+        window.sessionStorage.getItem(USER_STORAGE_KEY)
     } catch { }
 
     let parsed: any = null
@@ -160,31 +210,24 @@ export const getStoredUser = (): UserData | null => {
   return null
 }
 
-export const isTokenExpired = (
-  expOrToken?: number | string,
-  timestamp?: number,
-  expiresInSeconds?: number,
-): boolean => {
-  const nowInSeconds = Math.floor(Date.now() / 1000)
-
-  // Validación de expiración basada en timestamp de login y duración en segundos
-  if (timestamp && expiresInSeconds) {
-    const sessionExpiresAt = Math.floor(timestamp / 1000) + expiresInSeconds
-    return sessionExpiresAt <= nowInSeconds
-  }
-
-  if (typeof expOrToken === 'number') {
-    return expOrToken <= nowInSeconds
-  }
-
-  return false
-}
-
 export const isSessionValid = (user?: UserData | null): boolean => {
+  const token = getStoredToken()
+  if (!token) {
+    return false
+  }
+
+  // Comprobar expiración directa del JWT
+  if (isTokenExpired(token)) {
+    return false
+  }
+
   let targetUser: any = user
   if (!targetUser) {
     try {
-      const saved = window.localStorage.getItem(USER_STORAGE_KEY)
+      const saved =
+        window.localStorage.getItem(USER_STORAGE_KEY) ||
+        window.sessionStorage.getItem(USER_STORAGE_KEY)
+
       if (saved) {
         if (saved.startsWith('U2FsdGVkX1')) {
           const decrypted = decryptToken(saved, ENCRYPTION_KEY)
@@ -193,10 +236,7 @@ export const isSessionValid = (user?: UserData | null): boolean => {
           targetUser = JSON.parse(saved)
         }
       } else {
-        const token = getStoredToken()
-        if (token) {
-          targetUser = decodeJWT<any>(token)
-        }
+        targetUser = decodeJWT<any>(token)
       }
     } catch {
       return false
@@ -207,11 +247,7 @@ export const isSessionValid = (user?: UserData | null): boolean => {
     return false
   }
 
-  const token = getStoredToken()
-  if (!token) {
-    return false
-  }
-
+  // Fallback complementario por tiempo_expiracion si no hubo exp en el token
   const expSec = targetUser.tiempo_expiracion ?? targetUser.expires_in
   if (expSec && targetUser.timestamp) {
     const sec = expSec <= 120 ? expSec * 60 : expSec
@@ -226,7 +262,7 @@ export const isSessionValid = (user?: UserData | null): boolean => {
 export const setAuthSession = (
   user: UserData,
   rawToken?: string,
-  _rememberMe: boolean = false,
+  rememberMe?: boolean,
 ): void => {
   const existingToken = getStoredToken()
   const tokenToUse = rawToken || user.token || existingToken || encodeJWT(user, ENCRYPTION_KEY)
@@ -235,41 +271,75 @@ export const setAuthSession = (
     inMemoryToken = tokenToUse
   }
 
-  // 1. Guardar token encriptado en localStorage (AES-256)
+  const isRemember =
+    rememberMe !== undefined
+      ? rememberMe
+      : window.localStorage.getItem('rememberMe') === 'true'
+
+  // 1. Guardar token ENCRIPTADO en Cookie (AES-256)
   if (tokenToUse) {
-    const encrypted = encryptToken(tokenToUse, ENCRYPTION_KEY)
     try {
-      window.localStorage.setItem(TOKEN_STORAGE_KEY, encrypted)
+      const encryptedCookie = encryptToken(tokenToUse, ENCRYPTION_KEY)
+      const cookieOptions: Cookies.CookieAttributes = {
+        path: '/',
+        sameSite: 'lax',
+        secure: window.location.protocol === 'https:',
+      }
+
+      if (isRemember) {
+        cookieOptions.expires = 7 // 7 días persistente si recordó la sesión
+      } else {
+        const decoded = decodeJWT<{ exp?: number }>(tokenToUse)
+        if (decoded?.exp) {
+          const diffSec = decoded.exp - Math.floor(Date.now() / 1000)
+          if (diffSec > 0) {
+            cookieOptions.expires = diffSec / 86400
+          }
+        } else {
+          const expSec = user.tiempo_expiracion ?? user.expires_in ?? 3600
+          cookieOptions.expires = expSec / 86400
+        }
+      }
+
+      Cookies.set(AUTH_COOKIE_NAME, encryptedCookie, cookieOptions)
     } catch (e) {
-      console.error('Error guardando token en localStorage:', e)
+      console.error('Error guardando token en cookie:', e)
     }
   }
 
-  // 2. Eliminar cookie para no almacenar tokens largos en cookies
-  try {
-    Cookies.remove(AUTH_COOKIE_NAME)
-  } catch { }
+  // 2. Guardar token en TEXTO PLANO en localStorage / sessionStorage
+  if (tokenToUse) {
+    try {
+      window.localStorage.setItem(TOKEN_STORAGE_KEY, tokenToUse)
+      window.sessionStorage.setItem(TOKEN_STORAGE_KEY, tokenToUse)
+    } catch (e) {
+      console.error('Error guardando token en storage:', e)
+    }
+  }
 
-  // 3. Guardar datos de usuario encriptados en localStorage
+  // 3. Guardar datos de usuario en TEXTO PLANO en localStorage / sessionStorage
   try {
     window.localStorage.removeItem('authToken')
     if (user) {
-      const encryptedUser = encryptToken(JSON.stringify(user), ENCRYPTION_KEY)
-      window.localStorage.setItem(USER_STORAGE_KEY, encryptedUser)
+      const serializedUser = JSON.stringify(user)
+      window.localStorage.setItem(USER_STORAGE_KEY, serializedUser)
+      window.sessionStorage.setItem(USER_STORAGE_KEY, serializedUser)
+
+      if (isRemember) {
+        window.localStorage.setItem('rememberMe', 'true')
+      } else {
+        window.localStorage.removeItem('rememberMe')
+      }
     }
   } catch (e) {
-    console.error('Error guardando usuario en localStorage:', e)
+    console.error('Error guardando usuario en storage:', e)
   }
-
-  // 4. Eliminar cualquier residuo de sessionStorage
-  try {
-    window.sessionStorage.clear()
-  } catch { }
 }
 
 export const clearAuthSession = (): void => {
   inMemoryToken = null
   try {
+    Cookies.remove(AUTH_COOKIE_NAME, { path: '/' })
     Cookies.remove(AUTH_COOKIE_NAME)
   } catch { }
 
@@ -281,6 +351,7 @@ export const clearAuthSession = (): void => {
     window.localStorage.removeItem(TOKEN_STORAGE_KEY)
     window.localStorage.removeItem('authToken')
     window.localStorage.removeItem(USER_STORAGE_KEY)
+    window.localStorage.removeItem('rememberMe')
   } catch { }
 }
 
@@ -311,5 +382,3 @@ export const hasRequiredRole = (
     return aliases.includes(target)
   })
 }
-
-
