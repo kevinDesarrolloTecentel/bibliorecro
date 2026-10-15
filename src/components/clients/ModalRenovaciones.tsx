@@ -15,6 +15,7 @@ import {
 } from '@coreui/react-pro'
 import apiClient, { BACKEND_API_BASE } from '@/Service/apiClient'
 import Swal from 'sweetalert2'
+import { usePermissions } from '@/context/PermissionsContext'
 
 export interface ModalRenovaProps {
   item: any
@@ -22,6 +23,7 @@ export interface ModalRenovaProps {
 }
 
 const ModalRenova: React.FC<ModalRenovaProps> = ({ item, onRenovado }) => {
+  const { canDoAction } = usePermissions()
   const [visible, setVisible] = useState(false)
   const [detalle, setDetalle] = useState('')
   const [loading, setLoading] = useState(false)
@@ -31,7 +33,7 @@ const ModalRenova: React.FC<ModalRenovaProps> = ({ item, onRenovado }) => {
     String(item?.raw?.ESTADO_PERSONA) === '0' ||
     item?.estado === 'Inactivo'
 
-  if (!esInactivo) {
+  if (!esInactivo || !canDoAction('btn_renovar_usuario_gestion_usuario')) {
     return null
   }
 

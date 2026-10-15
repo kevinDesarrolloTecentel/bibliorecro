@@ -1,4 +1,4 @@
-import { STORAGE_BASE_URL } from "@/.env"
+import { STORAGE_BASE_URL } from "@/utils/imageUtils"
 import { librosBaja } from "@/Service/rco/libros"
 import { useCallback, useState } from "react"
 import Swal from "sweetalert2"

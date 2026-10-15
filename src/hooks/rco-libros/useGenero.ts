@@ -154,6 +154,30 @@ export const useGeneroL = ({
         }) 
     },[busquedaGenerol,  listaGenerol])
 
+    const [paginaActual, setPaginaActual] = useState(1)
+    const itemsPorPagina = 20
+
+    useEffect(()=>{ 
+        setPaginaActual(1)
+    }, [busquedaGenerol])
+
+    const totalPaginas = Math.max(1, Math.ceil(generolFiltrado.length / itemsPorPagina))
+
+    useEffect(()=>{
+        if (paginaActual > totalPaginas){
+            setPaginaActual(totalPaginas)
+        }
+    }, [totalPaginas, paginaActual])
+
+    const generoPaginados = useMemo(() =>{
+        const start = (paginaActual -1) * itemsPorPagina
+        return generolFiltrado.slice(start, start + itemsPorPagina)
+    }, [generolFiltrado, paginaActual, itemsPorPagina])
+
+    const handlePageChange = useCallback((page: number) =>{
+        setPaginaActual(page)
+    },[])
+
     const handleGuardarGenero = useCallback(
         async (e?: React.FormEvent)=>{
             if (e) e.preventDefault()
@@ -318,6 +342,12 @@ export const useGeneroL = ({
         handleEliminarGenero: handleEliminarGnerol,
         fetchGenerol,
         fetchGeneros: fetchGenerol,
+        generoPaginados,
+        paginaActual,
+        totalPaginas,
+        totalGeneros: listaGenerol?.length,
+        totalFiltrados:generolFiltrado.length,
+        handlePageChange,
     }
 }
 

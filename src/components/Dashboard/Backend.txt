@@ -153,6 +153,9 @@ Route::middleware(['auth:api', 'throttle:60,1'])
         Route::delete('/{id}', 'destroy');
     });
 
+
+
+    
 Route::middleware(['auth:api', 'throttle:60,1'])
     ->prefix('api/v1/libros')
     ->controller(RcoLibroController::class)
@@ -253,3 +256,7 @@ Route::middleware(['auth:api', 'throttle:60,1'])
         Route::put('/generoLi/{id}', 'update');
         Route::delete('/generoLi/{id}', 'destroy');
     });
+
+
+
+    

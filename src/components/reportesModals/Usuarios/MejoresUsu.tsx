@@ -42,6 +42,7 @@ const MejoresUModal: React.FC<UseMejoresProps> = ({ visible, setVisible }) => {
     usuarios,
     isLoading,
     excelLink,
+    haBuscado,
     handleGetMejores,
     handleDescargarExcel,
     handleReset,
@@ -50,6 +51,12 @@ const MejoresUModal: React.FC<UseMejoresProps> = ({ visible, setVisible }) => {
   const handleClose = () => {
     handleReset()
     setVisible(false)
+  }
+
+  const bloquearCaracteresNoNumericos=(e:React.KeyboardEvent<HTMLInputElement>) => {
+    if (['-', '+', 'e', 'E', '.', ','].includes(e.key)) {
+      e.preventDefault()
+    }
   }
 
   const columns = [
@@ -98,7 +105,8 @@ const MejoresUModal: React.FC<UseMejoresProps> = ({ visible, setVisible }) => {
                     type="number"
                     placeholder="Ej. 2024"
                     value={anoMejor}
-                    onChange={(e) => setAnoMejor(e.target.value)}
+                    onKeyDown={bloquearCaracteresNoNumericos}
+                    onChange={(e) => setAnoMejor(e.target.value.replace(/\D/g, '').slice(0, 4))}
                   />
                 </CInputGroup>
               </CCol>
@@ -155,7 +163,11 @@ const MejoresUModal: React.FC<UseMejoresProps> = ({ visible, setVisible }) => {
               items={usuarios}
               itemsPerPageSelect
               itemsPerPage={60}
-              noItemsLabel={'Seleccione un año para generar el reporte'}
+              noItemsLabel={
+              haBuscado
+              ? 'No se encontraron usuarios en el ranking para el año seleccionado'
+              : 'Seleccione un año para generar el reporte'
+            }
               scopedColumns={{
                 nombre: (item: PersonaReporteItem) => (
                   <td>

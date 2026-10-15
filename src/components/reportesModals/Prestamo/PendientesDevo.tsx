@@ -16,10 +16,8 @@ import {
   CCardBody,
   CCardHeader,
   CCol,
-  CFormInput,
+  CDatePicker,
   CFormLabel,
-  CInputGroup,
-  CInputGroupText,
   CModal,
   CModalBody,
   CModalFooter,
@@ -44,6 +42,7 @@ const PendientesModal: React.FC<LibPendientesProps> = ({ visible, setVisible }) 
     prestamos,
     isLoading,
     excelLink,
+    haBuscado,
     handleGetPendientes,
     handleDescargarExcel,
     handleReset,
@@ -52,6 +51,36 @@ const PendientesModal: React.FC<LibPendientesProps> = ({ visible, setVisible }) 
   const handleClose = () => {
     handleReset()
     setVisible(false)
+  }
+
+  const aFechaLocal = (str: string, finDelDia = false): Date | undefined => {
+    if (!str) return undefined
+    const [y, m, d] = str.split('-').map(Number)
+    if (!y || !m || !d) return undefined
+    return finDelDia ? new Date(y, m - 1, d, 23, 59, 59) : new Date(y, m - 1, d, 0, 0, 0)
+  }
+
+  const formatearFecha = (val: Date | string | null): string => {
+    if (!val) return ''
+    if (val instanceof Date) {
+      const y = val.getFullYear()
+      const m = String(val.getMonth() + 1).padStart(2, '0')
+      const d = String(val.getDate()).padStart(2, '0')
+      return `${y}-${m}-${d}`
+    }
+    if (typeof val === 'string') {
+      const match = val.match(/^(\d{4})-(\d{2})-(\d{2})/)
+      if (match) return match[0]
+      const ddmmyyyy = val.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})/)
+      if (ddmmyyyy) {
+        const d = ddmmyyyy[1].padStart(2, '0')
+        const m = ddmmyyyy[2].padStart(2, '0')
+        const y = ddmmyyyy[3]
+        return `${y}-${m}-${d}`
+      }
+      return val
+    }
+    return ''
   }
 
   const columns = [
@@ -119,26 +148,35 @@ const PendientesModal: React.FC<LibPendientesProps> = ({ visible, setVisible }) 
             <CRow className="g-3 align-items-end">
               <CCol xs={12} sm={6} md={4}>
                 <CFormLabel className="fw-semibold mb-1">Desde</CFormLabel>
-                <CInputGroup size="sm">
-                  <CInputGroupText>Desde</CInputGroupText>
-                  <CFormInput
-                    type="date"
-                    value={fechaDesde}
-                    onChange={(e) => setFechaDesde(e.target.value)}
-                  />
-                </CInputGroup>
+                <CDatePicker
+                  size="sm"
+                  locale="es-ES"
+                  placeholder="Seleccione fecha inicial"
+                  date={aFechaLocal(fechaDesde)}
+                  maxDate={aFechaLocal(fechaHasta, true)}
+                  onDateChange={(val) => {
+                    const str = formatearFecha(val)
+                    setFechaDesde(str)
+                    if (fechaHasta && str && str > fechaHasta) {
+                      setFechaHasta(str)
+                    }
+                  }}
+                />
               </CCol>
 
               <CCol xs={12} sm={6} md={4}>
                 <CFormLabel className="fw-semibold mb-1">Hasta</CFormLabel>
-                <CInputGroup size="sm">
-                  <CInputGroupText>Hasta</CInputGroupText>
-                  <CFormInput
-                    type="date"
-                    value={fechaHasta}
-                    onChange={(e) => setFechaHasta(e.target.value)}
-                  />
-                </CInputGroup>
+                <CDatePicker
+                  size="sm"
+                  locale="es-ES"
+                  placeholder="Seleccione fecha final"
+                  date={aFechaLocal(fechaHasta)}
+                  minDate={aFechaLocal(fechaDesde)}
+                  onDateChange={(val) => {
+                    const str = formatearFecha(val)
+                    setFechaHasta(str)
+                  }}
+                />
               </CCol>
 
               <CCol xs={12} sm={12} md={4} className="d-flex gap-2">
@@ -194,13 +232,9 @@ const PendientesModal: React.FC<LibPendientesProps> = ({ visible, setVisible }) 
               items={prestamos}
               itemsPerPage={60}
               noItemsLabel={
-                isLoading ? (
-                  'Cargando registros...'
-                ) : (
-                  <div className="d-flex justify-content-center">
-                    <CSpinner color="primary" size="sm" variant="grow" />
-                  </div>
-                )
+                haBuscado
+                  ? 'No se encontraron libros pendientes en el rango de fechas seleccionado'
+                  : 'Seleccione un rango de fechas para generar el reporte'
               }
               scopedColumns={{
                 titulo: (item: PrestamoReporteItem) => (

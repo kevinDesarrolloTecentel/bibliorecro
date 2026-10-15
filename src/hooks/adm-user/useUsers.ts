@@ -3,10 +3,11 @@ import Swal from 'sweetalert2'
 import { getStoredUser, setAuthSession } from '@/utils/auth'
 import { useDispatch } from 'react-redux'
 import { loginSuccess } from '@/authSlice'
-import { actualizar, crear, eliminar, listar, perfil, ver } from '@/Service/amd/AdminUser'
+import { actualizar, crear, eliminar, listar, perfil } from '@/Service/amd/AdminUser'
 import { listarRoles } from '@/Service/amd/rolService'
 import { UserData } from '@/models/auth'
 import useAuth from '@/hooks/useAuth'
+import { ordenarRoles } from '@/hooks/admin-roles/useRoles'
 
 const Toast = Swal.mixin({
   toast: true,
@@ -35,9 +36,20 @@ const formatApiError = (error: any, defaultMsg: string): string => {
   return defaultMsg
 }
 
-export const useUsers = () => {
+export const isBcryptHash = (str: unknown): boolean => {
+  if (typeof str !== 'string') return false
+  const s = str.trim()
+  return (
+    /^\$2[ayb]\$.{50,}/.test(s) ||
+    /^[A-Za-z0-9+/]{40,}={0,2}$/.test(s) ||
+    /^[a-f0-9]{32,64}$/i.test(s)
+  )
+}
+
+export const useUsers = (options: { fetchAll?: boolean } = { fetchAll: true }) => {
   const [usuarios, setUsuarios] = useState<any[]>([])
   const [rolesList, setRolesList] = useState<any[]>([])
+  const [loadingRoles, setLoadingRoles] = useState(false)
   const [loading, setLoading] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
@@ -92,13 +104,14 @@ export const useUsers = () => {
 
   const fetchRoles = useCallback(async () => {
     try {
+      setLoadingRoles(true)
       const datos = await listarRoles()
       const lista = Array.isArray(datos) ? datos : datos?.data || datos?.roles || []
-      if (lista.length > 0) {
-        setRolesList(lista)
-      }
+      setRolesList(ordenarRoles(lista))
     } catch (error) {
       console.error('Error al cargar roles:', error)
+    } finally {
+      setLoadingRoles(false)
     }
   }, [])
 
@@ -179,11 +192,17 @@ export const useUsers = () => {
         rol: rolNum,
         estado: estadoNum,
       }
-      if (editFormData.password && editFormData.password.trim() !== '') {
-        payload.PASSWORD_USUARIO = editFormData.password
-        payload.password = editFormData.password
+      if (
+        editFormData.password &&
+        editFormData.password.trim() !== '' &&
+        !isBcryptHash(editFormData.password) &&
+        editFormData.password !== '••••••••'
+      ) {
+        payload.PASSWORD_USUARIO = editFormData.password.trim()
+        payload.password = editFormData.password.trim()
       }
 
+      console.log('[handleActualizarUsuario] Payload a enviar al backend:', payload)
       await actualizar(id, payload)
       Toast.fire({
         icon: 'success',
@@ -276,26 +295,32 @@ export const useUsers = () => {
     }
   }
 
-  const getRolNombre = (rolVal: string | number) => {
-    if (!rolVal) return 'Sin Rol'
-    const target = String(rolVal).toLowerCase()
+  const getRolNombre = (rolVal: string | number, userRaw?: any) => {
+    if (!rolVal && rolVal !== 0) return 'Sin Rol'
+    if (userRaw) {
+      const directNom = userRaw.NOMBRE_ROL || userRaw.nombre_rol || userRaw.Nombre_Rol || userRaw.ROL_NOMBRE
+      if (directNom && typeof directNom === 'string' && isNaN(Number(directNom))) {
+        return directNom
+      }
+    }
+    const target = String(rolVal).toLowerCase().trim()
     const found = rolesList.find((r: any) => {
-      const id = String(r.ID_ROL ?? r.id ?? '').toLowerCase()
-      const nom = String(r.NOMBRE_ROL ?? r.nombre ?? r.name ?? '').toLowerCase()
+      const id = String(r.ID_ROL ?? r.id ?? '').toLowerCase().trim()
+      const nom = String(r.NOMBRE_ROL ?? r.nombre ?? r.name ?? '').toLowerCase().trim()
       return id === target || nom === target
     })
     if (found) {
       return found.NOMBRE_ROL || found.nombre || found.name || 'Sin Rol'
     }
-    if (target === '1' || target === 'admin' || target === 'administrador') return 'Administrador'
-    if (target === '2' || target === 'bibliotecario') return 'Bibliotecario'
     return String(rolVal)
   }
 
   useEffect(() => {
-    fetchUsuarios()
-    fetchRoles()
-  }, [fetchUsuarios, fetchRoles])
+    if (options?.fetchAll !== false) {
+      fetchUsuarios()
+      fetchRoles()
+    }
+  }, [fetchUsuarios, fetchRoles, options?.fetchAll])
 
   const handleGuardarUsuario = async () => {
     const ok = await handleCrearUsuario(formData)
@@ -333,63 +358,23 @@ export const useUsers = () => {
 
     const found = rolesList.find((r: any) => {
       const rId = String(r.ID_ROL ?? r.id ?? '')
-      const nom = String(r.NOMBRE_ROL ?? r.nombre ?? r.name ?? '').toLowerCase()
-      return rId === rolVal || nom === rolVal.toLowerCase()
+      const nom = String(r.NOMBRE_ROL ?? r.nombre ?? r.name ?? '').toLowerCase().trim()
+      return rId === rolVal || nom === rolVal.toLowerCase().trim()
     })
     if (found) {
       rolVal = String(found.ID_ROL ?? found.id)
-    } else {
-      const r = rolVal.toLowerCase()
-      if (r === 'admin' || r === 'administrador') rolVal = '1'
-      else if (r === 'bibliotecario') rolVal = '2'
-    }
-
-    let existingPassword =
-      u.PASSWORD_USUARIO ||
-      u.password ||
-      u.contrasena ||
-      u.clave ||
-      (item.Contraseña && item.Contraseña !== '••••••••' ? item.Contraseña : '') ||
-      ''
-
-    if (!existingPassword) {
-      const current = activeUser || getStoredUser()
-      if (
-        current &&
-        (String(current.ID_USUARIO) === id ||
-          String(current.id) === id ||
-          (current.NICK_USUARIO && current.NICK_USUARIO === (item.Usuario || u.NICK_USUARIO)))
-      ) {
-        existingPassword = current.PASSWORD_USUARIO || current.password || ''
-      }
     }
 
     setEditFormData({
       id,
       usuario: item.Usuario || u.NICK_USUARIO || '',
-      password: existingPassword,
+      password: '',
       nombres: item.Nombres || u.NOMBRES_USUARIO || '',
       rol: rolVal,
       estado: item.Estado || u.ESTADO_USUARIO || 'Activo',
     })
     setShowPassword(false)
     setModalEdit(true)
-
-    if (!existingPassword && id) {
-      try {
-        const res = await ver(id)
-        const detalle = res?.data || res?.usuario || res?.user || res
-        const foundPass = detalle?.PASSWORD_USUARIO || detalle?.password || detalle?.contrasena || detalle?.clave
-        if (foundPass) {
-          setEditFormData((prev) => ({
-            ...prev,
-            password: foundPass,
-          }))
-        }
-      } catch (err) {
-        console.error('Error al obtener detalle del usuario:', err)
-      }
-    }
   }
 
   const handleOpenEditModal = () => {
@@ -400,11 +385,17 @@ export const useUsers = () => {
       rol: String(current?.ID_ROL || current?.rol || prev.rol || ''),
       estado: current?.ESTADO_USUARIO || current?.Estado || prev.estado,
       nombres: current?.NOMBRES_USUARIO || current?.NOMBRE_USUARIO || current?.Nombres || current?.nombres || '',
-      password: current?.PASSWORD_USUARIO || current?.password || '',
+      password: '',
     }))
     setShowPassword(false)
     setModalVisible(true)
   }
+
+  const rawEstado = activeUser?.ESTADO_USUARIO ?? activeUser?.estado ?? activeUser?.NOMBRE_ESTADO ?? activeUser?.Estado
+  const estadoNormalizado =
+    String(rawEstado).toLowerCase() === '1' || String(rawEstado).toLowerCase() === 'activo'
+      ? 'Activo'
+      : 'Inactivo'
 
   const items = activeUser
     ? [
@@ -414,7 +405,7 @@ export const useUsers = () => {
         Contraseña: activeUser.PASSWORD_USUARIO || activeUser.password || '••••••••',
         Nombres: activeUser.NOMBRES_USUARIO || activeUser.NOMBRE_USUARIO || 'No disponible',
         fecha_registro: activeUser.FECHA_REGISTRO || activeUser.fecha_registro || '',
-        Estado: activeUser.ESTADO_USUARIO || activeUser.NOMBRE_ESTADO || 'Activo',
+        Estado: estadoNormalizado,
       },
     ]
     : []
@@ -433,12 +424,23 @@ export const useUsers = () => {
 
     setLoading(true)
     try {
-      const passToSave = formData.password || current?.PASSWORD_USUARIO || current?.password
-      const payload = {
+      const payload: any = {
         ...current,
         NOMBRES_USUARIO: formData.nombres,
-        PASSWORD_USUARIO: passToSave,
-        password: passToSave,
+      }
+      delete payload.PASSWORD_USUARIO
+      delete payload.password
+
+      let passToSave = current?.PASSWORD_USUARIO || current?.password
+      if (
+        formData.password &&
+        formData.password.trim() !== '' &&
+        !isBcryptHash(formData.password) &&
+        formData.password !== '••••••••'
+      ) {
+        payload.PASSWORD_USUARIO = formData.password.trim()
+        payload.password = formData.password.trim()
+        passToSave = formData.password.trim()
       }
 
       await actualizar(userId, payload)
@@ -513,6 +515,7 @@ export const useUsers = () => {
   return {
     usuarios,
     rolesList,
+    loadingRoles,
     loading,
     guardando,
     errorMsg,

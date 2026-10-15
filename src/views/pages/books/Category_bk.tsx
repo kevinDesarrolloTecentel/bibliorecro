@@ -9,6 +9,7 @@ import {
   CInputGroup,
   CInputGroupText,
   CRow,
+  CSmartPagination,
   CSpinner,
 } from '@coreui/react-pro'
 import CIcon from '@coreui/icons-react'
@@ -24,20 +25,27 @@ import {
 } from '@coreui/icons'
 import ModalCate from '@/components/details_bk/category'
 import useCategoria from '@/hooks/rco-libros/useCategoria'
+import { usePermissions } from '@/context/PermissionsContext'
 
 const Category = () => {
+  const { canDoAction } = usePermissions()
   const categoriaHook = useCategoria()
 
   const {
     handleOpen,
-    listaCategorias,
     categoriasFiltradas,
+    categoriasPaginadas,
     loadingCategorias,
     busquedaCategoria,
     setBusquedaCategoria,
     categoriaSeleccionada,
     setCategoriaSeleccionada,
     handleEliminarCategoria,
+    paginaActual,
+    totalPaginas,
+    totalCategorias,
+    totalFiltradas,
+    handlePageChange,
   } = categoriaHook
 
   const handleToggleSelect = (cat: any) => {
@@ -64,6 +72,7 @@ const Category = () => {
           </p>
         </div>
         <div className="d-flex gap-2">
+          {canDoAction('btn_crear_categoria') && (
           <CButton
             color="success"
             variant='outline'
@@ -73,6 +82,7 @@ const Category = () => {
             <CIcon icon={cilPlus} />
             <span>Nueva Categoría</span>
           </CButton>
+          )}
         </div>
       </div>
 
@@ -84,9 +94,16 @@ const Category = () => {
                 <CIcon icon={cilBookmark} size="lg" style={{ color: '#D97706' }} />
                 <span>Catálogo de Categorías</span>
               </div>
-              <CBadge color="primary" shape="rounded-pill">
-                {listaCategorias.length} Registradas
-              </CBadge>
+              <div className="d-flex align-items-center gap-2">
+                {busquedaCategoria && (
+                  <CBadge color="info" shape="rounded-pill">
+                    {totalFiltradas} encontradas
+                  </CBadge>
+                )}
+                <CBadge color="primary" shape="rounded-pill">
+                  {totalCategorias} Registradas
+                </CBadge>
+              </div>
             </CCardHeader>
 
             <CCardBody className="p-3">
@@ -130,7 +147,7 @@ const Category = () => {
                   </div>
                 ) : (
                   <div className="d-flex flex-column gap-2">
-                    {categoriasFiltradas.map((cat) => {
+                    {categoriasPaginadas.map((cat) => {
                       const id = cat.ID_CATEGORIA || cat.id
                       const isSelected =
                         String(categoriaSeleccionada?.ID_CATEGORIA || categoriaSeleccionada?.id) ===
@@ -171,52 +188,34 @@ const Category = () => {
                               <h6 className="font-monospace small fw-bold text-body">{cat.NOMBRE_CATEGORIA}</h6>
                               <div className="d-flex align-items-center gap-2 mt-1">
                                 <span className="badge bg-body text-body border font-monospace">
-                                  {cat.CODIGO_CATEGORIA}
-                                </span>
-                                <span className="text-muted small font-monospace">
-                                  ID: #{id}
+                                   {cat.CODIGO_CATEGORIA}
                                 </span>
                               </div>
                             </div>
                           </div>
 
-                          <div className="d-flex align-items-center">
-                            {isSelected ? (
-                              <CButton
-                                color="primary"
-                                size="sm"
-                                variant="ghost"
-                                className="d-flex align-items-center gap-1 p-0 text-decoration-none"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setCategoriaSeleccionada(null)
-                                }}
-                                title="Clic para deseleccionar"
-                              >
-                                <CBadge color="primary" shape="rounded-pill" className="px-2 py-1">
-                                  Seleccionado ✕
-                                </CBadge>
-                              </CButton>
-                            ) : (
-                              <CButton
-                                color="primary"
-                                size="sm"
-                                variant="outline"
-                                className="px-2 py-1"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setCategoriaSeleccionada(cat)
-                                }}
-                              >
-                                Seleccionar
-                              </CButton>
-                            )}
-                          </div>
+                          {isSelected && (
+                            <CBadge color="primary" shape="rounded-pill" className="px-3 py-2 shadow-sm text-white">
+                              Seleccionado ✕
+                            </CBadge>
+                          )}
                         </div>
                       )
                     })}
                   </div>
                 )}
+              </div>
+
+              <div className="d-flex flex-wrap justify-content-between align-items-center pt-3 mt-2 border-top bg-body">
+                <span className="text-muted small">
+                  Página <strong>{paginaActual}</strong> de <strong>{totalPaginas}</strong> ({totalFiltradas} categorías)
+                </span>
+                <CSmartPagination
+                  size="sm"
+                  activePage={paginaActual}
+                  pages={totalPaginas}
+                  onActivePageChange={handlePageChange}
+                />
               </div>
             </CCardBody>
           </CCard>
@@ -270,28 +269,23 @@ const Category = () => {
                     </div>
 
                     <div className="d-flex flex-column gap-2 pt-2 border-top">
-                      <div className="d-flex justify-content-between py-1 border-bottom">
-                        <span className="text-muted small badge bg-body rounded-pill border">Código:</span>
+                      <div className="d-flex justify-content-between align-items-center py-1 border-bottom">
+                        <span className="text-muted small badge bg-body rounded-pill border d-inline-flex align-items-center justify-content-center">Código:</span>
                         <span className="font-monospace fw-semibold small text-body">
                           {categoriaSeleccionada.CODIGO_CATEGORIA}
                         </span>
                       </div>
-                      <div className="d-flex justify-content-between py-1 border-bottom">
-                        <span className="text-muted small badge bg-body rounded-pill border">Nombre:</span>
-                        <span className="fw-semibold small text-body">
+                      <div className="d-flex justify-content-between align-items-center py-1">
+                        <span className="text-muted small badge bg-body rounded-pill border d-inline-flex align-items-center justify-content-center">Nombre:</span>
+                        <span className="fw-semibold small text-body text-end ms-2">
                           {categoriaSeleccionada.NOMBRE_CATEGORIA}
-                        </span>
-                      </div>
-                      <div className="d-flex justify-content-between py-1 border-bottom">
-                        <span className="text-muted small badge bg-body rounded-pill border">Identificador del Sistema:</span>
-                        <span className="font-monospace fw-semibold small text-white bagde bg-primary rounded-pill px-2 py-1">
-                          #{categoriaSeleccionada.ID_CATEGORIA || categoriaSeleccionada.id}
                         </span>
                       </div>
                     </div>
                   </div>
 
                   <div className="d-flex gap-2 justify-content-end">
+                    {canDoAction ('btn_eliminar_categoria') && ( 
                     <CButton
                       color="danger"
                       variant="outline"
@@ -301,6 +295,9 @@ const Category = () => {
                       <CIcon icon={cilTrash} />
                       <span>Eliminar</span>
                     </CButton>
+                     )}
+
+                    {canDoAction('btn_editar_categoria') && (
                     <CButton
                       color="success"
                       variant='outline'
@@ -310,6 +307,7 @@ const Category = () => {
                       <CIcon icon={cilPencil} />
                       <span>Editar Categoría</span>
                     </CButton>
+                    )}
                   </div>
                 </div>
               ) : (

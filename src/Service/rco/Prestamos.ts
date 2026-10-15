@@ -14,6 +14,15 @@ export const buscar = async (params?: any) => {
     return data;
 };
 
+export const buscarPrestamos = async (busqueda: string = '', page: number = 1) => {
+    const params: any = { page };
+    if (busqueda && busqueda.trim()) {
+        params.busqueda = busqueda.trim();
+    }
+    const { data } = await apiClient.get(`${API_BASE_URL_PRESTAMOS}/buscar`, { params });
+    return data;
+};
+
 export const DashTotalPres = async (params?: any) => {
     const { data } = await apiClient.get(`${API_BASE_URL_PRESTAMOS}/dashboard/totales`, { params });
     return data;
@@ -25,8 +34,8 @@ export const listarPrestamos = async (params?: any) => {
 };
 
 export const listarPrestamosCedula = async (params?: any) => {
-    const { data } = await apiClient.get(`${API_BASE_URL_PRESTAMOS}/reportes-por-cedula`, { params });
-    return data;
+        const { data } = await apiClient.get(`${API_BASE_URL_PRESTAMOS}/reporte-por-cedula`, { params });
+        return data;
 };
 
 export const Pendientes = async (params?: any) => {
@@ -43,19 +52,16 @@ export const Hoy = async (params?: any) => {
     const { data } = await apiClient.get(`${API_BASE_URL_PRESTAMOS}/hoy`, { params });
     return data;
 };
-export const prestamosHoyReport = Hoy;
 
 export const Mes = async (params?: any) => {
     const { data } = await apiClient.get(`${API_BASE_URL_PRESTAMOS}/mes`, { params });
     return data;
 };
-export const prestamosMesReport = Mes;
 
 export const Anio = async (params?: any) => {
     const { data } = await apiClient.get(`${API_BASE_URL_PRESTAMOS}/anio`, { params });
     return data;
 };
-export const prestamosAnioReport = Anio;
 
 export const verPrestamo = async (id: any) => {
     const { data } = await apiClient.get(`${API_BASE_URL_PRESTAMOS}/${id}`);

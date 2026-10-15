@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import Swal from 'sweetalert2'
-import { PersonasRenovacionesReport, PersonaNueva } from '@/Service/tab/Persona'
-import { STORAGE_BASE_URL } from '@/.env'
+import { PersonasRenovacionesReport } from '@/Service/tab/Persona'
+import { STORAGE_BASE_URL } from '@/utils/imageUtils'
 
 export { STORAGE_BASE_URL }
 
@@ -11,14 +11,68 @@ export interface PersonaReporteItem {
   NOMBRE_PERSONA?: string
   APELLIDO_PERSONA?: string
   FECHA_PERSONA?: string
-  EDAD_PERSONA?: number
+  EDAD_PERSONA?: number | string
   CORREO_PERSONA?: string
   ESTADOINSCRIPCION_PERSONA?: number
   TELEFONO_PERSONA?: string
+  CELULAR_PERSONA?: string
   TIPO_PERSONA?: string
   ESTADO_RENOVACIONES?: number
   cantidad_prestamos?: number
+  PERSONA?: any
+  RENOVACIONES?: any[]
+  cedula?: string
+  nombre?: string
+  apellido?: string
+  correo?: string
+  fechaNacimiento?: string
   [key: string]: any
+}
+
+export const normalizarRenovacion = (item: any): PersonaReporteItem => {
+  if (!item) return {}
+  const persona = item.PERSONA || item.persona || {}
+  const renovaciones = Array.isArray(item.RENOVACIONES)
+    ? item.RENOVACIONES
+    : Array.isArray(item.renovaciones)
+    ? item.renovaciones
+    : []
+  const primeraRenovacion = renovaciones[0] || {}
+
+  const identificacion = persona.IDENTIFICACION_PERSONA || item.IDENTIFICACION_PERSONA || ''
+  const nombre = persona.NOMBRE_PERSONA || item.NOMBRE_PERSONA || ''
+  const apellido = persona.APELLIDO_PERSONA || item.APELLIDO_PERSONA || ''
+  const correo = persona.CORREO_PERSONA || item.CORREO_PERSONA || ''
+  const fecha = persona.FECHA_PERSONA || item.FECHA_PERSONA || ''
+  const telefono = persona.TELEFONO_PERSONA || item.TELEFONO_PERSONA || ''
+  const celular = persona.CELULAR_PERSONA || item.CELULAR_PERSONA || ''
+  const edad = item.EDAD_PERSONA ?? persona.EDAD_PERSONA
+
+  return {
+    ...persona,
+    ...item,
+    ID_PERSONA: item.ID_PERSONA ?? persona.ID_PERSONA,
+    IDENTIFICACION_PERSONA: identificacion,
+    NOMBRE_PERSONA: nombre,
+    APELLIDO_PERSONA: apellido,
+    CORREO_PERSONA: correo,
+    FECHA_PERSONA: fecha,
+    TELEFONO_PERSONA: telefono,
+    CELULAR_PERSONA: celular,
+    EDAD_PERSONA: edad,
+    // Alias directos para las columnas y el ordenamiento de CSmartTable
+    cedula: identificacion,
+    nombre: nombre,
+    apellido: apellido,
+    correo: correo,
+    fechaNacimiento: fecha,
+    RENOVACIONES: renovaciones,
+    PERSONA: persona,
+    FECHAINICIO_RENOVACIONES: primeraRenovacion.FECHAINICIO_RENOVACIONES ?? item.FECHAINICIO_RENOVACIONES,
+    FECHAFIN_RENOVACIONES: primeraRenovacion.FECHAFIN_RENOVACIONES ?? item.FECHAFIN_RENOVACIONES,
+    COSTO_RENOVACIONES: primeraRenovacion.COSTO_RENOVACIONES ?? item.COSTO_RENOVACIONES,
+    ESTADO_RENOVACIONES: primeraRenovacion.ESTADO_RENOVACIONES ?? item.ESTADO_RENOVACIONES,
+  }
 }
 
 export const useReporteRenovaciones = () => {
@@ -28,6 +82,7 @@ export const useReporteRenovaciones = () => {
   const [usuarios, setUsuarios] = useState<PersonaReporteItem[]>([])
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [excelLink, setExcelLink] = useState<string | null>(null)
+  const [haBuscado, setHaBuscado] = useState<boolean>(false)
 
   const handleGetRenovaciones = useCallback(async () => {
     if (!mesRegistro || !anoRegistro) {
@@ -38,13 +93,17 @@ export const useReporteRenovaciones = () => {
         timerProgressBar: false,
         showConfirmButton: false,
       }).fire({
-        icon: 'error',
-        title: 'Por favor, ingrese el día, mes y año.',
+        icon: 'warning',
+        title: 'Por favor, ingrese el mes y año.',
       })
       return
     }
 
     setIsLoading(true)
+    setHaBuscado(true)
+    setUsuarios([])
+    setExcelLink(null)
+
     try {
       const params: Record<string, any> = {
         mesRegistro,
@@ -59,47 +118,54 @@ export const useReporteRenovaciones = () => {
 
       const data = await PersonasRenovacionesReport(params)
       const rawList = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
-      const personasFiltradas = rawList
-        .filter((item: PersonaReporteItem) => item.ESTADO_RENOVACIONES === 1)
-        .sort((a: PersonaReporteItem, b: PersonaReporteItem) => (a.EDAD_PERSONA || 0) - (b.EDAD_PERSONA || 0))
+      const personasNormalizadas = rawList.map(normalizarRenovacion)
+      const personasFiltradas = personasNormalizadas
+        .filter((item: PersonaReporteItem) => item.ESTADO_RENOVACIONES === undefined || item.ESTADO_RENOVACIONES === 1 || item.tipo_usuario === 'Renovacion')
+        .sort((a: PersonaReporteItem, b: PersonaReporteItem) => (Number(a.EDAD_PERSONA) || 0) - (Number(b.EDAD_PERSONA) || 0))
 
       setUsuarios(personasFiltradas)
       setExcelLink(data?.excel_path || null)
-    } catch (error) {
-      console.warn('Endpoint PersonasRenovacionesReport falló, intentando fallback con PersonaNueva...', error)
-      try {
-        const data = await PersonaNueva({
-          anio: anoRegistro,
-          mes: Number(mesRegistro),
-          tipo: 'detalle',
+
+      if (personasFiltradas.length === 0) {
+        Swal.fire({
+          icon: 'info',
+          title: 'Sin renovaciones',
+          text: 'No se encontraron renovaciones registradas en la fecha seleccionada.',
+          confirmButtonColor: '#0d6efd',
         })
+      }
+    } catch (error: any) {
+      console.error('Error al obtener renovaciones', error)
+      const respData = error?.response?.data
+      const errStr = typeof respData === 'string' ? respData : JSON.stringify(respData || '')
 
-        const renovaciones = data?.detalle?.usuarios_renovaciones || []
-        const parsedList: PersonaReporteItem[] = renovaciones
-          .filter((item: any) => {
-            if (!diaRegistro) return true
-            if (!item.fecha) return false
-            const soloFecha = String(item.fecha).split(' ')[0]
-            const partes = soloFecha.split('-')
-            const diaItem = partes.length === 3 ? parseInt(partes[2], 10) : null
-            return diaItem === parseInt(diaRegistro, 10)
-          })
-          .map((item: any) => ({
-            ...item,
-            IDENTIFICACION_PERSONA: item.cedula || item.IDENTIFICACION_PERSONA,
-            NOMBRE_PERSONA: item.nombre || item.NOMBRE_PERSONA,
-            APELLIDO_PERSONA: item.apellido || item.APELLIDO_PERSONA,
-            FECHA_PERSONA: item.fecha_nacimiento || item.FECHA_PERSONA,
-            CORREO_PERSONA: item.correo || item.CORREO_PERSONA,
-            EDAD_PERSONA: item.edad ?? null,
-            ESTADO_RENOVACIONES: 1,
-          }))
-          .sort((a: PersonaReporteItem, b: PersonaReporteItem) => (Number(a.EDAD_PERSONA) || 0) - (Number(b.EDAD_PERSONA) || 0))
+      const isZeroResultsError =
+        error?.response?.status === 500 &&
+        (errStr.includes('PersonasExport') || errStr.includes('toArray() on null'))
 
-        setUsuarios(parsedList)
-        setExcelLink(parsedList.length > 0 ? 'local_csv' : null)
-      } catch (fallbackError) {
-        console.error('Error al obtener renovaciones (fallback)', fallbackError)
+      const isBackendSchemaError =
+        error?.response?.status === 500 &&
+        (errStr.includes('ID_RENOVACION') || errStr.includes('Column not found'))
+
+      if (isZeroResultsError) {
+        setUsuarios([])
+        setExcelLink(null)
+        Swal.fire({
+          icon: 'info',
+          title: 'Sin renovaciones',
+          text: 'No se encontraron renovaciones registradas en la fecha seleccionada.',
+          confirmButtonColor: '#0d6efd',
+        })
+      } else if (isBackendSchemaError) {
+        setUsuarios([])
+        setExcelLink(null)
+        Swal.fire({
+          icon: 'warning',
+          title: 'Servicio en revisión',
+          text: 'El reporte de renovaciones está en mantenimiento en el servidor. Por favor, comuníquese con el administrador.',
+          confirmButtonColor: '#0d6efd',
+        })
+      } else {
         Swal.mixin({
           toast: true,
           position: 'top-end',
@@ -108,7 +174,8 @@ export const useReporteRenovaciones = () => {
           showConfirmButton: false,
         }).fire({
           icon: 'warning',
-          title: 'Hubo un problema al obtener las renovaciones.',
+          title: 'Error!',
+          text: 'Hubo un problema al obtener las renovaciones.',
         })
       }
     } finally {
@@ -123,13 +190,22 @@ export const useReporteRenovaciones = () => {
     }
     if (!usuarios.length) return
     const headers = ['Cédula', 'Nombre', 'Apellido', 'Fecha Nacimiento', 'Correo']
-    const rows = usuarios.map((u) => [
-      `"${u.IDENTIFICACION_PERSONA || ''}"`,
-      `"${u.NOMBRE_PERSONA || ''}"`,
-      `"${u.APELLIDO_PERSONA || ''}"`,
-      `"${u.FECHA_PERSONA ? new Date(u.FECHA_PERSONA).toLocaleDateString() : '-'}"`,
-      `"${u.CORREO_PERSONA || ''}"`,
-    ])
+    const rows = usuarios.map((u) => {
+      let fechaStr = '-'
+      if (u.FECHA_PERSONA) {
+        const d = new Date(u.FECHA_PERSONA)
+        if (!isNaN(d.getTime()) && d.getFullYear() > 1900 && d.getFullYear() < 2100) {
+          fechaStr = d.toLocaleDateString()
+        }
+      }
+      return [
+        `"${u.IDENTIFICACION_PERSONA || ''}"`,
+        `"${u.NOMBRE_PERSONA || ''}"`,
+        `"${u.APELLIDO_PERSONA || ''}"`,
+        `"${fechaStr}"`,
+        `"${u.CORREO_PERSONA || ''}"`,
+      ]
+    })
     const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n')
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
@@ -146,6 +222,7 @@ export const useReporteRenovaciones = () => {
     setAnoRegistro('')
     setUsuarios([])
     setExcelLink(null)
+    setHaBuscado(false)
   }, [])
 
   return {
@@ -158,6 +235,7 @@ export const useReporteRenovaciones = () => {
     usuarios,
     isLoading,
     excelLink,
+    haBuscado,
     handleGetRenovaciones,
     handleDescargarExcel,
     handleReset,

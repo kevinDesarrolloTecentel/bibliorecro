@@ -71,6 +71,27 @@ body {
   visibility: visible !important;
 }
 
+// Animación fluida para acordeón de detalles de usuario
+.user-details-collapse {
+  transition: height 0.32s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.user-details-content {
+  cursor: default;
+  animation: userDetailsSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes userDetailsSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 // Estilos del Asidebar (BiblioRecreo)
 .sidebar {
   --cui-sidebar-bg: #044c8c;
@@ -145,3 +166,87 @@ body {
     background-color: rgba(255, 255, 255, 0.25);
   }
 }
+
+// ==========================================================================
+// Barra de desplazamiento personalizada (Scrollbar)
+// ==========================================================================
+
+html {
+  overflow-y: scroll;
+}
+
+/* Solo para Firefox (no muestra flechas) */
+@supports (-moz-appearance: none) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #044c8c transparent;
+  }
+}
+
+/* Chrome, Edge, Safari, Opera (elimina completamente las flechas) */
+::-webkit-scrollbar {
+  width:12px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-button {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #044c8c;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  border-radius: 10px;
+
+  &:hover {
+    background-color: #033663;
+  }
+
+  &:active {
+    background-color: #022544;
+  }
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+@include color-mode(dark) {
+  @supports (-moz-appearance: none) {
+    * {
+      scrollbar-color: #3b82f6 transparent;
+    }
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: #3b82f6;
+
+    &:hover {
+      background-color: #2563eb;
+    }
+  }
+}
+
+// Asegurar que el menú del DatePicker se muestre siempre al frente de los modales (z-index modal: 1055)
+.date-picker-dropdown,
+.time-picker-dropdown {
+  z-index: 2000 !important;
+}
+
+// Ocultar botón nativo de ver/limpiar contraseña de Microsoft Edge / Internet Explorer
+// para evitar que se duplique con el botón personalizado de la aplicación
+input::-ms-reveal,
+input::-ms-clear {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+

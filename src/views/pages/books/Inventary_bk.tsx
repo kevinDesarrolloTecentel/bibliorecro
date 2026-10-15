@@ -1,11 +1,40 @@
 import React from 'react'
-import { cilBan, cilBarcode, cilBook, cilCalendar, cilClipboard, cilColorBorder, cilCommentSquare, cilDescription, cilEducation, cilGlobeAlt, cilLibraryBuilding, cilTag, cilTrash, cilTruck, cilUser, cilWallet, } from '@coreui/icons'
+import {
+  cilBan,
+  cilBarcode,
+  cilBook,
+  cilCalendar,
+  cilClipboard,
+  cilColorBorder,
+  cilCommentSquare,
+  cilDescription,
+  cilEducation,
+  cilGlobeAlt,
+  cilLibraryBuilding,
+  cilReload,
+  cilTag,
+  cilTrash,
+  cilTruck,
+  cilUser,
+  cilWallet,
+} from '@coreui/icons'
 import CIcon from '@coreui/icons-react'
-import { CBadge, CButton, CCard, CCardBody, CCardHeader, CCol, CCollapse, CContainer, CRow, CSmartPagination, CSmartTable } from '@coreui/react-pro'
+import {
+  CBadge,
+  CButton,
+  CCard,
+  CCardBody,
+  CCol,
+  CCollapse,
+  CRow,
+  CSmartPagination,
+  CSmartTable,
+  CSpinner,
+} from '@coreui/react-pro'
 import useLibro from '@/hooks/rco-libros/useLibros'
-import HeaderLibros from '@/components/details_bk/HeaderLibros'
 import Registro_bk from '@/components/details_bk/Register_bk'
 import Modal_Edit_bk from '@/components/details_bk/Modal_Edit_bk'
+import { usePermissions } from '@/context/PermissionsContext'
 
 const getBadgeEstado = (status: any) => {
   const s = String(status || '').toLowerCase().trim()
@@ -22,6 +51,7 @@ const getBadgeDisponibilidad = (status: any) => {
 }
 
 const Inventary: React.FC = () => {
+  const { canDoAction, recargarPermisos } = usePermissions()
   const libroState = useLibro()
   const {
     libros,
@@ -44,16 +74,51 @@ const Inventary: React.FC = () => {
   } = libroState
 
   const columns = [
-    { key: 'ISBN_LIBROS', label: 'ISBN', _style: { width: '10%' } },
-    { key: 'TITULO_LIBROS', label: 'Título', _style: { width: '18%' } },
-    { key: 'NOMBRE_AUTOR', label: 'Autor', _style: { width: '12%' } },
-    { key: 'NOMBRE_CATEGORIA', label: 'Categoría', _style: { width: '12%' } },
-    { key: 'show_details', label: '', _style: { width: '1%' }, filter: false, sorter: false },
+    { key: 'ISBN_LIBROS', label: 'ISBN', _style: { width: '15%' } },
+    { key: 'TITULO_LIBROS', label: 'Título', _style: { width: '35%' } },
+    { key: 'NOMBRE_AUTOR', label: 'Autor', _style: { width: '25%' } },
+    { key: 'NOMBRE_CATEGORIA', label: 'Categoría', _style: { width: '25%' } },
   ]
 
   return (
-    <CContainer fluid className="mb-4">
-      <HeaderLibros libroState={libroState} />
+    <>
+      <div className="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <div>
+          <h4 className="fw-bold mb-1 text-body d-flex align-items-center gap-2">
+            <span>Inventario de Libros</span>
+          </h4>
+          <p className="text-muted small mb-0">
+            Administra y consulta el catálogo de libros, autores y categorías de la biblioteca.
+          </p>
+        </div>
+        <div className="d-flex align-items-center gap-2">
+          <CButton
+            color="secondary"
+            variant="outline"
+            disabled={loading}
+            className="hover:text-white d-flex align-items-center gap-1 shadow-sm"
+            onClick={() => {
+              libroState.handleRecargar()
+              recargarPermisos(true)
+            }}
+            title="Recargar"
+          >
+            <CIcon icon={cilReload} className={`me-1 ${loading ? 'rotate-animation' : ''}`} />
+            <span>{loading ? 'Cargando...' : 'Recargar'}</span>
+          </CButton>
+          {canDoAction('btn_crear_libro') && (
+            <CButton
+              color="primary"
+              variant="outline"
+              className="hover:text-white d-flex align-items-center gap-2 shadow-sm"
+              onClick={libroState.handleAbrirCrear}
+            >
+              <CIcon icon={cilBook} className="me-1" />
+              <span>Nuevo Libro</span>
+            </CButton>
+          )}
+        </div>
+      </div>
 
       <Registro_bk
         visible={modalRegister}
@@ -68,19 +133,26 @@ const Inventary: React.FC = () => {
         onSuccess={() => fetchLibros()}
       />
 
-      <CCard className="shadow-sm border-0">
-        <CCardHeader className="bg-body py-3 border-bottom d-flex justify-content-between align-items-center">
-          <div className="d-flex align-items-center gap-2">
-            <CIcon icon={cilBook} style={{ color: '#34A6F4' }} size="xl" />
-            <h5 className="mb-0 fw-bold text-body">Inventario de Libros</h5>
-          </div>
-          <span className="badge bg-body text-body border px-2 py-1">
-            Total Registros: <strong>{totalItems}</strong>
-          </span>
-        </CCardHeader>
-
-        <CCardBody className="p-0">
+      {loading && libros.length === 0 ? (
+        <div className="text-center py-5">
+          <CSpinner color="primary" />
+          <div className="mt-2 text-muted small">Cargando inventario de libros...</div>
+        </div>
+      ) : (
+        <>
           <CSmartTable
+            key={libroState.tableKey}
+            clickableRows
+            columnSorter
+            cleaner
+            loading={loading}
+            tableFilter={{ external: true }}
+            tableFilterPlaceholder="Buscar libros por ISBN, título, autor, categoría..."
+            onTableFilterChange={(busqueda) => libroState.handleBuscarGlobal(busqueda || '')}
+            onRowClick={(item: any) => {
+              const id = item?.id ?? item?.ID_LIBROS
+              if (id) toggleDetails(id)
+            }}
             items={libros.map((l) => ({
               ...l,
               ISBN_LIBROS: l.ISBN_LIBROS || 'S/N',
@@ -97,37 +169,36 @@ const Inventary: React.FC = () => {
               ESTADO: Number(l.ESTADO_LIBROS) === 1 ? 'Activo' : 'Inactivo',
             }))}
             columns={columns}
-            loading={loading}
             tableProps={{
+              className: 'border rounded',
               responsive: true,
+              striped: true,
               hover: true,
-              className: 'align-middle mb-0 text-nowrap',
+            }}
+            tableBodyProps={{
+              className: 'align-middle',
             }}
             scopedColumns={{
               ISBN_LIBROS: (item: any) => (
                 <td>
-                  <span className="font-monospace small fw-semibold text-body badge bg-body border">
+                  <span className="font-monospace small text-body">
                     {item.ISBN_LIBROS}
                   </span>
                 </td>
               ),
               TITULO_LIBROS: (item: any) => (
-                <td style={{ minWidth: '200px', whiteSpace: 'normal' }}>
-                  <div className="d-flex align-items-center gap-2">
-                    <span className="font-monospace small fw-semibold text-body">{item.TITULO_LIBROS}</span>
-                  </div>
+                <td style={{ minWidth: '220px', whiteSpace: 'normal' }}>
+                  <span className="fw-semibold text-body">{item.TITULO_LIBROS}</span>
                 </td>
               ),
               NOMBRE_AUTOR: (item: any) => (
                 <td>
-                  <span className="font-monospace small fw-semibold text-body">{item.NOMBRE_AUTOR}</span>
+                  <span className="text-body">{item.NOMBRE_AUTOR}</span>
                 </td>
               ),
               NOMBRE_CATEGORIA: (item: any) => (
                 <td>
-                  <CBadge className="text-body border px-2 py-1">
-                    {item.NOMBRE_CATEGORIA}
-                  </CBadge>
+                  <span className="text-body">{item.NOMBRE_CATEGORIA}</span>
                 </td>
               ),
               NOMBRE_EDITORIAL: (item: any) => (
@@ -182,22 +253,6 @@ const Inventary: React.FC = () => {
                   </CBadge>
                 </td>
               ),
-              show_details: (item: any) => {
-                const isOpened = details.includes(item.id)
-                return (
-                  <td className="py-2 text-end">
-                    <CButton
-                      color="primary"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => toggleDetails(item.id)}
-                      title={isOpened ? 'Ocultar ficha' : 'Ver ficha completa'}
-                    >
-                      {isOpened ? 'Ocultar' : 'Mostrar'}
-                    </CButton>
-                  </td>
-                )
-              },
               details: (item: any) => {
                 const isOpened = details.includes(item.id)
                 return (
@@ -415,39 +470,45 @@ const Inventary: React.FC = () => {
                           </CRow>
                         </CCol>
                         <div className='d-flex flex-wrap gap-2 justify-content-end mt-3 pt-2 border-top'>
-                          <CButton
-                            color="info"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleAbrirEditar(item)}
-                            title="Editar libro"
-                            className="hover:text-white d-flex align-items-center gap-1 shadow-sm"
-                          >
-                            <CIcon icon={cilColorBorder} />
-                            <span>Editar</span>
-                          </CButton>
-                          <CButton
-                            color="warning"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleInactivarLibro(item)}
-                            title="Dar de baja / Inactivar"
-                            className="hover:text-white d-flex align-items-center gap-1 shadow-sm"
-                          >
-                            <CIcon icon={cilBan} />
-                            <span>Inactivar</span>
-                          </CButton>
-                          <CButton
-                            color="danger"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleEliminarLibro(item)}
-                            title="Eliminar libro"
-                            className="hover:text-white d-flex align-items-center gap-1 shadow-sm"
-                          >
-                            <CIcon icon={cilTrash} />
-                            <span>Eliminar Libro</span>
-                          </CButton>
+                          {canDoAction('btn_editar_libro') && (
+                            <CButton
+                              color="info"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleAbrirEditar(item)}
+                              title="Editar libro"
+                              className="hover:text-white d-flex align-items-center gap-1 shadow-sm"
+                            >
+                              <CIcon icon={cilColorBorder} />
+                              <span>Editar</span>
+                            </CButton>
+                          )}
+                          {canDoAction('btn_inactivar_libro') && (
+                            <CButton
+                              color="warning"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleInactivarLibro(item)}
+                              title="Dar de baja / Inactivar"
+                              className="hover:text-white d-flex align-items-center gap-1 shadow-sm"
+                            >
+                              <CIcon icon={cilBan} />
+                              <span>Inactivar</span>
+                            </CButton>
+                          )}
+                          {canDoAction('btn_eliminar_libro') && (
+                            <CButton
+                              color="danger"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEliminarLibro(item)}
+                              title="Eliminar libro"
+                              className="hover:text-white d-flex align-items-center gap-1 shadow-sm"
+                            >
+                              <CIcon icon={cilTrash} />
+                              <span>Eliminar Libro</span>
+                            </CButton>
+                          )}
                         </div>
                       </CRow>
                     </div>
@@ -456,20 +517,22 @@ const Inventary: React.FC = () => {
               },
             }}
           />
-          <div className="d-flex flex-wrap justify-content-between align-items-center p-3 border-top bg-body">
-            <span className="text-body small">
+          <div className="d-flex flex-wrap justify-content-between align-items-center p-3 border-top bg-body mt-2">
+            <span className="text-body-secondary small">
               Página <strong>{currentPage}</strong> de <strong>{totalPages}</strong> (Total: {totalItems} libros)
             </span>
-            <CSmartPagination
-              size="sm"
-              activePage={currentPage}
-              pages={totalPages}
-              onActivePageChange={handlePageChange}
-            />
+            {totalPages > 1 && (
+              <CSmartPagination
+                size="sm"
+                activePage={currentPage}
+                pages={totalPages}
+                onActivePageChange={handlePageChange}
+              />
+            )}
           </div>
-        </CCardBody>
-      </CCard>
-    </CContainer>
+        </>
+      )}
+    </>
   )
 }
 

@@ -49,8 +49,17 @@ export const useProfile = () => {
         ...current,
         NOMBRES_USUARIO: formData.nombres,
       }
-      if (formData.password && formData.password.trim() !== '') {
-        payload.PASSWORD_USUARIO = formData.password
+      delete payload.PASSWORD_USUARIO
+      delete payload.password
+
+      if (
+        formData.password &&
+        formData.password.trim() !== '' &&
+        !/^\$2[ayb]\$.{50,}/.test(formData.password.trim()) &&
+        formData.password !== '••••••••'
+      ) {
+        payload.PASSWORD_USUARIO = formData.password.trim()
+        payload.password = formData.password.trim()
       }
 
       await actualizar(userId, payload)

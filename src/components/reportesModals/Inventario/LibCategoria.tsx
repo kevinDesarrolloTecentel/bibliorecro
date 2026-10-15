@@ -84,7 +84,7 @@ const LibCategoriaModal: React.FC<LibCategoriaProps> = ({ visible, setVisible })
           <CForm>
             <CCol>
               <Select
-              className="bg-body"
+                className="bg-body"
                 options={[{ value: '', label: 'Selecciona una Categoría' }, ...categorias]}
                 value={selectedValue}
                 onChange={handleSelectChange}

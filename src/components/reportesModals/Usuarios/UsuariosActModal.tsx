@@ -45,11 +45,18 @@ const UsuActModal: React.FC<UsuActModalProps> = ({ visible, setVisible }) => {
     handleGetActivas,
     handleDescargarExcel,
     handleReset,
+    haBuscado,
   } = useReporteUsuariosActivos()
 
   const handleClose = () => {
     handleReset()
     setVisible(false)
+  }
+
+  const bloquearCaracteresNoNumericos = (e:React.KeyboardEvent<HTMLInputElement>) =>{
+    if (['-', '+', 'e', 'E', '.'].includes(e.key)){
+      e.preventDefault()
+    }
   }
 
   const columns = [
@@ -105,7 +112,8 @@ const UsuActModal: React.FC<UsuActModalProps> = ({ visible, setVisible }) => {
                     type="number"
                     placeholder="Ej. 2024"
                     value={anoRegistro}
-                    onChange={(e) => setAnoRegistro(e.target.value)}
+                    onKeyDown={bloquearCaracteresNoNumericos}
+                    onChange={(e) => setAnoRegistro(e.target.value.replace(/\D/g, '').slice(0, 4))}
                   />
                 </CInputGroup>
               </CCol>
@@ -165,7 +173,10 @@ const UsuActModal: React.FC<UsuActModalProps> = ({ visible, setVisible }) => {
               itemsPerPageSelect
               itemsPerPage={60}
               tableFilterPlaceholder="Buscar en la tabla..."
-              noItemsLabel={'Seleccione un año para generar el reporte'}
+              noItemsLabel={
+                haBuscado
+                ? 'No se Econtraron usuarios activos para el año'
+                : 'Seleccione un año para generar el reporte'}
               scopedColumns={{
                 cedula: (item: PersonaReporteItem) => (
                   <td>

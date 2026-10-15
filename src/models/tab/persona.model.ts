@@ -19,6 +19,7 @@ export interface Persona {
   FECHAREGISTRO_PERSONA?: Date | string
   FOTO_PERSONA?: string | File | any 
   DETALLE_PERSONA: string
+  DETALLE_INSCRIPCION?: string
   FECHA_PERSONA: string
   ESTADO_PERSONA: string
   ESTADOINSCRIPCION_PERSONA: boolean | string
@@ -41,9 +42,10 @@ export const initialPersona: Persona = {
   FECHAREGISTRO_PERSONA: '',
   FOTO_PERSONA: '',
   DETALLE_PERSONA: '',
+  DETALLE_INSCRIPCION: '',
   FECHA_PERSONA: '',
   ESTADO_PERSONA: '1',
-  ESTADOINSCRIPCION_PERSONA: true,
+  ESTADOINSCRIPCION_PERSONA: false,
 }
 
 export interface ClienteItem {
@@ -59,6 +61,7 @@ export interface ClienteItem {
   costo: string
   sancion: string
   estado: string
+  sancionado?: string
   id_tipo_identificacion: string
   id_nacionalidad: string
   id_genero: string

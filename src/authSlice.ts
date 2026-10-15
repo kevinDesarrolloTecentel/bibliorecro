@@ -16,7 +16,7 @@ const authSlice = createSlice({
     loginSuccess: (state, action: PayloadAction<UserData>) => {
       state.user = action.payload
       state.isAuthenticated = true
-      setAuthSession(action.payload, action.payload.token)
+      setAuthSession(action.payload, action.payload.token, false, action.payload.expires_in)
     },
     logoutSuccess: (state) => {
       state.user = null

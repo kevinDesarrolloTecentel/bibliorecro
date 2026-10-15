@@ -17,36 +17,24 @@ import { sygnet } from '@/assets/brand/sygnet'
 import { AppSidebarNav } from './AppSidebarNav'
 import { UserData } from '@/models/auth'
 import navigation, { NavItem } from '@/_nav'
-import routes from '@/routes'
-import { hasPermission } from '@/components/guards/ProtectedRoute'
-
-const getRolesForPath = (path?: string) => {
-  if (!path) return undefined
-  const cleanPath = path.split('?')[0].replace(/\/+$/, '') || '/'
-  const matchingRoute = routes.find((r) => {
-    const routePath = r.path?.split('?')[0].replace(/\/+$/, '') || '/'
-    return routePath === cleanPath
-  })
-  return matchingRoute?.roles
-}
+import { usePermissions } from '@/context/PermissionsContext'
 
 const AppSidebar = () => {
   const dispatch = useDispatch()
   const unfoldable = useSelector((state: RootState) => state.ui.sidebarUnfoldable)
   const sidebarShow = useSelector((state: RootState) => state.ui.sidebarShow)
   const user = useSelector((state: RootState) => state.auth.user) as UserData | null
+  const { canAccessPath } = usePermissions()
 
   const filteredNav: NavItem[] = useMemo(() => {
     if (!user) return navigation
 
     const filterItem = (item: NavItem): NavItem | null => {
-      // 1. Si tiene sub-elementos (grupo), filtrarlos recursivamente
       if (item.items && item.items.length > 0) {
         const filteredChildren = item.items
           .map(filterItem)
           .filter((child): child is NavItem => child !== null)
 
-        // Si todos los hijos fueron denegados por permisos, no mostrar el grupo vacío
         if (filteredChildren.length === 0) {
           return null
         }
@@ -57,11 +45,8 @@ const AppSidebar = () => {
         }
       }
 
-      // 2. Si es un ítem navegable (con `to`), resolver sus roles dinámicamente desde routes.tsx
       if (item.to) {
-        const routeRoles = getRolesForPath(item.to)
-        // Si la ruta en routes.tsx tiene roles asignados, verificar permiso con hasPermission
-        if (routeRoles && routeRoles.length > 0 && !hasPermission(user, routeRoles)) {
+        if (!canAccessPath(item.to)) {
           return null
         }
       }
@@ -73,7 +58,6 @@ const AppSidebar = () => {
       .map(filterItem)
       .filter((item): item is NavItem => item !== null)
 
-    // Ocultar títulos (CNavTitle) huérfanos que no tengan ningún elemento interactivo después
     const cleanedNav: NavItem[] = []
     for (let i = 0; i < filtered.length; i++) {
       const current = filtered[i]
@@ -93,7 +77,7 @@ const AppSidebar = () => {
     }
 
     return cleanedNav
-  }, [user, user?.ID_ROL, user?.rol])
+  }, [user, canAccessPath])
 
   return (
     <CSidebar

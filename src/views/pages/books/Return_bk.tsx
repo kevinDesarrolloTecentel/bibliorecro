@@ -16,8 +16,10 @@ import { useState } from "react"
 import Swal from "sweetalert2"
 import usePrestamos from "@/hooks/rco-prestamos/usePrestamos"
 import { CambioEstado, CambioEstadoSancion } from "@/Service/rco/Prestamos"
+import { usePermissions } from "@/context/PermissionsContext"
 
 const BooksRT = () => {
+    const { canDoAction, recargarPermisos } = usePermissions()
     const {
         prestamos,
         loading,
@@ -27,6 +29,11 @@ const BooksRT = () => {
         getBadgeColor,
         paginaActual,
         totalPaginas,
+        totalRegistros,
+        handlePageChange,
+        tableKey,
+        handleBuscarGlobal,
+        handleRecargar,
     } = usePrestamos()
 
     const [procesandoId, setProcesandoId] = useState<number | string | null>(null)
@@ -87,34 +94,27 @@ const BooksRT = () => {
         {
             key: 'Libro',
             label: 'Libro',
-            _style: { width: '22%' },
+            _style: { width: '30%' },
         },
         {
             key: 'Nombres',
             label: 'Nombres',
-            _style: { width: '15%' },
+            _style: { width: '20%' },
         },
         {
             key: 'Apellidos',
             label: 'Apellidos',
-            _style: { width: '15%' },
+            _style: { width: '20%' },
         },
         {
             key: 'Celular',
             label: 'Celular',
-            _style: { width: '13%' }
+            _style: { width: '15%' },
         },
         {
             key: 'status',
             label: 'Estado',
-            _style: { width: '12%' },
-        },
-        {
-            key: 'show_details',
-            label: '',
-            _style: { width: '10%' },
-            filter: false,
-            sorter: false,
+            _style: { width: '15%' },
         },
     ]
 
@@ -129,6 +129,20 @@ const BooksRT = () => {
                         Visualiza préstamos activos y procesa las devoluciones de libros a la biblioteca.
                     </p>
                 </div>
+                <CButton
+                    color="secondary"
+                    variant="outline"
+                    disabled={loading}
+                    className="hover:text-white d-flex align-items-center gap-1 shadow-sm"
+                    onClick={() => {
+                        handleRecargar()
+                        recargarPermisos(true)
+                    }}
+                    title="Recargar"
+                >
+                    <CIcon icon={cilReload} className={`me-1 ${loading ? 'rotate-animation' : ''}`} />
+                    <span>{loading ? 'Cargando...' : 'Recargar'}</span>
+                </CButton>
             </div>
 
             {loading && prestamos.length === 0 ? (
@@ -139,14 +153,22 @@ const BooksRT = () => {
             ) : (
                 <>
                     <CSmartTable
+                        key={tableKey}
                         activePage={paginaActual}
                         clickableRows
-                        columns={columns}
                         columnSorter
+                        cleaner
+                        itemsPerPage={10}
+                        tableFilter={{ external: true }}
+                        tableFilterPlaceholder="Buscar devoluciones por cédula, persona, libro, ISBN..."
+                        onTableFilterChange={(busqueda) => handleBuscarGlobal(busqueda || '')}
+                        onRowClick={(item: any) => {
+                            const id = item?.id ?? item?.ID_PRESTAMO
+                            if (id) toggleDetails(id)
+                        }}
+                        columns={columns}
                         items={prestamos}
-                        tableFilter
-                        tableFilterPlaceholder="Buscar por libro, persona, cédula..."
-                        onTableFilterChange={() => fetchPrestamos()}
+                        loading={loading}
                         tableProps={{
                             className: 'border rounded',
                             responsive: true,
@@ -187,21 +209,6 @@ const BooksRT = () => {
                                     </CBadge>
                                 </td>
                             ),
-                            show_details: (item: any) => {
-                                const isVisible = details.includes(item.id)
-                                return (
-                                    <td className="py-2 text-end">
-                                        <CButton
-                                            color="primary"
-                                            variant={isVisible ? undefined : 'outline'}
-                                            size="sm"
-                                            onClick={() => toggleDetails(item.id)}
-                                        >
-                                            {isVisible ? 'Ocultar' : 'Mostrar'}
-                                        </CButton>
-                                    </td>
-                                )
-                            },
                             details: (item: any) => {
                                 const isVisible = details.includes(item.id)
                                 const procesando = procesandoId === item.id
@@ -277,26 +284,30 @@ const BooksRT = () => {
 
                                                     {!esDevuelto && (
                                                         <div className="d-flex flex-wrap gap-2 justify-content-end mt-3 pt-2 border-top">
-                                                            <CButton
-                                                                color="primary"
-                                                                variant="outline"
-                                                                className="d-flex align-items-center gap-1 shadow-sm"
-                                                                disabled={procesando}
-                                                                onClick={() => handleDevolver(item, false)}
-                                                            >
-                                                                {procesando ? <CSpinner size="sm" /> : <CIcon icon={cilReload} />}
-                                                                <span>Registrar Devolución</span>
-                                                            </CButton>
-                                                            <CButton
-                                                                color="danger"
-                                                                variant="outline"
-                                                                className="hover:text-white d-flex align-items-center gap-1 shadow-sm"
-                                                                disabled={procesando}
-                                                                onClick={() => handleDevolver(item, true)}
-                                                            >
-                                                                {procesando ? <CSpinner size="sm" /> : <CIcon icon={cilReportSlash} />}
-                                                                <span>Devolver con Sanción</span>
-                                                            </CButton>
+                                                            {canDoAction('btn_registrar_devolucion') && (
+                                                                <CButton
+                                                                    color="primary"
+                                                                    variant="outline"
+                                                                    className="d-flex align-items-center gap-1 shadow-sm"
+                                                                    disabled={procesando}
+                                                                    onClick={() => handleDevolver(item, false)}
+                                                                >
+                                                                    {procesando ? <CSpinner size="sm" /> : <CIcon icon={cilReload} />}
+                                                                    <span>Registrar Devolución</span>
+                                                                </CButton>
+                                                            )}
+                                                            {canDoAction('btn_devolver_sancion') && (
+                                                                <CButton
+                                                                    color="danger"
+                                                                    variant="outline"
+                                                                    className="hover:text-white d-flex align-items-center gap-1 shadow-sm"
+                                                                    disabled={procesando}
+                                                                    onClick={() => handleDevolver(item, true)}
+                                                                >
+                                                                    {procesando ? <CSpinner size="sm" /> : <CIcon icon={cilReportSlash} />}
+                                                                    <span>Devolver con Sanción</span>
+                                                                </CButton>
+                                                            )}
                                                         </div>
                                                     )}
                                                 </CCol>
@@ -308,15 +319,19 @@ const BooksRT = () => {
                         }}
                     />
 
-                    {totalPaginas > 1 && (
-                        <div className="d-flex justify-content-center mt-3">
+                    <div className="d-flex flex-wrap justify-content-between align-items-center p-3 border-top bg-body mt-2">
+                        <span className="text-body-secondary small">
+                            Página <strong>{paginaActual}</strong> de <strong>{totalPaginas}</strong> (Total: {totalRegistros} préstamos)
+                        </span>
+                        {totalPaginas > 1 && (
                             <CSmartPagination
+                                size="sm"
                                 activePage={paginaActual}
                                 pages={totalPaginas}
-                                onActivePageChange={() => fetchPrestamos()}
+                                onActivePageChange={(nuevaPagina: number) => handlePageChange(nuevaPagina)}
                             />
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </>
             )}
         </>

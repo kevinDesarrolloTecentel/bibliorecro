@@ -1,431 +1,476 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import { AniosDisponibles, PersonasNuevasDetalle, UsuActEG } from '@/Service/tab/Persona'
+import { DashTotalPres } from '@/Service/rco/Prestamos'
 import Swal from 'sweetalert2'
-import {
-  AniosDisponibles,
-  ExportarExcel,
-  PersonaNueva,
-  PersonasE,
-  PersonasActivasReport,
-  UsuActEG,
-} from '@/Service/tab/Persona'
-import { DashTotalPres, Lista } from '@/Service/rco/Prestamos'
-import { STORAGE_BASE_URL } from '@/.env'
 
-const currentYear = new Date().getFullYear()
+export const MESES_DEL_ANIO = [
+  'Enero',
+  'Febrero',
+  'Marzo',
+  'Abril',
+  'Mayo',
+  'Junio',
+  'Julio',
+  'Agosto',
+  'Septiembre',
+  'Octubre',
+  'Noviembre',
+  'Diciembre',
+]
 
-export interface PersonaDashboardItem {
-  id?: number | string
-  cedula: string
-  nombre: string
-  apellido: string
-  correo: string
-  edad: number | string
-  telefono: string
-  tipo: string
-  tipoBadgeColor?: string
-  fecha?: string
-  raw?: any
-}
+const DEFAULT_NUEVOS = Array(12).fill(0)
+const DEFAULT_RENOVACIONES = Array(12).fill(0)
 
 export const useDashboard = () => {
-  const [anios, setAnios] = useState<number[]>([currentYear])
-  const [anioSeleccionado, setAnioSeleccionado] = useState<string>(String(currentYear))
-  const [mesSeleccionado, setMesSeleccionado] = useState<string>('')
-  const [loading, setLoading] = useState<boolean>(false)
+  const [selectedYear, setSelectedYear] = useState<string>('2026')
+  const [selectedMonth, setSelectedMonth] = useState<string>('todos')
+  const [aniosDisponibles, setAniosDisponibles] = useState<string[]>(['2026', '2025', '2024'])
 
-  // Métricas superiores (Estadistics)
-  const [totalNuevos, setTotalNuevos] = useState<number>(0)
-  const [totalRenovaciones, setTotalRenovaciones] = useState<number>(0)
-  const [sumatoriaTotal, setSumatoriaTotal] = useState<number>(0)
-  const [nuevosPorMes, setNuevosPorMes] = useState<number[]>(Array(12).fill(0))
-  const [renovacionesPorMes, setRenovacionesPorMes] = useState<number[]>(Array(12).fill(0))
-  const [totalPorMes, setTotalPorMes] = useState<number[]>(Array(12).fill(0))
+  const [nuevosData, setNuevosData] = useState<number[]>(DEFAULT_NUEVOS)
+  const [renovacionesData, setRenovacionesData] = useState<number[]>(DEFAULT_RENOVACIONES)
+  const [backendTotals, setBackendTotals] = useState<{
+    totalNuevos?: number
+    totalRenovaciones?: number
+    sumatoriaTotal?: number
+  } | null>(null)
+  const [loadingUsuarios, setLoadingUsuarios] = useState<boolean>(false)
+  const [resetKey, setResetKey] = useState<number>(0)
 
-  // Gráfica de Préstamos (Totals_active)
-  const [prestamosTotales, setPrestamosTotales] = useState<{
-    activos: number[]
-    entregados: number[]
-  }>({
-    activos: Array(12).fill(0),
-    entregados: Array(12).fill(0),
-  })
+  // Datos para gráficos complementarios
+  const [prestamosData, setPrestamosData] = useState<{
+    activos?: number[]
+    entregados?: number[]
+    totalPrestamos?: number
+    totalEntregados?: number
+  } | undefined>(undefined)
+  const [loadingPrestamos, setLoadingPrestamos] = useState<boolean>(false)
+  const [rangoEdadData, setRangoEdadData] = useState<any[] | undefined>(undefined)
+  const [loadingRangoEdad, setLoadingRangoEdad] = useState<boolean>(false)
 
-  // Demografía Género y Edad (Rango_edad)
-  const [demografiaEdadGenero, setDemografiaEdadGenero] = useState<any[]>([])
+  // Listas detalladas de usuarios
+  const [usuariosNuevosList, setUsuariosNuevosList] = useState<any[]>([])
+  const [usuariosRenovacionesList, setUsuariosRenovacionesList] = useState<any[]>([])
+  const [todosUsuariosList, setTodosUsuariosList] = useState<any[]>([])
 
-  // Tablas de Usuarios (UsuNRT)
-  const [usuariosNuevos, setUsuariosNuevos] = useState<PersonaDashboardItem[]>([])
-  const [usuariosRenovaciones, setUsuariosRenovaciones] = useState<PersonaDashboardItem[]>([])
-  const [todosUsuarios, setTodosUsuarios] = useState<PersonaDashboardItem[]>([])
-
-  // Cargar años disponibles al montar
+  // 1. Cargar catálogo de años disponibles
   useEffect(() => {
     const fetchAnios = async () => {
       try {
         const res = await AniosDisponibles()
-        const raw = Array.isArray(res?.data)
-          ? res.data
-          : Array.isArray(res)
-          ? res
-          : Array.isArray(res?.anios)
-          ? res.anios
-          : []
-
-        const dbYears: number[] = raw
-          .map((item: any) =>
-            typeof item === 'object'
-              ? Number(item?.anio || item?.year || item?.ANIO)
-              : Number(item),
-          )
-          .filter((n: number) => !isNaN(n) && n > 2000)
-
-        const sorted = Array.from(new Set(dbYears)).sort((a, b) => b - a)
-        if (sorted.length > 0) {
-          const allYears = sorted.includes(currentYear)
-            ? sorted
-            : [currentYear, ...sorted].sort((a, b) => b - a)
-          setAnios(allYears)
-          // Seleccionar el año más reciente con datos reales de la BD
-          setAnioSeleccionado(String(sorted[0]))
-        } else {
-          setAnios([currentYear, currentYear - 1])
-          setAnioSeleccionado(String(currentYear))
+        const raw = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : []
+        if (raw.length > 0) {
+          const mapped = raw.map((item: any) => String(item.anio || item.ANIO || item)).filter(Boolean)
+          if (!mapped.includes('2026')) mapped.unshift('2026')
+          setAniosDisponibles(Array.from(new Set(mapped)))
         }
       } catch (err) {
-        console.warn('No se pudieron cargar años desde la API, usando año actual:', err)
-        setAnios([currentYear, currentYear - 1])
+        console.warn('[useDashboard] No se pudo cargar años del backend, usando lista predeterminada', err)
       }
     }
     fetchAnios()
   }, [])
 
-  // Normalizar items de persona para la tabla UsuNRT
-  const mapPersonaItem = (p: any, tipoDefault: string, badgeColor: string): PersonaDashboardItem => {
-    const cedula = String(
-      p.IDENTIFICACION_PERSONA ?? p.identificacion ?? p.cedula ?? p.CEDULA ?? '-',
-    ).trim()
-    const nombre = String(p.NOMBRE_PERSONA ?? p.nombre ?? p.nombres ?? '').trim()
-    const apellido = String(p.APELLIDO_PERSONA ?? p.apellido ?? p.apellidos ?? '').trim()
-    const correo = String(p.CORREO_PERSONA ?? p.correo ?? p.email ?? '-').trim()
-    const edad = p.EDAD_PERSONA ?? p.edad ?? '-'
-    const telefono = String(p.TELEFONO_PERSONA ?? p.CELULAR_PERSONA ?? p.telefono ?? p.celular ?? '-').trim()
-    const tipo = p.tipo_usuario ?? p.TIPO_PERSONA ?? tipoDefault
-    const fecha = p.FECHAREGISTRO_PERSONA ?? p.FECHA_PERSONA ?? p.fecha ?? p.created_at ?? ''
-
-    return {
-      id: p.ID_PERSONA ?? p.id ?? Math.random(),
-      cedula,
-      nombre,
-      apellido,
-      correo,
-      edad,
-      telefono,
-      tipo,
-      tipoBadgeColor: badgeColor,
-      fecha,
-      raw: p,
-    }
-  }
-
-  // Extraer mes de 0 a 11 desde un string de fecha
-  const getMonthIndex = (dateStr?: string): number => {
-    if (!dateStr) return -1
-    const match = String(dateStr).match(/^\d{4}-(\d{2})/)
-    if (match) {
-      const m = parseInt(match[1], 10)
-      return m >= 1 && m <= 12 ? m - 1 : -1
-    }
-    const d = new Date(dateStr)
-    if (!isNaN(d.getTime())) {
-      return d.getMonth()
-    }
-    return -1
-  }
-
-  // Cargar todos los datos del dashboard en función de anio y mes
-  const fetchDashboardData = useCallback(async () => {
-    setLoading(true)
-    const anio = anioSeleccionado || String(currentYear)
-    const mes = mesSeleccionado || ''
-
+  // 2. Cargar datos de usuarios nuevos y renovaciones según año y mes
+  const fetchUsuariosData = useCallback(async (yearOverride?: string, monthOverride?: string) => {
+    setLoadingUsuarios(true)
     try {
-      // 1. Peticiones de Usuarios Nuevos y Renovaciones utilizando los endpoints canónicos del sistema
-      let listaNuevosRaw: any[] = []
-      let listaRenovacionesRaw: any[] = []
-      const mesesNuevos = Array(12).fill(0)
-      const mesesRenovaciones = Array(12).fill(0)
+      const year = yearOverride !== undefined ? yearOverride : selectedYear
+      const month = monthOverride !== undefined ? monthOverride : selectedMonth
+      const params: any = { anio: year, _t: Date.now() }
+      if (month !== 'todos' && month !== '') {
+        params.mes = month
+      }
 
-      // Cargar Renovaciones mediante PersonasE (endpoint activo que retorna 200 OK)
-      try {
-        const resRenov = await PersonasE()
-        const rawRenov = Array.isArray(resRenov?.data)
-          ? resRenov.data
-          : Array.isArray(resRenov)
-          ? resRenov
-          : []
+      // 1. Consultar resumen y detalle completo en una sola llamada limpia al endpoint api/personasNuevas?tipo=detalle
+      const res = await PersonasNuevasDetalle({ ...params, tipo: 'detalle' })
 
-        rawRenov.forEach((p: any) => {
-          const f = p.FECHAREGISTRO_PERSONA || p.FECHAINICIO_INSCRIPCION || p.FECHA_PERSONA || p.created_at || ''
-          const m = getMonthIndex(f)
-          const anoItem = String(f).substring(0, 4)
-          const matchAno = !anoItem || anoItem === anio || anio === '2026'
+      // 1.1 Procesar respuesta del gráfico: res.datos = [{ MES: 1, USUARIOS_NUEVOS: 22, RENOVACIONES: 37 }, ...]
+      const rawDatos = Array.isArray(res?.datos)
+        ? res.datos
+        : Array.isArray(res?.data?.datos)
+        ? res.data.datos
+        : []
 
-          if (matchAno) {
-            if (m >= 0 && m < 12) {
-              mesesRenovaciones[m]++
-            }
-            if (!mes || (m >= 0 && m + 1 === parseInt(mes, 10))) {
-              listaRenovacionesRaw.push(p)
-            }
+      const arrNuevos = Array(12).fill(0)
+      const arrRenov = Array(12).fill(0)
+      let sumNuevos = 0
+      let sumRenov = 0
+
+      if (rawDatos.length > 0) {
+        rawDatos.forEach((item: any) => {
+          const m = parseInt(item.MES, 10) - 1
+          const n = parseInt(item.USUARIOS_NUEVOS, 10) || 0
+          const r = parseInt(item.RENOVACIONES, 10) || 0
+
+          if (m >= 0 && m < 12) {
+            arrNuevos[m] = n
+            arrRenov[m] = r
           }
+          sumNuevos += n
+          sumRenov += r
         })
 
-        if (listaRenovacionesRaw.length === 0 && rawRenov.length > 0) {
-          listaRenovacionesRaw = rawRenov
-          rawRenov.forEach((p: any) => {
-            const m = getMonthIndex(p.FECHAREGISTRO_PERSONA || p.FECHAINICIO_INSCRIPCION || p.FECHA_PERSONA || p.created_at)
-            if (m >= 0 && m < 12) mesesRenovaciones[m]++
-          })
-        }
-      } catch (errRenov) {
-        console.warn('Aviso al cargar renovaciones:', errRenov)
-      }
-
-      // Cargar Nuevos mediante PersonaNueva (endpoint activo para usuarios nuevos)
-      try {
-        const resNuevos = await PersonaNueva(true)
-        const rawNuevos = Array.isArray(resNuevos?.data?.data)
-          ? resNuevos.data.data
-          : Array.isArray(resNuevos?.data)
-          ? resNuevos.data
-          : Array.isArray(resNuevos)
-          ? resNuevos
-          : []
-
-        rawNuevos.forEach((p: any) => {
-          const f = p.FECHAREGISTRO_PERSONA || p.FECHA_PERSONA || p.created_at || ''
-          const m = getMonthIndex(f)
-          const anoItem = String(f).substring(0, 4)
-          const matchAno = !anoItem || anoItem === anio || anio === '2026'
-
-          if (matchAno) {
-            if (m >= 0 && m < 12) {
-              mesesNuevos[m]++
-            }
-            if (!mes || (m >= 0 && m + 1 === parseInt(mes, 10))) {
-              listaNuevosRaw.push(p)
-            }
-          }
+        setNuevosData(arrNuevos)
+        setRenovacionesData(arrRenov)
+        setBackendTotals({
+          totalNuevos: sumNuevos,
+          totalRenovaciones: sumRenov,
+          sumatoriaTotal: sumNuevos + sumRenov,
         })
-
-        if (listaNuevosRaw.length === 0 && rawNuevos.length > 0) {
-          listaNuevosRaw = rawNuevos
-          rawNuevos.forEach((p: any) => {
-            const m = getMonthIndex(p.FECHAREGISTRO_PERSONA || p.FECHA_PERSONA || p.created_at)
-            if (m >= 0 && m < 12) mesesNuevos[m]++
-          })
-        }
-      } catch (errNuevos) {
-        console.warn('Aviso al cargar nuevos:', errNuevos)
       }
 
-      // Mapear listas a estructura unificada
-      const listaNuevosMapped = listaNuevosRaw.map((p) =>
-        mapPersonaItem(p, 'Nuevo', 'primary'),
-      )
-      setUsuariosNuevos(listaNuevosMapped)
+      // 2. Extraer listas de usuarios reales directamente desde res.detalle
+      try {
+        const detObj = res?.detalle ?? res?.data?.detalle ?? {}
+        const rawNuevos: any[] = Array.isArray(detObj.usuarios_nuevos) ? detObj.usuarios_nuevos : []
+        const rawRenov: any[] = Array.isArray(detObj.usuarios_renovaciones) ? detObj.usuarios_renovaciones : []
 
-      const listaRenovacionesMapped = listaRenovacionesRaw.map((p) =>
-        mapPersonaItem(p, 'Renovación', 'info'),
-      )
-      setUsuariosRenovaciones(listaRenovacionesMapped)
+        // Conservar todos los registros devueltos por el backend (incluyendo huérfanos/sin cruce)
+        const listActivas = rawNuevos.filter(Boolean)
+        const listRenov = rawRenov.filter(Boolean)
 
-      // 2. Procesar Usuarios Activos (enviando el anoRegistro obligatorio)
-      const [resActivos, resTotalesPrestamos, resDemografia] = await Promise.allSettled([
-        PersonasActivasReport({
-          anoRegistro: anio,
-          anio: anio,
-          year: anio,
-        }),
-        DashTotalPres({ anio, mes }),
-        UsuActEG(),
-      ])
-
-      let listaActivosRaw: any[] = []
-      if (resActivos.status === 'fulfilled') {
-        const val = resActivos.value
-        listaActivosRaw = Array.isArray(val?.data)
-          ? val.data
-          : Array.isArray(val)
-          ? val
-          : Array.isArray(val?.usuarios)
-          ? val.usuarios
-          : []
-      }
-
-      let listaTodosMapped: PersonaDashboardItem[] = []
-      if (listaActivosRaw.length > 0) {
-        listaTodosMapped = listaActivosRaw.map((p) =>
-          mapPersonaItem(p, 'Activo', 'success'),
-        )
-      } else {
-        listaTodosMapped = [...listaNuevosMapped, ...listaRenovacionesMapped]
-      }
-      setTodosUsuarios(listaTodosMapped)
-
-      // 3. Totales y Gráfica de Barras por Mes
-      const mesesTotal = mesesNuevos.map((n, i) => n + mesesRenovaciones[i])
-      setNuevosPorMes(mesesNuevos)
-      setRenovacionesPorMes(mesesRenovaciones)
-      setTotalPorMes(mesesTotal)
-
-      if (mes) {
-        const mIdx = parseInt(mes, 10) - 1
-        const nVal = mesesNuevos[mIdx] || listaNuevosMapped.length
-        const rVal = mesesRenovaciones[mIdx] || listaRenovacionesMapped.length
-        setTotalNuevos(nVal)
-        setTotalRenovaciones(rVal)
-        setSumatoriaTotal(nVal + rVal)
-      } else {
-        const totalN = listaNuevosMapped.length || mesesNuevos.reduce((a, b) => a + b, 0)
-        const totalR = listaRenovacionesMapped.length || mesesRenovaciones.reduce((a, b) => a + b, 0)
-        setTotalNuevos(totalN)
-        setTotalRenovaciones(totalR)
-        setSumatoriaTotal(totalN + totalR)
-      }
-
-      // 5. Procesar Gráfica de Préstamos (Totales activos vs entregados)
-      let activosArr = Array(12).fill(0)
-      let entregadosArr = Array(12).fill(0)
-
-      if (resTotalesPrestamos.status === 'fulfilled' && resTotalesPrestamos.value) {
-        const val = resTotalesPrestamos.value
-        if (Array.isArray(val?.activos) && val.activos.length === 12) {
-          activosArr = val.activos
-        } else if (Array.isArray(val?.data?.activos) && val.data.activos.length === 12) {
-          activosArr = val.data.activos
-        }
-        if (Array.isArray(val?.entregados) && val.entregados.length === 12) {
-          entregadosArr = val.entregados
-        } else if (Array.isArray(val?.data?.entregados) && val.data.entregados.length === 12) {
-          entregadosArr = val.data.entregados
-        }
-      }
-
-      // Fallback para préstamos si el endpoint de totales devuelve ceros
-      if (activosArr.every((v) => v === 0) && entregadosArr.every((v) => v === 0)) {
-        try {
-          const resLista = await Lista()
-          const list = Array.isArray(resLista?.data)
-            ? resLista.data
-            : Array.isArray(resLista)
-            ? resLista
+        const normalizeUsuario = (u: any, tipoDefault: 'Nuevo' | 'Renovación' = 'Nuevo') => {
+          const persona = u.PERSONA || u.persona || u
+          const renovaciones = Array.isArray(u.RENOVACIONES)
+            ? u.RENOVACIONES
+            : Array.isArray(u.renovaciones)
+            ? u.renovaciones
             : []
+          const primeraRenovacion = renovaciones[0] || {}
 
-          list.forEach((item: any) => {
-            const fecha = item.FECHAINICIO_PRESTAMO || item.created_at
-            const m = getMonthIndex(fecha)
-            if (m >= 0 && m < 12) {
-              if (Number(item.ESTADO_PRESTAMO) === 1) {
-                activosArr[m]++
-              } else {
-                entregadosArr[m]++
-              }
-            }
-          })
-        } catch {
-          // Mantener ceros por defecto
+          const cedula = String(
+            u.cedula ||
+            persona.IDENTIFICACION_PERSONA ||
+            u.IDENTIFICACION_PERSONA ||
+            u.identificacion ||
+            u.CEDULA ||
+            '-'
+          ).trim()
+          const nombre = String(u.nombre || persona.NOMBRE_PERSONA || u.NOMBRE_PERSONA || u.nombres || '-').trim() || '-'
+          const apellido = String(u.apellido || persona.APELLIDO_PERSONA || u.APELLIDO_PERSONA || u.apellidos || '-').trim() || '-'
+          const correo = String(u.correo || persona.CORREO_PERSONA || u.CORREO_PERSONA || u.email || '-').trim()
+          const edad = u.edad ?? u.EDAD_PERSONA ?? persona.EDAD_PERSONA ?? '-'
+          const telefono = String(
+            u.telefono ||
+            persona.TELEFONO_PERSONA ||
+            persona.CELULAR_PERSONA ||
+            u.TELEFONO_PERSONA ||
+            u.CELULAR_PERSONA ||
+            u.celular ||
+            '-'
+          ).trim()
+
+          const fecha =
+            u.fecha ||
+            primeraRenovacion.FECHAINICIO_RENOVACIONES ||
+            u.FECHAINICIO_RENOVACIONES ||
+            persona.FECHAREGISTRO_PERSONA ||
+            u.FECHAREGISTRO_PERSONA ||
+            u.FECHAINICIO_INSCRIPCION ||
+            persona.FECHA_PERSONA ||
+            u.FECHA_PERSONA ||
+            ''
+
+          const isRenov =
+            tipoDefault === 'Renovación' ||
+            u.es_renovacion === true ||
+            u.es_renovacion === 1 ||
+            u.es_renovacion === '1' ||
+            String(u.tipo || '').toLowerCase().includes('renov')
+
+          const idVal = u.ID_PERSONA ?? persona.ID_PERSONA ?? u.id_renovacion ?? Math.random()
+
+          return {
+            id: `${idVal}_${isRenov ? 'Renovación' : 'Nuevo'}_${cedula}`,
+            cedula,
+            nombre,
+            apellido,
+            correo,
+            edad,
+            telefono,
+            tipo: isRenov ? 'Renovación' : 'Nuevo',
+            tipoBadgeColor: isRenov ? 'info' : 'success',
+            fecha,
+            raw: { ...persona, ...u },
+          }
         }
-      }
 
-      setPrestamosTotales({
-        activos: activosArr,
-        entregados: entregadosArr,
-      })
+        // 2.2 Mapear Nuevos y Renovaciones directamente de los datos reales del backend
+        let mappedNuevos = listActivas.map((u: any) => normalizeUsuario(u, 'Nuevo'))
+        let mappedRenov = listRenov.map((u: any) => normalizeUsuario(u, 'Renovación'))
 
-      // 6. Procesar Demografía de Edad y Género (Rango_edad)
-      if (resDemografia.status === 'fulfilled' && resDemografia.value) {
-        const val = resDemografia.value
-        const rawDemo = Array.isArray(val?.data)
-          ? val.data
-          : Array.isArray(val)
-          ? val
-          : []
-
-        if (rawDemo.length > 0) {
-          const parsedDemo = rawDemo.map((item: any) => ({
-            rango_edad: item.rango_edad || item.rango || item.edad || 'Desconocido',
-            hombres: Number(item.hombres ?? item.Hombres ?? item.masculino ?? 0),
-            mujeres: Number(item.mujeres ?? item.Mujeres ?? item.femenino ?? 0),
-          }))
-          setDemografiaEdadGenero(parsedDemo)
+        // 2.3 Ordenar de forma DESCENDENTE: Los usuarios más nuevos y recientes siempre en PÁGINA 1
+        const sortByMasReciente = (a: any, b: any) => {
+          const timeA = a.fecha ? new Date(a.fecha).getTime() : 0
+          const timeB = b.fecha ? new Date(b.fecha).getTime() : 0
+          if (timeA > 0 && timeB > 0 && timeA !== timeB) {
+            return timeB - timeA
+          }
+          const idA = Number(a.raw?.id_renovacion ?? a.raw?.ID_PERSONA ?? a.raw?.id ?? 0)
+          const idB = Number(b.raw?.id_renovacion ?? b.raw?.ID_PERSONA ?? b.raw?.id ?? 0)
+          return idB - idA
         }
+
+        mappedNuevos.sort(sortByMasReciente)
+        mappedRenov.sort(sortByMasReciente)
+        const todos = [...mappedNuevos, ...mappedRenov].sort(sortByMasReciente)
+
+        setUsuariosNuevosList(mappedNuevos)
+        setUsuariosRenovacionesList(mappedRenov)
+        setTodosUsuariosList(todos)
+      } catch (repErr) {
+        console.warn('[useDashboard] Aviso al consultar reporte de usuarios:', repErr)
       }
-    } catch (error) {
-      console.error('Error al cargar datos del dashboard:', error)
-      Swal.mixin({
-        toast: true,
-        position: 'top-end',
-        timer: 3000,
-        showConfirmButton: false,
-      }).fire({
-        icon: 'error',
-        title: 'Error al actualizar algunas métricas del panel',
-      })
+    } catch (err) {
+      console.warn('[useDashboard] Usando datos de referencia para el gráfico', err)
     } finally {
-      setLoading(false)
+      setLoadingUsuarios(false)
     }
-  }, [anioSeleccionado, mesSeleccionado])
+  }, [selectedYear, selectedMonth])
 
   useEffect(() => {
-    fetchDashboardData()
-  }, [fetchDashboardData])
+    fetchUsuariosData()
+  }, [fetchUsuariosData])
 
-  // Exportar Excel de Usuarios
-  const handleExportarExcel = async () => {
+  // Estado para guardar la respuesta original de la API de totales de préstamos
+  const [rawPrestamos, setRawPrestamos] = useState<{
+    totalPrestamos: number
+    totalEntregados: number
+    activos?: number[]
+    entregados?: number[]
+  } | null>(null)
+
+  // 3. Cargar datos de préstamos: Solo hace petición HTTP cuando cambia el año seleccionado
+  const fetchPrestamosTotales = useCallback(async (yearOverride?: string) => {
+    setLoadingPrestamos(true)
     try {
-      const res = await ExportarExcel()
-      const link = res?.excel_path || res?.url || res?.path
-      if (link) {
-        const fullUrl = link.startsWith('http') ? link : `${STORAGE_BASE_URL}/${link}`
-        window.open(fullUrl, '_blank')
-      } else {
-        Swal.fire({
-          icon: 'info',
-          title: 'Exportación completada',
-          text: 'El reporte de usuarios se ha generado con éxito.',
-        })
-      }
-    } catch (err: any) {
-      console.error('Error al exportar excel de usuarios:', err)
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: 'No se pudo generar el archivo Excel de usuarios.',
-      })
+      const year = yearOverride !== undefined ? yearOverride : selectedYear
+      const res = await DashTotalPres({ anio: year, _t: Date.now() })
+      const totalPrestamos = Number(res?.TotalPrestamos ?? res?.data?.TotalPrestamos ?? 0)
+      const totalEntregados = Number(res?.TotalEntregados ?? res?.data?.TotalEntregados ?? 0)
+      const activos = Array.isArray(res?.activos)
+        ? res.activos
+        : Array.isArray(res?.data?.activos)
+        ? res.data.activos
+        : undefined
+      const entregados = Array.isArray(res?.entregados)
+        ? res.entregados
+        : Array.isArray(res?.data?.entregados)
+        ? res.data.entregados
+        : undefined
+
+      setRawPrestamos({ totalPrestamos, totalEntregados, activos, entregados })
+    } catch (e) {
+      console.warn('[useDashboard] Error al consultar totales de préstamos:', e)
+    } finally {
+      setLoadingPrestamos(false)
     }
+  }, [selectedYear])
+
+  useEffect(() => {
+    fetchPrestamosTotales()
+  }, [fetchPrestamosTotales])
+
+  useEffect(() => {
+    if (!rawPrestamos) return
+
+    const { totalPrestamos, totalEntregados, activos, entregados } = rawPrestamos
+
+    if (activos && entregados) {
+      setPrestamosData({
+        activos,
+        entregados,
+        totalPrestamos,
+        totalEntregados,
+      })
+      return
+    }
+
+    const arrActivos = Array(12).fill(0)
+    const arrEntregados = Array(12).fill(0)
+
+    if (selectedMonth !== 'todos' && selectedMonth !== '') {
+      const m = parseInt(selectedMonth, 10) - 1
+      if (m >= 0 && m < 12) {
+        arrActivos[m] = totalPrestamos
+        arrEntregados[m] = totalEntregados
+      }
+    } else {
+      const currentMonthIdx = Math.min(new Date().getMonth(), 11)
+      const totalActividad = nuevosData.reduce((acc, curr) => acc + curr, 0) || 1
+
+      for (let i = 0; i <= currentMonthIdx; i++) {
+        const peso = (nuevosData[i] || 1) / totalActividad
+        arrActivos[i] = Math.round(totalPrestamos * peso)
+      }
+      arrEntregados[currentMonthIdx] = totalEntregados
+
+      if (arrActivos.every((v) => v === 0) && totalPrestamos > 0) {
+        arrActivos[currentMonthIdx] = totalPrestamos
+      }
+    }
+
+    setPrestamosData({
+      activos: arrActivos,
+      entregados: arrEntregados,
+      totalPrestamos,
+      totalEntregados,
+    })
+  }, [rawPrestamos, selectedMonth, nuevosData])
+
+  // 4. Cargar rango de edad y género: Petición HTTP única al inicio
+  const fetchRangoEdad = useCallback(async () => {
+    setLoadingRangoEdad(true)
+    try {
+      const res = await UsuActEG()
+      const raw = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : []
+      if (raw.length > 0) {
+        setRangoEdadData(raw)
+      }
+    } catch (e) {
+    } finally {
+      setLoadingRangoEdad(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchRangoEdad()
+  }, [fetchRangoEdad])
+
+
+
+  const calcTotalNuevos = useMemo(() => {
+    if (!loadingUsuarios && usuariosNuevosList !== undefined) {
+      return usuariosNuevosList.length
+    }
+    return backendTotals?.totalNuevos ?? 0
+  }, [usuariosNuevosList, loadingUsuarios, backendTotals])
+
+  const calcTotalRenovaciones = useMemo(() => {
+    if (!loadingUsuarios && usuariosRenovacionesList !== undefined) {
+      return usuariosRenovacionesList.length
+    }
+    return backendTotals?.totalRenovaciones ?? 0
+  }, [usuariosRenovacionesList, loadingUsuarios, backendTotals])
+
+  const calcSumatoriaTotal = useMemo(() => {
+    if (!loadingUsuarios && todosUsuariosList !== undefined) {
+      return todosUsuariosList.length
+    }
+    return calcTotalNuevos + calcTotalRenovaciones
+  }, [todosUsuariosList, loadingUsuarios, calcTotalNuevos, calcTotalRenovaciones])
+
+  const calcTotalPorMes = useMemo(() => {
+    return Array.from({ length: 12 }, (_, i) => {
+      const n = i < nuevosData.length ? Number(nuevosData[i]) || 0 : 0
+      const r = i < renovacionesData.length ? Number(renovacionesData[i]) || 0 : 0
+      return n + r
+    })
+  }, [nuevosData, renovacionesData])
+
+  // Exportación directa a Excel / CSV (Compatible con Microsoft Excel, UTF-8 BOM)
+  const handleExportarExcel = async () => {
+    const listToExport =
+      todosUsuariosList.length > 0
+        ? todosUsuariosList
+        : [...usuariosNuevosList, ...usuariosRenovacionesList]
+
+    if (!listToExport || listToExport.length === 0) {
+      Swal.fire({
+        icon: 'info',
+        title: 'Sin datos para exportar',
+        text: 'No hay usuarios registrados para el período seleccionado.',
+        confirmButtonColor: '#321fdb',
+      })
+      return
+    }
+
+    const headers = ['#', 'Cédula', 'Nombre', 'Apellido', 'Correo', 'Edad', 'Teléfono', 'Tipo']
+    const rows = listToExport.map((u, idx) => [
+      idx + 1,
+      `"${u.cedula || ''}"`,
+      `"${(u.nombre || '').replace(/"/g, '""')}"`,
+      `"${(u.apellido || '').replace(/"/g, '""')}"`,
+      `"${u.correo || ''}"`,
+      `"${u.edad ?? ''}"`,
+      `"${u.telefono || ''}"`,
+      `"${u.tipo || ''}"`,
+    ])
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n')
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `reporte_usuarios_${selectedYear}_${selectedMonth || 'todos'}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+
+    Swal.fire({
+      icon: 'success',
+      title: 'Archivo exportado',
+      text: `Se descargó exitosamente el reporte con ${listToExport.length} usuarios.`,
+      timer: 2000,
+      showConfirmButton: false,
+    })
   }
 
+  const refetch = useCallback(async () => {
+    const defaultYear = aniosDisponibles[0] || '2026'
+    setSelectedYear(defaultYear)
+    setSelectedMonth('todos')
+    setResetKey((prev) => prev + 1)
+
+    try {
+      await Promise.all([
+        fetchUsuariosData(defaultYear, 'todos'),
+        fetchPrestamosTotales(defaultYear),
+        fetchRangoEdad(),
+      ])
+    } catch (e) {
+      console.warn('[useDashboard] Error al refrescar datos:', e)
+    }
+  }, [aniosDisponibles, fetchUsuariosData, fetchPrestamosTotales, fetchRangoEdad])
+
   return {
-    anios,
-    anioSeleccionado,
-    setAnioSeleccionado,
-    mesSeleccionado,
-    setMesSeleccionado,
-    loading,
-    totalNuevos,
-    totalRenovaciones,
-    sumatoriaTotal,
-    nuevosPorMes,
-    renovacionesPorMes,
-    totalPorMes,
-    prestamosTotales,
-    demografiaEdadGenero,
-    usuariosNuevos,
-    usuariosRenovaciones,
-    todosUsuarios,
-    fetchDashboardData,
+    resetKey,
+    // Filtros
+    selectedYear,
+    setSelectedYear,
+    selectedMonth,
+    setSelectedMonth,
+    aniosDisponibles,
+    meses: MESES_DEL_ANIO,
+
+    // Datos y estados de carga
+    nuevosData,
+    renovacionesData,
+    loadingUsuarios,
+
+    // Totales calculados para las tarjetas
+    calcTotalNuevos,
+    calcTotalRenovaciones,
+    calcSumatoriaTotal,
+    calcTotalPorMes,
+
+    // Préstamos
+    prestamosData,
+    loadingPrestamos,
+
+    // Rango de Edad y Género
+    rangoEdadData,
+    loadingRangoEdad,
+
+    // Listas para la tabla UsuNRT
+    usuariosNuevosList,
+    usuariosRenovacionesList,
+    todosUsuariosList,
+
+    // Acciones
     handleExportarExcel,
+    refetch,
   }
 }
 

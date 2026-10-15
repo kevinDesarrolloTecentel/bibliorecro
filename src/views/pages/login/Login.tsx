@@ -1,8 +1,9 @@
 import { useEffect } from 'react'
 import { clearAuthSession } from '@/utils/auth'
 import { AuthFormSplitScreen } from '@/components/ui/login'
-import useAuth from '@/hooks/useAuth'
-
+import { useAuth } from '@/hooks/auth/useAuth'
+import busImg from '@/assets/images/bus-1.jpg'
+import logoImg from '@/assets/images/logo-recreo.png'
 
 const Login = () => {
   const userState = useAuth()
@@ -17,20 +18,24 @@ const Login = () => {
       }
     }
   }, [])
-    return (
+
+  return (
     <AuthFormSplitScreen
       logo={
         <div className="flex items-center justify-center">
           <img
-            src="https://i.postimg.cc/5tKp3dDJ/svgviewer-png-output.png"
+            src={logoImg}
             alt="BiblioRecreo Logo"
             className="h-12 sm:h-14 w-auto object-contain drop-shadow-sm"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).src = '/logo-recreo.png'
+            }}
           />
         </div>
       }
       title="Iniciar Sesión"
       description=""
-      imageSrc="https://i.postimg.cc/VNPwvzST/bus-1.jpg"
+      imageSrc={busImg}
       imageAlt="BiblioRecreo Bus"
       onSubmit={userState.handleLoginSubmit}
     />

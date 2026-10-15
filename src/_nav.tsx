@@ -5,7 +5,8 @@ import {
   cilLibraryBuilding,
   cilPencil,
   cilPeople,
-  cilPuzzle
+  cilPuzzle,
+  cilSpeedometer,
 } from '@coreui/icons'
 import { CNavGroup, CNavItem, CNavTitle } from '@coreui/react-pro'
 import { Translation } from 'react-i18next'
@@ -27,6 +28,12 @@ export type NavItem = {
 
 const _nav: NavItem[] = [
   {
+    component: CNavItem,
+    name: 'Dashboard',
+    to: '/dashboard',
+    icon: <CIcon icon={cilSpeedometer} customClassName="nav-icon" style={{ color: 'white' }} />,
+  },
+  {
     component: CNavTitle,
     name: <Translation>{(t) => t('ADMINISTRACIÓN')}</Translation>,
   },
@@ -44,13 +51,8 @@ const _nav: NavItem[] = [
       },
       {
         component: CNavItem,
-        name: 'Roles',
+        name: 'Roles y Permisos',
         to: '/administracion/roles',
-      },
-      {
-        component: CNavItem,
-        name: 'Administracion de Roles',
-        to: '/administracion/roles-admin',
       },
     ],
   },

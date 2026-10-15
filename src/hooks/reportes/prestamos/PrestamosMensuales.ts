@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import Swal from 'sweetalert2'
 import { Mes } from '@/Service/rco/Prestamos'
-import { STORAGE_BASE_URL } from '@/.env'
+import { STORAGE_BASE_URL } from '@/utils/imageUtils'
 
 export { STORAGE_BASE_URL }
 

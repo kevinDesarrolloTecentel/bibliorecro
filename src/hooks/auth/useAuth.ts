@@ -18,7 +18,12 @@ export const useAuth = () => {
   const logout = () => {
     clearAuthSession()
     dispatch(logoutSuccess())
-    navigate('/login', { replace: true })
+    if (typeof window !== 'undefined') {
+      window.location.replace('/#/login')
+      window.location.reload()
+    } else {
+      navigate('/login', { replace: true })
+    }
   }
 
   const handleLoginSubmit = async (data: { email: string; password: string; rememberMe?: boolean }) => {
@@ -30,8 +35,6 @@ export const useAuth = () => {
         NICK_USUARIO: cleanNick,
         PASSWORD_USUARIO: cleanPassword,
       })
-
-      console.log('Respuesta de login del servidor:', response)
 
       if (response && response.success === false) {
         const errorMsg =
@@ -58,8 +61,10 @@ export const useAuth = () => {
 
       let rawExpiresIn = response?.expires_in || response?.expiresIn
       if (!rawExpiresIn && rawToken) {
-        const decoded = decodeJWT<{ exp?: number }>(rawToken)
-        if (decoded?.exp) {
+        const decoded = decodeJWT<{ exp?: number; iat?: number }>(rawToken)
+        if (decoded?.exp && decoded?.iat && decoded.exp > decoded.iat) {
+          rawExpiresIn = decoded.exp - decoded.iat
+        } else if (decoded?.exp) {
           const diff = decoded.exp - Math.floor(Date.now() / 1000)
           rawExpiresIn = diff > 0 ? diff : 3600
         }
@@ -80,7 +85,9 @@ export const useAuth = () => {
       const nombreRol =
         rawUser?.NOMBRE_ROL ||
         rawUser?.nombre_rol ||
-        (String(rolUsuario) === '1' ? 'Administrador' : String(rolUsuario) === '2' ? 'Bibliotecario' : String(rolUsuario || ''))
+        (Array.isArray(rawUser?.roles) && (rawUser.roles[0]?.NOMBRE_ROL || rawUser.roles[0]?.nombre)) ||
+        (typeof rawUser?.rol === 'object' && rawUser?.rol !== null && (rawUser.rol?.NOMBRE_ROL || rawUser.rol?.nombre)) ||
+        (Number(rolUsuario) === 1 ? 'Administrador' : String(rolUsuario || ''))
       const nickUsuario = rawUser?.NICK_USUARIO ?? rawUser?.nick_usuario ?? cleanNick
 
       const fullUserData: UserData = {
@@ -92,13 +99,17 @@ export const useAuth = () => {
         ID_ROL: rolUsuario,
         NOMBRE_ROL: nombreRol,
         ESTADO_USUARIO: rawUser?.ESTADO_USUARIO ?? rawUser?.estado,
-        PASSWORD_USUARIO: rawUser?.PASSWORD_USUARIO || rawUser?.password || cleanPassword,
         expires_in: rawExpiresIn,
         token: rawToken,
         timestamp: Date.now(),
       }
+      delete (fullUserData as any).PASSWORD_USUARIO
+      delete (fullUserData as any).password
+      delete (fullUserData as any).contrasena
 
-      setAuthSession(fullUserData, rawToken, !!data.rememberMe)
+      setAuthSession(fullUserData, rawToken, false, Number(rawExpiresIn))
+
+
       dispatch(loginSuccess(fullUserData))
 
       navigate('/dashboard', { replace: true })

@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import Swal from 'sweetalert2'
 import { Pendientes } from '@/Service/rco/Prestamos'
-import { STORAGE_BASE_URL } from '@/.env'
+import { STORAGE_BASE_URL } from '@/utils/imageUtils'
 
 export { STORAGE_BASE_URL }
 
@@ -28,6 +28,7 @@ export const useReportePendientesDevolver = () => {
   const [prestamos, setPrestamos] = useState<PrestamoReporteItem[]>([])
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [excelLink, setExcelLink] = useState<string | null>(null)
+  const [haBuscado, setHaBuscado] = useState<boolean>(false)
 
   const handleGetPendientes = useCallback(async () => {
     if (!fechaDesde || !fechaHasta) {
@@ -38,19 +39,35 @@ export const useReportePendientesDevolver = () => {
         timerProgressBar: false,
         showConfirmButton: false,
       }).fire({
-        icon: 'error',
-        title: 'Por favor, ingrese todos los valores requeridos.',
+        icon: 'warning',
+        title: 'Por favor, ingrese el rango de fechas completo.',
+      })
+      return
+    }
+
+    if (fechaDesde > fechaHasta) {
+      Swal.mixin({
+        toast: true,
+        position: 'top-end',
+        timer: 2500,
+        timerProgressBar: false,
+        showConfirmButton: false,
+      }).fire({
+        icon: 'warning',
+        title: 'La fecha "Desde" no puede ser mayor que la fecha "Hasta".',
       })
       return
     }
 
     setIsLoading(true)
+    setHaBuscado(true)
+    setPrestamos([])
+    setExcelLink(null)
+
     try {
       const params = {
         fecha_desde: fechaDesde,
         fecha_hasta: fechaHasta,
-        fechaDesde,
-        fechaHasta,
       }
       const data = await Pendientes(params)
       const rawList = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
@@ -60,25 +77,39 @@ export const useReportePendientesDevolver = () => {
 
       setPrestamos(filtrados)
       setExcelLink(data?.excel_path || null)
+
+      if (filtrados.length === 0) {
+        Swal.fire({
+          icon: 'info',
+          title: 'Sin registros',
+          text: 'No se encontraron libros pendientes por devolver en el rango de fechas seleccionado.',
+          confirmButtonColor: '#0d6efd',
+        })
+      }
     } catch (error: any) {
-      if (error?.response?.status === 404) {
+      console.error('Error al obtener préstamos pendientes', error)
+      const isNotFound = error?.response?.status === 404
+
+      if (isNotFound) {
         setPrestamos([])
         setExcelLink(null)
-        Swal.mixin({
-          toast: true,
-          position: 'top-end',
-          timer: 3000,
-          timerProgressBar: false,
-          showConfirmButton: false,
-        }).fire({
+        Swal.fire({
           icon: 'info',
-          title: error.response.data?.message || 'No se encontraron préstamos pendientes en el rango seleccionado.',
+          title: 'Sin registros',
+          text: 'No se encontraron libros pendientes por devolver en el rango de fechas seleccionado.',
+          confirmButtonColor: '#0d6efd',
         })
         return
       }
-      console.error('Error al obtener préstamos pendientes', error)
-      Swal.fire({
-        icon: 'error',
+
+      Swal.mixin({
+        toast: true,
+        position: 'top-end',
+        timer: 2500,
+        timerProgressBar: false,
+        showConfirmButton: false,
+      }).fire({
+        icon: 'warning',
         title: 'Error!',
         text: 'Hubo un problema al obtener los libros pendientes por devolver.',
       })
@@ -98,6 +129,7 @@ export const useReportePendientesDevolver = () => {
     setFechaHasta('')
     setPrestamos([])
     setExcelLink(null)
+    setHaBuscado(false)
   }, [])
 
   return {
@@ -108,6 +140,7 @@ export const useReportePendientesDevolver = () => {
     prestamos,
     isLoading,
     excelLink,
+    haBuscado,
     handleGetPendientes,
     handleDescargarExcel,
     handleReset,

@@ -9,8 +9,10 @@ import MDAModal from "@/components/reportesModals/Usuarios/RenoDMA"
 import MejoresUModal from "@/components/reportesModals/Usuarios/MejoresUsu"
 import UsuNuevoModal from "@/components/reportesModals/Usuarios/UsuNuevos"
 import LibroUModal from "@/components/reportesModals/Usuarios/LibrosUsu"
+import { usePermissions } from "@/context/PermissionsContext"
 
 const Report_usu = () => {
+  const { canDoAction } = usePermissions()
   const [visibleEG, setVisibleEG] = useState(false)
   const [visibleAct, setVisibleAct] = useState(false)
   const [visibleMD, setVisibleMD] = useState(false)
@@ -23,6 +25,7 @@ const Report_usu = () => {
     {
       id: "edad_genero",
       title: "Usuarios Inscritos por Edad y Género",
+      action: 'btn_generar_reporte_usuarios_inscritos',
       icon: cilPeople,
       description:
         "Personaliza tu análisis al ingresar la edad deseada y obtén un informe detallado sobre la distribución de usuarios en diferentes rangos de edad y género.",
@@ -31,6 +34,7 @@ const Report_usu = () => {
     {
       id: "activos",
       title: "Usuarios Activos",
+      action: 'btn_generar_reporte_usuarios_activos',
       icon:cilUserFollow,
       description:
         "Personaliza tu análisis al ingresar el año y obtén un informe detallado sobre la concurrencia y distribución de usuarios activos en el sistema.",
@@ -39,6 +43,7 @@ const Report_usu = () => {
     {
       id: "activos_mes_dia",
       title: "Usuarios Activos por Mes y Día",
+      action: 'btn_generar_reporte_usuarios_activos_mes_dia',
       icon:cilCalendarCheck,
       description:
         "Personaliza tu análisis al ingresar el mes y día específicos y obtén un informe detallado sobre la asistencia y uso de servicios bibliotecarios.",
@@ -47,6 +52,7 @@ const Report_usu = () => {
     {
       id: "renovaciones",
       title: "Renovaciones de Usuarios por Día, Mes y Año",
+      action:'btn_generar_reporte_renovaciones_usuario',
       icon:cilCalendarCheck,
       description:
         "Personaliza tu análisis por fecha para obtener el informe detallado sobre las renovaciones de registros y carnetización por día, mes y año.",
@@ -55,6 +61,7 @@ const Report_usu = () => {
     {
       id: "mejores",
       title: "Ranking de los Mejores Usuarios",
+      action: 'btn_generar_reporte_ranking_usuarios',
       icon:cilBadge,
       description:
         "Personaliza tu análisis al ingresar el año y obtén un informe detallado con el ranking de los usuarios más activos y con mayor índice de lectura.",
@@ -63,6 +70,7 @@ const Report_usu = () => {
     {
       id: "historial_libros",
       icon:cilHistory,
+      action:'btn_generar_reporte_libros_usuario',
       title: "Historial de Libros por Usuario",
       description:
         "Consulta el registro histórico de libros prestados, devueltos y consultados por cada usuario en los diferentes periodos de atención.",
@@ -72,6 +80,7 @@ const Report_usu = () => {
       id: "nuevos",
       icon:cilCalendar,
       title: "Nuevos Usuarios en el Sistema por Día, Mes y Año",
+      action:'btn_generar_reporte_nuevos_usuarios',
       description:
         "Informe detallado sobre las nuevas altas e incorporaciones de lectores registradas en el sistema por día, mes y año.",
       onOpen: () => setVisibleNuevos(true),
@@ -99,6 +108,7 @@ const Report_usu = () => {
                 </p>
 
                 <div className="mt-auto pt-2">
+                  {canDoAction(report.action) && (
                   <CButton
                     color="primary"
                     variant="outline"
@@ -108,6 +118,7 @@ const Report_usu = () => {
                     <CIcon icon={cilCloudDownload} />
                     <span>Generar Reporte</span>
                   </CButton>
+                  )}
                 </div>
               </CCardBody>
             </CCard>

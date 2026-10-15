@@ -9,6 +9,8 @@ export interface ChartLineExampleProps {
   data?: {
     activos?: number[]
     entregados?: number[]
+    totalPrestamos?: number
+    totalEntregados?: number
   }
   loading?: boolean
 }
@@ -58,7 +60,11 @@ export const ChartLineExample: React.FC<ChartLineExampleProps> = ({ data: propDa
   const defaultArray = Array(12).fill(0)
   const activosData = propData?.activos?.length ? propData.activos : defaultArray
   const entregadosData = propData?.entregados?.length ? propData.entregados : defaultArray
-  const isAllZero = activosData.every((v) => v === 0) && entregadosData.every((v) => v === 0)
+
+  const totalActivosVal = propData?.totalPrestamos !== undefined ? propData.totalPrestamos : activosData.reduce((a, b) => a + b, 0)
+  const totalEntregadosVal = propData?.totalEntregados !== undefined ? propData.totalEntregados : entregadosData.reduce((a, b) => a + b, 0)
+
+  const isAllZero = activosData.every((v) => v === 0) && entregadosData.every((v) => v === 0) && totalActivosVal === 0 && totalEntregadosVal === 0
 
   useEffect(() => {
     if (chartRef.current) {
@@ -123,32 +129,48 @@ export const ChartLineExample: React.FC<ChartLineExampleProps> = ({ data: propDa
 
   return (
     <div style={{ width: '100%', height: '340px', position: 'relative' }}>
-      {loading && (
-        <div
-          className="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center bg-body bg-opacity-50"
-          style={{ zIndex: 5 }}
-        >
-          <div className="spinner-border text-info" role="status" style={{ width: '2rem', height: '2rem' }}>
-            <span className="visually-hidden">Cargando datos...</span>
+      <div className="d-flex align-items-center justify-content-between mb-2 pb-1 border-bottom">
+        <div className="d-flex align-items-center gap-2">
+          <span className="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 px-2 py-1 small">
+            <strong>Activos:</strong> {totalActivosVal}
+          </span>
+          <span className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-1 small">
+            <strong>Entregados:</strong> {totalEntregadosVal}
+          </span>
+        </div>
+        <div className="text-secondary small font-monospace" style={{ fontSize: '11px' }}>
+          Total Registrados: {totalActivosVal + totalEntregadosVal}
+        </div>
+      </div>
+
+      <div style={{ height: 'calc(100% - 36px)', width: '100%', position: 'relative' }}>
+        {loading && (
+          <div
+            className="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center bg-body bg-opacity-50"
+            style={{ zIndex: 5 }}
+          >
+            <div className="spinner-border text-info" role="status" style={{ width: '2rem', height: '2rem' }}>
+              <span className="visually-hidden">Cargando datos...</span>
+            </div>
           </div>
-        </div>
-      )}
-      {isAllZero && !loading && (
-        <div
-          className="position-absolute top-50 start-50 translate-middle text-center p-2 rounded bg-body shadow-sm border small text-muted"
-          style={{ zIndex: 4, maxWidth: '80%' }}
-        >
-          No hay préstamos registrados para este período seleccionado.
-        </div>
-      )}
-      <CChart
-        key={`${activosData.join(',')}-${entregadosData.join(',')}`}
-        type="line"
-        data={chartData}
-        options={options}
-        ref={chartRef}
-        style={{ height: '100%', width: '100%' }}
-      />
+        )}
+        {isAllZero && !loading && (
+          <div
+            className="position-absolute top-50 start-50 translate-middle text-center p-2 rounded bg-body shadow-sm border small text-muted"
+            style={{ zIndex: 4, maxWidth: '80%' }}
+          >
+            No hay préstamos registrados para este período seleccionado.
+          </div>
+        )}
+        <CChart
+          key={`${activosData.join(',')}-${entregadosData.join(',')}-${totalActivosVal}-${totalEntregadosVal}`}
+          type="line"
+          data={chartData}
+          options={options}
+          ref={chartRef}
+          style={{ height: '100%', width: '100%' }}
+        />
+      </div>
     </div>
   )
 }

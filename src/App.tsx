@@ -10,6 +10,7 @@ import './scss/tailwind.scss'
 import type { RootState } from './store'
 import PublicRoute from './components/guards/PublicRoute'
 import ProtectedRoute from './components/guards/ProtectedRoute'
+import { PermissionsProvider } from './context/PermissionsContext'
 
 // Containers
 const DefaultLayout = React.lazy(() => import('./layout/DefaultLayout'))
@@ -47,6 +48,7 @@ const App = () => {
 
   return (
     <HashRouter>
+    <PermissionsProvider>
       <Suspense
         fallback={
           <div className="pt-3 text-center">
@@ -82,6 +84,7 @@ const App = () => {
           />
         </Routes>
       </Suspense>
+      </PermissionsProvider>
     </HashRouter>
   )
 }

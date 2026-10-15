@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import Swal from 'sweetalert2'
 import { PersonasActivasReport } from '@/Service/tab/Persona'
-import { STORAGE_BASE_URL } from '@/.env'
+import { STORAGE_BASE_URL } from '@/utils/imageUtils'
 
 export { STORAGE_BASE_URL }
 
@@ -26,6 +26,7 @@ const useReportActivas = () => {
   const [usuarios, setUsuarios] = useState<PersonaReporteItem[]>([])
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [excelLink, setExcelLink] = useState<string | null>(null)
+  const [haBuscado, setHaBuscado] = useState<boolean> (false)
 
   const handleGetActivas = useCallback(async () => {
     const anio = (anoRegistro || '').trim()
@@ -44,11 +45,13 @@ const useReportActivas = () => {
     }
 
     setIsLoading(true)
+    setHaBuscado(true)
+    setUsuarios([])
+    setExcelLink(null)
+
     try {
       const params = {
         anoRegistro: anio,
-        anio: anio,
-        year: anio,
       }
 
       const data = await PersonasActivasReport(params)
@@ -60,19 +63,45 @@ const useReportActivas = () => {
 
       setUsuarios(personasFiltradas)
       setExcelLink(data?.excel_path || null)
-    } catch (error: any) {
-      console.error('Error al obtener las personas activas:', error)
-      Swal.mixin({
-        toast: true,
-        position: 'top-end',
-        timer: 2500,
-        timerProgressBar: false,
-        showConfirmButton: false,
-      }).fire({
-        icon: 'warning',
-        title: 'Hubo un problema al obtener los usuarios activos.',
-      })
-    } finally {
+      
+      if(personasFiltradas.length === 0) {
+        Swal.fire({
+          icon: 'info',
+          title: 'Sin usuarios activos',
+          text: `No se encontraron usuarios activos registrados en el año ${anio}`, confirmButtonColor: '#0d6efd',
+        })
+      }
+    } catch (error: any){
+      console.error('Error al obtener las personas activas', error)
+      const respData = error?.response?.data
+            const isZeroResultsError =
+        error?.response?.status === 500 &&
+        ((typeof respData === 'string' && (respData.includes('PersonasExport') || respData.includes('toArray() on null'))) ||
+          (error?.response?.data?.message && error.response.data.message.includes('toArray() on null')))
+
+          if (isZeroResultsError) {
+            setUsuarios([])
+            setExcelLink(null)
+            Swal.fire({
+              icon: 'info',
+              title: 'Sin usuarios activos',
+              text: `No se encontraron usuarios activos registrados en el año ${anio}`,
+              confirmButtonColor: '#0d6efd',
+            })
+          } else {
+            Swal.mixin({
+              toast: true,
+              position: 'top-end',
+              timer: 2500,
+              timerProgressBar: false,
+              showCancelButton: false,
+            }).fire({
+              icon: 'error',
+              title: 'Error!',
+              text: error?.response?.data?.message || 'Hubo un problema al obtener los usuarios activos.',
+            })
+          }
+    } finally{
       setIsLoading(false)
     }
   }, [anoRegistro])
@@ -87,6 +116,7 @@ const useReportActivas = () => {
     setAnoRegistro('')
     setUsuarios([])
     setExcelLink(null)
+    setHaBuscado(false)
   }, [])
 
   return {
@@ -101,8 +131,9 @@ const useReportActivas = () => {
     handleObtenerActivos: handleGetActivas,
     handleDescargarExcel,
     handleReset,
+    haBuscado
   }
 }
 
 export const useReporteUsuariosActivos = useReportActivas
-export default useReportActivas
+export default useReportActivas 

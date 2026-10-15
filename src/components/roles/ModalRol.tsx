@@ -2,14 +2,17 @@ import useRoles from "@/hooks/admin-roles/useRoles"
 import { cilExitToApp, cilPenNib, cilShieldAlt, cilTrash } from "@coreui/icons"
 import CIcon from "@coreui/icons-react"
 import { CButton, CCol, CForm, CFormInput, CFormSelect, CModal, CModalBody, CModalFooter, CModalHeader, CModalTitle, CSpinner } from "@coreui/react-pro"
+import { usePermissions } from "@/context/PermissionsContext"
 
 const ModalRolActu = ({ userState }: { userState: ReturnType<typeof useRoles> }) => {
+    const { canDoAction } = usePermissions()
+
     return(
                     <CModal visible={userState.modalEditar} onClose={() => userState.setModalEditar(false)}>
                         <CModalHeader>
                             <CModalTitle className="d-flex align-items-center">
                                 <CIcon icon={cilShieldAlt} className="me-2 text-primary" />
-                                Actualizar Rol
+                                Actualizar o Eliminar Rol
                             </CModalTitle>
                         </CModalHeader>
                         <CModalBody>
@@ -48,26 +51,29 @@ const ModalRolActu = ({ userState }: { userState: ReturnType<typeof useRoles> })
                             </CForm>
                         </CModalBody>
                         <CModalFooter>
-                            <CButton color="danger" variant="outline" className="hover:text-white" onClick={() => userState.setModalEditar(false)} disabled={userState.guardando}>
+                            <CButton color="secondary" variant="outline" onClick={() => userState.setModalEditar(false)} disabled={userState.guardando}>
                                 <CIcon icon={cilExitToApp} className="me-1"/>
                                 Cerrar
                             </CButton>
-                            <CButton
-                                color="warning"
-                                variant="outline"
-                                className="hover:text-white"
-                                onClick={() => userState.handleEliminarRol(userState.editFormData.id, userState.editFormData.nombre)}
-                                disabled={userState.guardando}
-                            >
-                                {userState.guardando ? <CSpinner size="sm" className="me-1" /> : null}
-                                <CIcon icon={cilTrash} className="me-1"/>
-                                Eliminar Rol
-                            </CButton>
-                            <CButton color="success" variant="outline" className="hover:text-white" onClick={userState.handleActualizarRol} disabled={userState.guardando}>
-                                {userState.guardando ? <CSpinner size="sm" className="me-1" /> : null}
-                                <CIcon icon={cilPenNib} className="me-1"/>
-                                Actualizar Rol
-                            </CButton>
+                            {canDoAction('btn_eliminar_rol') && (
+                                <CButton
+                                    color="danger"
+                                    variant="outline"
+                                    onClick={() => userState.handleEliminarRol(userState.editFormData.id, userState.editFormData.nombre)}
+                                    disabled={userState.guardando}
+                                >
+                                    {userState.guardando ? <CSpinner size="sm" className="me-1" /> : null}
+                                    <CIcon icon={cilTrash} className="me-1"/>
+                                    Eliminar Rol
+                                </CButton>
+                            )}
+                            {canDoAction('btn_actualizar_rol') && (
+                                <CButton color="success" onClick={userState.handleActualizarRol} disabled={userState.guardando}>
+                                    {userState.guardando ? <CSpinner size="sm" className="me-1" /> : null}
+                                    <CIcon icon={cilPenNib} className="me-1"/>
+                                    Actualizar Rol
+                                </CButton>
+                            )}
                         </CModalFooter>
                     </CModal>
     )

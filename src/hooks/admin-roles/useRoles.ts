@@ -34,6 +34,29 @@ const formatApiError = (error: any, defaultMsg: string): string => {
   return defaultMsg
 }
 
+export const ordenarRoles = (lista: any[]) => {
+  return [...lista].sort((a: any, b: any) => {
+    const idA = Number(a.ID_ROL ?? a.id ?? 0)
+    const idB = Number(b.ID_ROL ?? b.id ?? 0)
+    const nivelA = Number(a.NIVEL_ROL ?? a.nivel ?? 1)
+    const nivelB = Number(b.NIVEL_ROL ?? b.nivel ?? 1)
+
+    // 1. El ADMINISTRADOR principal (ID 1 o ES_ADMINISTRADOR === true) siempre de primero
+    const isPrincipalA = idA === 1 || Boolean(a.ES_ADMINISTRADOR)
+    const isPrincipalB = idB === 1 || Boolean(b.ES_ADMINISTRADOR)
+    if (isPrincipalA && !isPrincipalB) return -1
+    if (!isPrincipalA && isPrincipalB) return 1
+
+    // 2. Ordenar por nivel ascendente (Nivel 1, Nivel 2, Nivel 3...)
+    if (nivelA !== nivelB) {
+      return nivelA - nivelB
+    }
+
+    // 3. A mismo nivel, por ID ascendente
+    return idA - idB
+  })
+}
+
 export const useRoles = () => {
   const [roles, setRoles] = useState<Rol[]>([])
   const [loading, setLoading] = useState(false)
@@ -55,7 +78,7 @@ export const useRoles = () => {
       } else if (response && Array.isArray(response.roles)) {
         lista = response.roles
       }
-      setRoles(lista)
+      setRoles(ordenarRoles(lista))
     } catch (error: any) {
       const msg = formatApiError(error, 'Error al obtener la lista de roles.')
       setErrorMsg(msg)
@@ -71,6 +94,7 @@ export const useRoles = () => {
       const payload = {
         NOMBRE_ROL: formData.nombre,
         DESCRIPCION_ROL: formData.descripcion,
+        NIVEL_ROL: Number(formData.nivel || 1),
         NIVEL_ACCESO: Number(formData.nivel || 1),
         ESTADO_ROL: formData.estado || 'Activo',
       }
@@ -107,7 +131,7 @@ export const useRoles = () => {
       setErrorMsg(null)
       const res = await listarRoles()
       const lista = Array.isArray(res) ? res : (res?.data || res?.roles || [])
-      setRoles(lista)
+      setRoles(ordenarRoles(lista))
     } catch (error: any) {
       console.error('Error al listar roles:', error)
       if (error?.response?.status === 401) {
@@ -248,6 +272,16 @@ export const useRoles = () => {
   }
 
   const handleEliminarRol = async (id: string | number, nombre?: string) => {
+    if (Number(id) === 1) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Acción no permitida',
+        text: 'El rol Administrador principal del sistema no puede ser eliminado.',
+        confirmButtonColor: '#321fdb',
+      })
+      return
+    }
+
     const result = await Swal.fire({
       title: '¿Estás seguro?',
       text: `¿Deseas eliminar el rol ${nombre ? `"${nombre}"` : ''}? Esta acción no se puede deshacer.`,

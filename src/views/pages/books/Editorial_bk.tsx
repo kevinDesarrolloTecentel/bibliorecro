@@ -1,5 +1,6 @@
 import ModalEditorial from '@/components/details_bk/editorial'
 import { useEditorial } from '@/hooks/rco-libros/useEditorial'
+import { usePermissions } from '@/context/PermissionsContext'
 import {
   cilDescription,
   cilFile,
@@ -23,6 +24,7 @@ import {
   CInputGroup,
   CInputGroupText,
   CRow,
+  CSmartPagination,
   CSpinner,
 } from '@coreui/react-pro'
 
@@ -30,18 +32,26 @@ const Editorial = () => {
   const editoHook = useEditorial()
   const {
     handleOpen,
-    listaEditorial,
     busquedaEditorial,
     setBusquedaEditorial,
     loadingEditorial,
     editorialFiltrados,
+    editorialPaginados,
     editorialSeleccionado,
     setEditorialSeleccionado,
     handleEliminarEditorial,
+    paginaActual,
+    totalPaginas,
+    totalEditoriales,
+    totalFiltrados,
+    handlePageChange,
   } = editoHook
+
+  const { canDoAction } = usePermissions()
 
   const handleToggleSelect = (edi: any) => {
     const currentId = String(editorialSeleccionado?.ID_EDITORIAL ?? editorialSeleccionado?.id ?? '')
+
     const targetId = String(edi?.ID_EDITORIAL ?? edi?.id ?? '')
     if (currentId && currentId === targetId) {
       setEditorialSeleccionado(null)
@@ -62,6 +72,7 @@ const Editorial = () => {
           <p className="text-muted small mb-0">Gestiona el Catálogo de las Editoriales</p>
         </div>
         <div>
+          {canDoAction('btn_crear_editorial') && (
           <CButton
             color="success"
             variant="outline"
@@ -71,6 +82,7 @@ const Editorial = () => {
             <CIcon icon={cilPlus} />
             <span>Nueva Editorial</span>
           </CButton>
+          )}
         </div>
       </div>
       <CRow className="g-4">
@@ -81,13 +93,20 @@ const Editorial = () => {
                 <CIcon icon={cilFile} size="lg" style={{ color: '#36BBA7' }} />
                 <span>Catálogo de Editoriales</span>
               </div>
-              <CBadge color="primary" shape="rounded-pill">
-                {listaEditorial.length} Registradas
-              </CBadge>
+              <div className="d-flex align-items-center gap-2">
+                {busquedaEditorial && (
+                  <CBadge color="info" shape="rounded-pill">
+                    {totalFiltrados} encontradas
+                  </CBadge>
+                )}
+                <CBadge color="primary" shape="rounded-pill">
+                  {totalEditoriales} Registradas
+                </CBadge>
+              </div>
             </CCardHeader>
             <CCardBody className="p-3">
               <label className="form-label small fw-semibold text-muted">
-                Busca la Editorial por su Nombre o Código:
+                Busca la Editorial por su Nombre:
               </label>
               <CInputGroup className="mb-3">
                 <CInputGroupText className="bg-body">
@@ -125,7 +144,7 @@ const Editorial = () => {
                   </div>
                 ) : (
                   <div className="d-flex flex-column gap-2">
-                    {editorialFiltrados.map((edi) => {
+                    {editorialPaginados.map((edi) => {
                       const id = edi.ID_EDITORIAL || edi.id
                       const isSelected =
                         String(editorialSeleccionado?.ID_EDITORIAL || editorialSeleccionado?.id) ===
@@ -162,45 +181,31 @@ const Editorial = () => {
                             </div>
                             <div>
                               <div className=" font-monospace small fw-bold text-body">{edi.NOMBRE_EDITORIAL}</div>
-                              <span className="text-muted small font-monospace">ID: #{id}</span>
                             </div>
                           </div>
-                          <div className="d-flex align-items-center">
-                            {isSelected ? (
-                              <CButton
-                                color="primary"
-                                size="sm"
-                                variant="ghost"
-                                className="d-flex align-items-center gap-1 p-0 text-decoration-none"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setEditorialSeleccionado(null)
-                                }}
-                                title="Clic para deseleccionar"
-                              >
-                                <CBadge className="px-3 py-2" color="primary" shape="rounded-pill">
-                                  Seleccionado ✕
-                                </CBadge>
-                              </CButton>
-                            ) : (
-                              <CButton
-                                color="primary"
-                                size="sm"
-                                variant="outline"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setEditorialSeleccionado(edi)
-                                }}
-                              >
-                                Seleccionar
-                              </CButton>
-                            )}
-                          </div>
+                          {isSelected && (
+                            <CBadge className="px-3 py-2 shadow-sm text-white" color="primary" shape="rounded-pill">
+                              Seleccionado ✕ 
+                            </CBadge>
+                          )}
+                        
                         </div>
                       )
                     })}
                   </div>
                 )}
+              </div>
+
+              <div className="d-flex flex-wrap justify-content-between align-items-center pt-3 mt-2 border-top bg-body">
+                <span className="text-muted small">
+                  Página <strong>{paginaActual}</strong> de <strong>{totalPaginas}</strong> ({totalFiltrados} editoriales)
+                </span>
+                <CSmartPagination
+                  size="sm"
+                  activePage={paginaActual}
+                  pages={totalPaginas}
+                  onActivePageChange={handlePageChange}
+                />
               </div>
             </CCardBody>
           </CCard>
@@ -244,27 +249,19 @@ const Editorial = () => {
                         <h5 className="fw-bold text-body mb-1">
                           {editorialSeleccionado.NOMBRE_EDITORIAL}
                         </h5>
-                        <span className="badge bg-body text-secondary border font-monospace">
-                          ID: #{editorialSeleccionado.ID_EDITORIAL || editorialSeleccionado.id}
-                        </span>
                       </div>
                     </div>
                     <div className="d-flex flex-column gap-2 pt-2 border-top">
-                      <div className="d-flex justify-content-between py-1 border-bottom">
-                        <span className="text-muted small badge bg-body rounded-pill border">Nombre:</span>
-                        <span className="text-body font-monospace fw-semibold small">
+                      <div className="d-flex justify-content-between align-items-center py-1">
+                        <span className="text-muted small badge bg-body rounded-pill border d-inline-flex align-items-center justify-content-center">Nombre:</span>
+                        <span className="text-body font-monospace fw-semibold small text-end ms-2">
                           {editorialSeleccionado.NOMBRE_EDITORIAL}
-                        </span>
-                      </div>
-                      <div className="d-flex justify-content-between py-1 border-bottom">
-                        <span className="text-muted small badge bg-body border rounded-pill">Identificador del Sistema:</span>
-                        <span className="text-primary font-monospace fw-semibold small bagde bg-primary text-white rounded-pill px-2 py-1">
-                          #{editorialSeleccionado.ID_EDITORIAL || editorialSeleccionado.id}
                         </span>
                       </div>
                     </div>
                   </div>
                   <div className="d-flex gap-2 justify-content-end">
+                    {canDoAction('btn_eliminar_editorial') && (
                     <CButton
                       color="danger"
                       variant="outline"
@@ -274,6 +271,8 @@ const Editorial = () => {
                       <CIcon icon={cilTrash} />
                       <span>Eliminar</span>
                     </CButton>
+                    )}
+                    {canDoAction('btn_editar_editorial') && (
                     <CButton
                       color="success"
                       variant='outline'
@@ -283,6 +282,7 @@ const Editorial = () => {
                       <CIcon icon={cilPen} />
                       <span>Editar Editorial</span>
                     </CButton>
+                    )}
                   </div>
                 </div>
               ) : (

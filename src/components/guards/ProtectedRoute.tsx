@@ -1,38 +1,28 @@
 import React, { useEffect } from 'react'
-import { Navigate, Outlet } from 'react-router-dom'
+import { Navigate, useLocation } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
 import type { RootState } from '../../store'
 import type { UserData } from '../../models/auth'
-import { hasRequiredRole, isSessionValid, clearAuthSession, RoleIdentifier } from '../../utils/auth'
+import { isSessionValid, clearAuthSession } from '../../utils/auth'
 import { sessionExpired } from '../../authSlice'
 import Page403 from '@/views/pages/Errors/Page403'
-
-export const hasPermission = (
-  user: any,
-  allowedRoles?: RoleIdentifier[],
-): boolean => {
-  if (!allowedRoles || allowedRoles.length === 0) return true
-  if (!user) return false
-  const userRole = user.ID_ROL ?? user.rol ?? user.id_rol
-  return hasRequiredRole(userRole, allowedRoles)
-}
+import { usePermissions } from '@/context/PermissionsContext'
+import { CSpinner } from '@coreui/react-pro'
 
 interface ProtectedRouteProps {
   children?: React.ReactNode
-  roles?: RoleIdentifier[]
   redirectTo?: string
-  fallback?: React.ReactNode
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
-  roles,
   redirectTo = '/login',
-  fallback,
 }) => {
   const dispatch = useDispatch()
+  const location = useLocation()
   const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated)
   const user = useSelector((state: RootState) => state.auth.user) as UserData | null
+  const { canAccessPath, permisosCargados, esAdmin } = usePermissions()
 
   useEffect(() => {
     if (!isAuthenticated) return
@@ -49,6 +39,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
     verificarExpiracion()
     const interval = setInterval(verificarExpiracion, 5000)
+
     return () => clearInterval(interval)
   }, [isAuthenticated, user, dispatch])
 
@@ -56,18 +47,22 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to={redirectTo} replace />
   }
 
-  if (!isSessionValid(user)) {
-    return <Navigate to={`${redirectTo}?session_expired=true`} replace />
+  // Si los permisos iniciales aún no terminan de cargar y no hay caché ni es admin, mostrar spinner (NUNCA 403)
+  if (!permisosCargados && !esAdmin) {
+    return (
+      <div className="d-flex justify-content-center align-items-center py-5" style={{ minHeight: '60vh' }}>
+        <CSpinner color="primary" />
+      </div>
+    )
   }
 
-  if (roles && roles.length > 0) {
-    const isAuthorized = hasPermission(user, roles)
-    if (!isAuthorized) {
-      return fallback ? <>{fallback}</> : <Page403 />
-    }
+  // Si no es la ruta base "/" y no tiene permiso en la BD para este path
+  const currentPath = location.pathname.split('?')[0].replace(/\/+$/, '') || '/'
+  if (currentPath !== '/' && !canAccessPath(currentPath)) {
+    return <Page403 />
   }
 
-  return children ? <>{children}</> : <Outlet />
+  return <>{children}</>
 }
 
 export default ProtectedRoute

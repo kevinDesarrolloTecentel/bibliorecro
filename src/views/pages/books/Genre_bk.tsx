@@ -1,21 +1,28 @@
 import ModalGen from "@/components/details_bk/genero"
 import { useGenero } from "@/hooks/rco-libros/useGenero"
-import { cilLibraryBuilding, cilNewspaper, cilNoteAdd, cilNotes, cilPenNib, cilPlus, cilSearch, cilTrash } from "@coreui/icons"
+import { cilLibraryBuilding, cilNewspaper, cilNoteAdd, cilNotes, cilPenNib, cilPlus, cilSearch, cilTrash, cilX } from "@coreui/icons"
 import CIcon from "@coreui/icons-react"
-import { CBadge, CButton, CCard, CCardBody, CCardHeader, CCol, CFormInput, CInputGroup, CInputGroupText, CRow, CSpinner } from "@coreui/react-pro"
+import { CBadge, CButton, CCard, CCardBody, CCardHeader, CCol, CFormInput, CInputGroup, CInputGroupText, CRow, CSpinner, CSmartPagination } from "@coreui/react-pro"
+import { usePermissions } from "@/context/PermissionsContext"
 
 const Genre = () => {
   const generoHook = useGenero()
+  const { canDoAction } = usePermissions()
   const {
     handleOpen,
-    listaGeneros,
     busquedagenero,
     setBusquedaGenero,
     loadingGeneros,
     generoFiltrados,
+    generoPaginados,
     generoSeleccionado,
     setGeneroSeleccionado,
-    handleEliminarGnerol
+    handleEliminarGnerol,
+    paginaActual,
+    totalPaginas,
+    totalGeneros,
+    totalFiltrados,
+    handlePageChange
   } = generoHook
 
   const handleToggleSelect = (genero: any) => {
@@ -40,6 +47,7 @@ const Genre = () => {
           <p className="text-muted small mb-0">Gestiona el catálogo de los Géneros</p>
         </div>
         <div>
+          {canDoAction('btn_crear_genero') && (
           <CButton
             color="success"
             variant="outline"
@@ -49,6 +57,7 @@ const Genre = () => {
             <CIcon icon={cilPlus} />
             <span>Nuevo Género</span>
           </CButton>
+          )}
         </div>
       </div>
       <CRow className="g-4">
@@ -59,9 +68,17 @@ const Genre = () => {
                 <CIcon icon={cilNoteAdd} size="lg" style={{ color: '#1C69A8' }} />
                 <span>Catálogo de Géneros</span>
               </div>
-              <CBadge color="primary" shape="rounded-pill">
-                {listaGeneros.length}
-              </CBadge>
+              <div className="d-flex align-items-center gap-2">
+                {busquedagenero && (
+                  <CBadge color="info" shape="rounded-pill">
+                    {totalFiltrados} encontrados
+                  </CBadge>
+                )}
+                <CBadge color="primary" shape="rounded-pill">
+                  {totalGeneros} Registrados
+                </CBadge>
+              </div>
+
             </CCardHeader>
             <CCardBody className="p-3">
               <label className="form-label small fw-semibold text-muted">
@@ -77,6 +94,17 @@ const Genre = () => {
                   value={busquedagenero}
                   onChange={(e) => setBusquedaGenero(e.target.value)}
                 />
+                {busquedagenero && (
+                  <CButton
+                    type="button"
+                    color="light"
+                    variant="outline"
+                    onClick={() => setBusquedaGenero('')}
+                    title="Limpiar búsqueda"
+                  >
+                    <CIcon icon={cilX} />
+                  </CButton>
+                )}
               </CInputGroup>
 
               <div className="border rounded p-2 overflow-auto" style={{ maxHeight: '500px', minWidth: '350px' }}>
@@ -93,7 +121,7 @@ const Genre = () => {
                   </>
                 ) : (
                   <div className="d-flex flex-column gap-2">
-                    {generoFiltrados.map((genero) => {
+                    {generoPaginados.map((genero) => {
                       const id = genero.ID_RCOGENERO || genero.id
                       const isSelected = String(generoSeleccionado?.ID_RCOGENERO || generoSeleccionado?.id) === String(id)
                       return (
@@ -113,44 +141,25 @@ const Genre = () => {
                             </div>
                             <div>
                               <div className="font-monospace text-muted small">{genero.NOMBRE_RCOGENERO}</div>
-                              <div className="small mt-1 font-monospace">ID: #{id}</div>
                             </div>
                           </div>
-                          <div className="d-flex align-items-center">
-                            {isSelected ? (
-                              <CButton
-                                color="primary"
-                                size="sm"
-                                variant="ghost"
-                                className="d-flex align-items-center gap-1 p-0 text-decoration-none"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setGeneroSeleccionado(null)
-                                }}
-                                title="Clic para deseleccionar">
-                                <CBadge className="px-3 py-2" color="primary" shape="rounded-pill">
-                                  Seleccionado ✕
-                                </CBadge>
-                              </CButton>
-                            ) : (
-                              <CButton
-                                color="primary"
-                                size="sm"
-                                variant="outline"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setGeneroSeleccionado(genero)
-                                }}>
-                                Seleccionar
-                              </CButton>
-                            )}
-                          </div>
+                          {isSelected && (
+                            <CBadge className="px-3 py-2" color="primary" shape="rounded-pill">
+                              Seleccionado ✕
+                            </CBadge>
+                          )}
                         </div>
                       )
                     })}
                   </div>
                 )}
               </div>
+              <div className="d-flex flex-wrap justify-content-between align-items-center pt-3 mt-2 border-top bg-body">
+                <span className="text-muted small">
+                  Página <strong> {paginaActual} </strong> de <strong> {totalPaginas}</strong> ({totalFiltrados} géneros)
+                </span>
+                <CSmartPagination size="sm" activePage={paginaActual} pages={totalPaginas} onActivePageChange={handlePageChange}/>
+                </div>
             </CCardBody>
           </CCard>
         </CCol>
@@ -189,7 +198,6 @@ const Genre = () => {
                         </div>
                         <div>
                           <h5 className="fw-bold font-monospace text-body mb-1">{generoSeleccionado.NOMBRE_RCOGENERO}</h5>
-                          <span className=" badge bg-body text-secunndary border font-monospace text-body">ID:#{generoSeleccionado.ID_RCOGENERO || generoSeleccionado.id}</span>
                         </div>
                       </div>
                       <div className="d-flex flex-column gap-2 border-top">
@@ -200,6 +208,7 @@ const Genre = () => {
                       </div>
                     </div>
                     <div className=" d-flex justify-content-end gap-2">
+                      {canDoAction('btn_eliminar_genero') && (
                       <CButton
                         color="danger"
                         variant="outline"
@@ -208,6 +217,8 @@ const Genre = () => {
                         <CIcon icon={cilTrash} />
                         <span>Eliminar Género</span>
                       </CButton>
+                      )}
+                      {canDoAction('btn_editar_genero') && (
                       <CButton
                         color="success"
                         variant="outline"
@@ -216,6 +227,7 @@ const Genre = () => {
                         <CIcon icon={cilPenNib} />
                         <span>Editar Género</span>
                       </CButton>
+                      )}
                     </div>
                   </div>
                 ) : (

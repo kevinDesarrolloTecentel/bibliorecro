@@ -1,6 +1,6 @@
 import { Autor } from "@/models/rco/autor";
-import { ActualizarAutorLib, EliminarAutorLib, ListarAutorLib, NuevoAutorLib } from "@/Service/rco/AutorLib";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { ActualizarAutorLib, EliminarAutorLib, Autores, NuevoAutorLib } from "@/Service/rco/AutorLib";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import Swal from "sweetalert2";
 
 export type AutorItem = Autor
@@ -41,22 +41,31 @@ export const useAutor = ({
   const [autorSeleccionado, setAutorSeleccionado] = useState<Autor | null>(null)
   const [autorEnEdicion, setAutorEnEdicion] = useState<Autor | null>(null)
 
+  const [paginaActual, setPaginaActual] = useState(1)
+  const [totalPaginas, setTotalPaginas] = useState(1)
+  const [totalAutores, setTotalAutores] = useState(0)
+  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null)
+
   const [nombreAutor, setNombreAutor] = useState('')
   const [guardando, setGuardadno] = useState(false)
 
-  const fetchAutores = useCallback(async () => {
+  const fetchAutores = useCallback(async (page: number = 1, searchQuery: string = '') => {
     setLoadingAutores(true)
     try {
-      const response = await ListarAutorLib()
+      const q = searchQuery.trim()
+      const response = await Autores({ page, search: q, per_page: 20 })
       let rawList: any[] = []
-      if (Array.isArray(response)) {
+      let total = 0
+      let lastPage = 1
+
+      if (response && response.data) {
+        rawList = Array.isArray(response.data) ? response.data : []
+        total = Number(response.total ?? rawList.length)
+        lastPage = Number(response.last_page ?? 1)
+      } else if (Array.isArray(response)) {
         rawList = response
-      } else if (Array.isArray(response?.data)) {
-        rawList = response.data
-      } else if (Array.isArray(response?.data?.data)) {
-        rawList = response.data.data
-      } else if (Array.isArray(response?.autores)) {
-        rawList = response.autores
+        total = response.length
+        lastPage = 1
       }
 
       const parsedList: Autor[] = rawList.map((item: any, index: number) => ({
@@ -66,22 +75,19 @@ export const useAutor = ({
         FECHAINGRESO_AUTOR: item.FECHAINGRESO_AUTOR ?? item.fecha_ingreso ?? null
       }))
 
-
       setListaAutores(parsedList)
+      setTotalAutores(total)
+      setTotalPaginas(Math.max(1, lastPage))
+      setPaginaActual(page)
+
       setAutorSeleccionado((prev) => {
         if (!prev) return null
         const prevId = String(prev.ID_AUTOR ?? prev.id)
         const matched = parsedList.find((a) => String(a.ID_AUTOR ?? a.id) === prevId)
-        return matched || null
+        return matched || prev
       })
     } catch (error: any) {
-      Toast.mixin({
-        toast: true,
-        position: 'top-end',
-        timer: 2500,
-        timerProgressBar: false,
-        showConfirmButton: false
-      }).fire({
+      Toast.fire({
         icon: 'error',
         title: 'No se pudieron cargar los autores'
       })
@@ -91,10 +97,27 @@ export const useAutor = ({
   }, [])
 
   useEffect(() => {
-    if (autoFetch) {
-      fetchAutores()
+    if (!autoFetch) return
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current)
     }
-  }, [autoFetch, fetchAutores])
+
+    const delay = busquedaAutor.trim() ? 350 : 0
+    searchDebounceRef.current = setTimeout(() => {
+      fetchAutores(1, busquedaAutor)
+    }, delay)
+
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current)
+      }
+    }
+  }, [busquedaAutor, autoFetch, fetchAutores])
+
+  const handlePageChange = useCallback((newPage: number) => {
+    setPaginaActual(newPage)
+    fetchAutores(newPage, busquedaAutor)
+  }, [busquedaAutor, fetchAutores])
 
   const handleOpen = useCallback(
     (autores?: Autor) => {
@@ -125,26 +148,7 @@ export const useAutor = ({
   }, [setVisibleProp])
 
 
-  const autoresFiltrados = useMemo(() => {
-    const sorted = [...listaAutores].sort((a, b) => {
-      const numA = Number(a.ID_AUTOR ?? a.id)
-      const numB = Number(b.ID_AUTOR ?? b.id)
-      if (!isNaN(numA) && !isNaN(numB)) {
-        return numA - numB
-      }
-      return String(a.NOMBRE_AUTOR).localeCompare(String(b.NOMBRE_AUTOR), undefined, {
-        numeric: true,
-      })
-    })
-
-    if (!busquedaAutor.trim()) return sorted
-    const q = busquedaAutor.toLowerCase().trim()
-    return sorted.filter((aut) => {
-      const nombre = (aut.NOMBRE_AUTOR || '').toLowerCase()
-      const id = String(aut.ID_AUTOR ?? aut.id ?? '').toLowerCase()
-      return nombre.includes(q) || id.includes(q)
-    })
-  }, [busquedaAutor, listaAutores])
+  const autoresFiltrados = listaAutores
 
   const handleGuardarAutor = useCallback(
     async (e?: React.FormEvent) => {
@@ -177,7 +181,7 @@ export const useAutor = ({
             icon: 'success',
             title: 'Autor actualizado correctamente'
           })
-          await fetchAutores()
+          await fetchAutores(paginaActual, busquedaAutor)
           if (onAutorActualizado) {
             onAutorActualizado({
               ...autorEnEdicion,
@@ -198,7 +202,7 @@ export const useAutor = ({
             title: 'Autor registrado correctamente'
           })
 
-          await fetchAutores()
+          await fetchAutores(1, '')
           if (onAutorCreado) {
             onAutorCreado(
               res?.data ||
@@ -274,7 +278,7 @@ export const useAutor = ({
           ){
             setAutorSeleccionado(null)
           }
-          await fetchAutores()
+          await fetchAutores(paginaActual, busquedaAutor)
           if(onAutorEliminado){
             onAutorEliminado(id)
           }
@@ -315,7 +319,11 @@ export const useAutor = ({
     guardando,
     handleGuardarAutor,
     handleElminiarAutor,
-    fetchAutores
+    fetchAutores,
+    paginaActual,
+    totalPaginas,
+    totalAutores,
+    handlePageChange,
   }
 }
 

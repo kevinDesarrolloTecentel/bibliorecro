@@ -1,96 +1,97 @@
-import useAutor, { UseAutorProps } from "@/hooks/rco-libros/useAutor";
-import { cilPen } from "@coreui/icons";
-import CIcon from "@coreui/icons-react";
+import useAutor, { UseAutorProps } from "@/hooks/rco-libros/useAutor"
+import { cilExitToApp, cilLibraryBuilding, cilPenAlt, cilPeople, cilSave } from "@coreui/icons"
+import CIcon from "@coreui/icons-react"
+import { CButton, CCol, CForm, CFormInput, CInputGroup, CInputGroupText, CModal, CModalBody, CModalFooter, CModalHeader, CModalTitle, CSpinner } from "@coreui/react-pro"
 
-import { CButton, CCol, CForm, CFormInput, CInputGroup, CInputGroupText, CModal, CModalBody, CModalFooter, CModalHeader, CModalTitle, CSpinner } from "@coreui/react-pro";
-
-export interface ModalAutorProps extends UseAutorProps{
+export interface MadalAutorProps extends UseAutorProps {
   autorState?: ReturnType<typeof useAutor>
 }
 
-const ModalAut: React.FC<ModalAutorProps>=(props)=>{
-  const internalHook = useAutor({
+export const ModalAut: React.FC<MadalAutorProps> = (props) => {
+  const InternalHook = useAutor({
     ...props,
-    autoFetch: !props.autorState
+    autoFetch: !props.autorState,
   })
 
-  const hook = props.autorState || internalHook
-
+  const hook = props.autorState || InternalHook
   const {
     isVisible,
     handleClose,
-    autorEnEdicion,
     nombreAutor,
     setNombreAutor,
+    autorEnEdicion,
     guardando,
-    handleGuardarAutor
-  } = hook
+    handleGuardarAutor } = hook
 
-  return(
+  return (
     <>
-    <CModal
-    size="xl"
-    visible={isVisible}
-    onClose={handleClose}
-    aria-labelledby="ModalAutorLabel">
-      <CModalHeader closeButton className="bg-body">
-        <CModalTitle id="ModalAutorLabel" className="d-flex align-items-cenetr gap-2 fs -5 fw-bold text-dark">
-          <CIcon/>
-          <span>
-            {autorEnEdicion ? 'Editar la Información del Autor' : 'Registrar Nuevo Autor' }
-          </span>
-        </CModalTitle>
-      </CModalHeader>
-      <CModalBody className="p-4">
-        <CForm id="formModalAutor" onSubmit={handleGuardarAutor} className="row g-3">
-          <CCol xs={12}>
-            <div className="d-flex align-items-cenetr gap-2 pb-2 border-bottom fw-semibold">
-              <CIcon/>
-              <span>DATOS GENERALES DEL AUTOR</span>
-            </div>
-          </CCol>
+      <CModal
+        size="lg"
+        visible={isVisible}
+        onClose={handleClose}
+        >
+          <CModalHeader closeButton className="bg-body">
+            <CModalTitle className="d-flex align-items-center gap-2 ">
+              <CIcon icon={cilPeople} size="xl"/>
+              <span>
+                {autorEnEdicion ? 'Editar informacion del Autor' : 'Registrar nuevo Autor'}
+              </span>
+            </CModalTitle>
+          </CModalHeader>
+          <CModalBody className="p-4">
+              <CForm>
+                <CCol id="formModalAutor" onSubmit={handleGuardarAutor} >
+                  <div className="d-flex align-items-center gap-2 pb-2 border-bottom fw-semibold">
+                    <CIcon icon={cilPenAlt}/>
+                    <span>DATOS GENERALES DEL AUTOR</span>
+                  </div>
+                </CCol>
 
-          <CCol xs={12} md={8}>
-            <label className="form-label small fw-semibold text-muted">Nombre del Autor</label>
-            <CInputGroup>
-              <CInputGroupText className="bg-body">
-                <CIcon/>
-              </CInputGroupText>
-              <CFormInput 
-              type="text"
-              placeholder="Ej: Julio Verne"
-              value={nombreAutor}
-              onChange={(e)=>setNombreAutor(e.target.value)}
-              required/>
-            </CInputGroup>
-          </CCol>
-        </CForm>
-      </CModalBody>
-      <CModalFooter className="bg-body d-flex justofy-content-between align-items-center">
-        <CButton
-        color="danger"
-        variant="outline"
-        onClick={handleClose}
-        className="hover:text-white">
-          Cerrar
-        </CButton>
-        <CButton
-        color="success"
-        variant="outline"
-        type="submit"
-        className="d-flex align-items-cenetr gap-1 shadow-sm hover:text-white"
-        disabled={!nombreAutor.trim()}>
-          {guardando?(
-            <CSpinner variant="grow"/>
-          ):(
-            <>
-            <CIcon icon={cilPen}/>
-            {autorEnEdicion ? 'Actualizar Autor' : 'Guardar Autor'}
-            </>
-        )}
-        </CButton>
-      </CModalFooter>
-    </CModal>
+                <CCol>
+                  <label className="form-label small fw-semibold text-muted">Nombre del Autor</label>
+                  <CInputGroup>
+                    <CInputGroupText className="bg-body">
+                      <CIcon icon={cilLibraryBuilding}/>
+                    </CInputGroupText>
+                    <CFormInput 
+                    type="text"
+                    placeholder="Ej: Julio Verne"
+                    value={nombreAutor}
+                    onChange={(e)=>setNombreAutor(e.target.value)}
+                    required
+                    autoFocus/>
+                  </CInputGroup>
+                </CCol>
+              </CForm>
+            </CModalBody>
+            <CModalFooter className="bg-body d-flex justify-content-between align-items-center">
+              <CButton
+              color="danger"
+              variant="outline"
+              onClick={handleClose}>
+                <CIcon icon={cilExitToApp} className="me-1"/>
+                Cancelar
+              </CButton>
+              <CButton
+              color="success"
+              variant="outline"
+              type="submit"
+              form=" formModalAutor"
+              disabled={guardando || !nombreAutor.trim()}
+              onClick={handleGuardarAutor}
+              >{guardando?(
+                <>
+                <CSpinner size="sm" className="me-1" variant="grow"/>
+                Guardando...
+                </>
+              ):(
+              <>
+              <CIcon icon={cilSave} className="me-1"/>
+              {autorEnEdicion? 'Actualizar Autor': 'Guardar Autor'}
+              </>
+            )}</CButton>
+            </CModalFooter>
+      </CModal>
     </>
   )
 }

@@ -152,6 +152,30 @@ export const useCategoria = ({
     })
   }, [busquedaCategoria, listaCategorias])
 
+  const [paginaActual, setPaginaActual] = useState(1)
+  const itemsPorPagina = 20
+
+  useEffect(() => {
+    setPaginaActual(1)
+  }, [busquedaCategoria])
+
+  const totalPaginas = Math.max(1, Math.ceil(categoriasFiltradas.length / itemsPorPagina))
+
+  useEffect(() => {
+    if (paginaActual > totalPaginas) {
+      setPaginaActual(totalPaginas)
+    }
+  }, [totalPaginas, paginaActual])
+
+  const categoriasPaginadas = useMemo(() => {
+    const start = (paginaActual - 1) * itemsPorPagina
+    return categoriasFiltradas.slice(start, start + itemsPorPagina)
+  }, [categoriasFiltradas, paginaActual, itemsPorPagina])
+
+  const handlePageChange = useCallback((page: number) => {
+    setPaginaActual(page)
+  }, [])
+
   const handleGuardarCategoria = useCallback(
     async (e?: React.FormEvent) => {
       if (e) e.preventDefault()
@@ -300,6 +324,7 @@ export const useCategoria = ({
     listaCategorias,
     setListaCategorias,
     categoriasFiltradas,
+    categoriasPaginadas,
     loadingCategorias,
     setLoadingCategorias,
     busquedaCategoria,
@@ -315,6 +340,11 @@ export const useCategoria = ({
     handleGuardarCategoria,
     handleEliminarCategoria,
     fetchCategorias,
+    paginaActual,
+    totalPaginas,
+    totalCategorias: listaCategorias.length,
+    totalFiltradas: categoriasFiltradas.length,
+    handlePageChange,
   }
 }
 

@@ -54,6 +54,19 @@ export const VerLibros = async (id: any) => {
 };
 
 // Metodos POST
+export const BuscarLibros = async (busqueda: string = '', page: number = 1, per_page?: number) => {
+  const payload: any = { busqueda };
+  if (per_page) payload.per_page = per_page;
+  const params: any = { page };
+  if (per_page) params.per_page = per_page;
+  const { data } = await apiClient.post(
+    `${API_BASE_URL_LIBROS}/librosNew`,
+    payload,
+    { params }
+  );
+  return data;
+};
+
 export const NuevoLibro = async (payload?: any) => {
   const { data } = await apiClient.post(`${API_BASE_URL_LIBROS}/librosNew`, payload);
   return data;

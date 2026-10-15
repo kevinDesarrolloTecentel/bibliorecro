@@ -9,8 +9,8 @@ export const ListarAutorLib = async () =>{
     return data
 }
 
-export const Autores = async () =>{
-    const {data} = await apiClient.get(`${API_BASE_URL_AUTORLIB}/autores`)
+export const Autores = async (params?: { page?: number; search?: string; per_page?: number }) => {
+    const { data } = await apiClient.get(`${API_BASE_URL_AUTORLIB}/autores`, { params })
     return data
 }
 

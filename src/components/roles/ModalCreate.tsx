@@ -3,8 +3,11 @@ import useRoles from "@/hooks/admin-roles/useRoles"
 import { cilExitToApp, cilPenNib, cilShieldAlt } from "@coreui/icons"
 import CIcon from "@coreui/icons-react"
 import { CButton, CCol, CForm, CFormInput, CFormSelect, CModal, CModalBody, CModalFooter, CModalHeader, CModalTitle, CSpinner } from "@coreui/react-pro"
+import { usePermissions } from "@/context/PermissionsContext"
 
 const ModalCreate = ({ userState }: { userState: ReturnType<typeof useRoles> }) => {
+    const { canDoAction } = usePermissions()
+
     return (
         <CModal visible={userState.modalCrear} onClose={() => userState.setModalCrear(false)}>
             <CModalHeader>
@@ -55,11 +58,13 @@ const ModalCreate = ({ userState }: { userState: ReturnType<typeof useRoles> }) 
                     <CIcon icon={cilExitToApp} className="me-1"/>
                     Cancelar
                 </CButton>
-                <CButton color="success" variant="outline" className="hover:text-white" onClick={userState.handleGuardarRol} disabled={userState.guardando}>
-                    {userState.guardando ? <CSpinner size="sm" className="me-1" /> : null}
-                    <CIcon icon={cilPenNib} className="me-1"/>
-                    Guardar Rol
-                </CButton>
+                {canDoAction('btn_crear_rol') && (
+                    <CButton color="success" variant="outline" className="hover:text-white" onClick={userState.handleGuardarRol} disabled={userState.guardando}>
+                        {userState.guardando ? <CSpinner size="sm" className="me-1" /> : null}
+                        <CIcon icon={cilPenNib} className="me-1"/>
+                        Guardar Rol
+                    </CButton>
+                )}
             </CModalFooter>
         </CModal>
     )

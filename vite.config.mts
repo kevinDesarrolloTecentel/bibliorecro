@@ -1,38 +1,67 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'node:path'
 import autoprefixer from 'autoprefixer'
 import tailwindcss from 'tailwindcss'
 import type { DeprecationOrId } from 'sass'
+import CryptoJS from 'crypto-js'
 
-const backendProxy = {
+const decryptCookieToken = (cookieHeader: string | undefined, secret: string): string | null => {
+  if (!cookieHeader) return null
+  const match = cookieHeader.match(/(?:^|;\s*)(?:tk|token)=([^;]+)/)
+  if (!match) return null
+  const rawCookieVal = decodeURIComponent(match[1].trim())
+  if (!rawCookieVal) return null
+  if (!rawCookieVal.startsWith('U2FsdGVkX1')) {
+    return rawCookieVal
+  }
+  try {
+    const bytes = CryptoJS.AES.decrypt(rawCookieVal, secret)
+    const decrypted = bytes.toString(CryptoJS.enc.Utf8)
+    return decrypted || null
+  } catch {
+    return null
+  }
+}
+
+const getBackendProxy = (targetApi: string, encryptionKey: string) => ({
   '/api': {
-    target: 'https://bibliobackend.ccelrecreo.com:1500',
+    target: targetApi,
     changeOrigin: true,
     secure: false,
-    rewrite: (path: string) => {
-      if (/^\/api\/v1(\/|$)/.test(path)) {
-        return path.replace(/^\/api\/v1/, '/server.php/api/api/v1')
-      }
-      return path.replace(/^\/api/, '/server.php/api')
-    },
+    rewrite: (path: string) => path.replace(/^\/api/, '/server.php/api'),
     configure: (proxy: any) => {
       proxy.on('proxyReq', (proxyReq: any, req: any) => {
-        const auth = req.headers['authorization']
-        if (auth && typeof auth === 'string') {
-          const rawToken = auth.replace(/^Bearer\s+/i, '').trim()
-          if (rawToken) {
-            const separator = proxyReq.path.includes('?') ? '&' : '?'
-            proxyReq.path += `${separator}token=${rawToken}`
+        // 1. Desencriptar token de la cookie cifrada (tk=U2FsdGVk...)
+        const cookieHeader = req.headers['cookie']
+        let rawToken = decryptCookieToken(cookieHeader, encryptionKey)
+
+        // 2. Si vino cabecera authorization (fallback)
+        if (!rawToken && req.headers['authorization']) {
+          const auth = req.headers['authorization']
+          if (typeof auth === 'string') {
+            rawToken = auth.replace(/^Bearer\s+/i, '').trim()
           }
+        }
+
+        // 3. Inyectar hacia Laravel en el backend de forma 100% invisible para el navegador
+        if (rawToken) {
+          proxyReq.setHeader('authorization', `Bearer ${rawToken}`)
+          const separator = proxyReq.path.includes('?') ? '&' : '?'
+          proxyReq.path += `${separator}token=${rawToken}`
         }
       })
     },
   },
-}
+})
 
 // https://vitejs.dev/config/
-export default defineConfig(() => {
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd())
+  const targetApi = env.VITE_API_URL || 'https://bibliobackend.ccelrecreo.com:1500'
+  const encryptionKey = env.VITE_ENCRYPTION_KEY || 'clave_token'
+  const backendProxy = getBackendProxy(targetApi, encryptionKey)
+
   return {
     base: './',
     build: {
@@ -69,6 +98,7 @@ export default defineConfig(() => {
       extensions: ['.mjs', '.mts', '.js', '.ts', '.jsx', '.tsx', '.json', '.scss'],
     },
     server: {
+      host: true,
       port: 3000,
       proxy: backendProxy,
     },

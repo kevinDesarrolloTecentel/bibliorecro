@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Swal from 'sweetalert2'
 import { Libros } from '@/models/rco/libros'
-import { ActualizarLibro, EliminarLibro, getLibros } from '@/Service/rco/libros'
-
+import { ActualizarLibro, BuscarLibros, EliminarLibro } from '@/Service/rco/libros'
 
 export type LibroItem = Libros
 
@@ -13,7 +12,10 @@ export const useLibro = () => {
   const [totalPages, setTotalPages] = useState(1)
   const [totalItems, setTotalItems] = useState(0)
   const [searchTerm, setSearchTerm] = useState('')
-  const [activeQuery, setActiveQuery] = useState('')
+  const [tableKey, setTableKey] = useState(0)
+
+  const currentSearchRef = useRef<string>('')
+  const searchDebounceRef = useRef<any>(null)
 
   const [modalRegister, setModalRegister] = useState(false)
   const [modalEdit, setModalEdit] = useState(false)
@@ -22,62 +24,58 @@ export const useLibro = () => {
   const [details, setDetails] = useState<(string | number)[]>([])
 
   const toggleDetails = (id: string | number) => {
-    setDetails((prev) => {
-      const position = prev.indexOf(id)
-      let newDetails = [...prev]
-      if (position !== -1) {
-        newDetails.splice(position, 1)
-      } else {
-        newDetails = [...prev, id]
-      }
-      return newDetails
-    })
+    setDetails((prev) => (prev.includes(id) ? [] : [id]))
+  }
+
+  const parseLibro = (item: any, index: number): Libros => {
+    const id = item.ID_LIBROS ?? item.id ?? index + 1
+    const estadoLibroRaw = item.ESTADO_LIBROS ?? item.estado ?? 1
+    const enPrestamoRaw = item.EN_PRESTAMO ?? item.prestamo ?? 0
+
+    return {
+      ...item,
+      id,
+      ID_LIBROS: id,
+      ISBN: item.ISBN_LIBROS || item.isbn || 'S/C',
+      Titulo: item.TITULO_LIBROS || item.titulo || '',
+      Autor: item.NOMBRE_AUTOR || item.autor || 'Sin autor',
+      Categoria: item.NOMBRE_CATEGORIA || item.categoria || 'Sin categoría',
+      Editorial: item.NOMBRE_EDITORIAL || item.editorial || 'Sin editorial',
+      Proveedor: item.NOMBRE_PROVEEDOR || item.proveedor || 'Sin proveedor',
+      Formatos: item.NOMBRE_FORMATOS || item.formato || 'Libros',
+      Tipo: item.NOMBRE_TIPO || item.tipo || 'General',
+      Genero: item.NOMBRE_RCOGENERO || item.genero || 'Sin género',
+      FechaEdicion: item.FECHA_EDICION_FORMAT || (item.FECHAEDICION_LIBROS ? new Date(item.FECHAEDICION_LIBROS).toLocaleDateString() : '-'),
+      FechaRegistro: item.FECHA_REGISTRO_FORMAT || (item.FECHAREGISTRO_LIBROS ? new Date(item.FECHAREGISTRO_LIBROS).toLocaleDateString() : '-'),
+      Disponibilidad: Number(enPrestamoRaw) === 0 ? 'Disponible' : 'En préstamo',
+      Estado: Number(estadoLibroRaw) === 1 ? 'Activo' : 'Inactivo',
+      Pais: item.PAIS_LIBROS || item.pais || '-',
+      Precio: item.PRECIO_LIBROS ?? item.precio ?? 0,
+      Volumen: item.VOLUMEN_LIBROS || item.volumen || '-',
+      CodigoBarras: item.CODIGODEBARRAS_LIBROS || item.codigo || 'S/C',
+      TituloTejuelo: item.TITULOTEJUELO_LIBROS || item.titulo_tejuelo || '-',
+      AutorTejuelo: item.AUTORTEJUELO_LIBROS || item.autor_tejuelo || '-',
+      Descripcion: item.DESCRIPCION_LIBROS || item.descripcion || 'Sin descripción',
+    }
   }
 
   const fetchLibros = useCallback(
-    async () => {
+    async (pageToFetch?: number, queryToSearch?: string) => {
       setLoading(true)
+      const targetPage = typeof pageToFetch === 'number' && pageToFetch > 0 ? pageToFetch : currentPage
+      const query = typeof queryToSearch === 'string' ? queryToSearch : currentSearchRef.current
+
       try {
-        const response = await getLibros()
+        const response = await BuscarLibros(query, targetPage)
         const rawData = response?.data || []
         const pagination = response?.pagination
 
-        const parsedList: Libros[] = rawData.map((item: any, index: number) => {
-          const id = item.ID_LIBROS ?? item.id ?? index + 1
-          const estadoLibroRaw = item.ESTADO_LIBROS ?? item.estado ?? 1
-          const enPrestamoRaw = item.EN_PRESTAMO ?? 0
-
-          return {
-            ...item,
-            id,
-            ID_LIBROS: id,
-            ISBN: item.ISBN_LIBROS || item.isbn || 'S/C',
-            Titulo: item.TITULO_LIBROS || item.titulo || '',
-            Autor: item.NOMBRE_AUTOR || item.autor || 'Sin autor',
-            Categoria: item.NOMBRE_CATEGORIA || item.categoria || 'Sin categoría',
-            Editorial: item.NOMBRE_EDITORIAL || item.editorial || 'Sin editorial',
-            Proveedor: item.NOMBRE_PROVEEDOR || item.proveedor || 'Sin proveedor',
-            Formatos: item.NOMBRE_FORMATOS || item.formato || 'Libros',
-            Tipo: item.NOMBRE_TIPO || item.tipo || 'General',
-            Genero: item.NOMBRE_RCOGENERO || item.genero || 'Sin género',
-            FechaEdicion: item.FECHA_EDICION_FORMAT || (item.FECHAEDICION_LIBROS ? new Date(item.FECHAEDICION_LIBROS).toLocaleDateString() : '-'),
-            FechaRegistro: item.FECHA_REGISTRO_FORMAT || (item.FECHAREGISTRO_LIBROS ? new Date(item.FECHAREGISTRO_LIBROS).toLocaleDateString() : '-'),
-            Disponibilidad: enPrestamoRaw === 0 ? 'Disponible' : 'En préstamo',
-            Estado: Number(estadoLibroRaw) === 1 ? 'Activo' : 'Inactivo',
-            Pais: item.PAIS_LIBROS || item.pais || '-',
-            Precio: item.PRECIO_LIBROS ?? item.precio ?? 0,
-            Volumen: item.VOLUMEN_LIBROS || item.volumen || '-',
-            CodigoBarras: item.CODIGODEBARRAS_LIBROS || item.codigo || 'S/C',
-            TituloTejuelo: item.TITULOTEJUELO_LIBROS || item.titulo_tejuelo || '-',
-            AutorTejuelo: item.AUTORTEJUELO_LIBROS || item.autor_tejuelo || '-',
-            Descripcion: item.DESCRIPCION_LIBROS || item.descripcion || 'Sin descripción',
-          }
-        })
-
+        const parsedList = rawData.map(parseLibro)
         setLibros(parsedList)
-        setCurrentPage(pagination?.current_page || response?.current_page)
-        setTotalPages(pagination?.last_page || response?.last_page)
-        setTotalItems(pagination?.total || response?.total)
+
+        setCurrentPage(pagination?.current_page || targetPage)
+        setTotalPages(pagination?.last_page || 1)
+        setTotalItems(pagination?.total || parsedList.length)
       } catch (error) {
         console.error('Error al obtener libros:', error)
         setLibros([])
@@ -85,30 +83,43 @@ export const useLibro = () => {
         setLoading(false)
       }
     },
-    [activeQuery],
+    [currentPage],
   )
 
   useEffect(() => {
-    fetchLibros()
+    fetchLibros(1, '')
+  }, [])
+
+  const handleBuscarGlobal = useCallback(
+    (busqueda: string) => {
+      const q = busqueda.trim()
+      currentSearchRef.current = q
+      setSearchTerm(q)
+
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current)
+      }
+
+      searchDebounceRef.current = setTimeout(() => {
+        fetchLibros(1, q)
+      }, 350)
+    },
+    [fetchLibros],
+  )
+
+  const handleRecargar = useCallback(async () => {
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current)
+    }
+    currentSearchRef.current = ''
+    setSearchTerm('')
+    setTableKey((k) => k + 1)
+    setDetails([])
+    await fetchLibros(1, '')
   }, [fetchLibros])
 
-  const handleBuscar = () => {
-    const q = searchTerm.trim()
-    setActiveQuery(q)
-    setCurrentPage(1)
-    fetchLibros()
-  }
-
-  const handleLimpiarBusqueda = () => {
-    setSearchTerm('')
-    setActiveQuery('')
-    setCurrentPage(1)
-    fetchLibros()
-  }
-
   const handlePageChange = (page: number) => {
-    setCurrentPage(page)
-    fetchLibros()
+    fetchLibros(page, currentSearchRef.current)
   }
 
   const handleAbrirCrear = () => {
@@ -156,7 +167,7 @@ export const useLibro = () => {
         text: 'El estado del libro ha sido actualizado a Inactivo.',
         confirmButtonColor: '#04833c',
       })
-      fetchLibros()
+      fetchLibros(currentPage, currentSearchRef.current)
     } catch (err: any) {
       console.error(err)
       Swal.fire({
@@ -195,7 +206,7 @@ export const useLibro = () => {
         text: 'Libro eliminado con éxito.',
         confirmButtonColor: '#044c8c',
       })
-      fetchLibros()
+      fetchLibros(currentPage, currentSearchRef.current)
     } catch (err: any) {
       console.error(err)
       Swal.fire({
@@ -215,9 +226,9 @@ export const useLibro = () => {
     totalItems,
     searchTerm,
     setSearchTerm,
-    activeQuery,
-    handleBuscar,
-    handleLimpiarBusqueda,
+    tableKey,
+    handleBuscarGlobal,
+    handleRecargar,
     handlePageChange,
     fetchLibros,
     modalRegister,

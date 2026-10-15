@@ -9,6 +9,7 @@ import {
   CInputGroup,
   CInputGroupText,
   CRow,
+  CSmartPagination,
   CSpinner,
 } from '@coreui/react-pro'
 import CIcon from '@coreui/icons-react'
@@ -24,20 +25,27 @@ import {
 } from '@coreui/icons'
 import ModalPv from '@/components/details_bk/proveedor'
 import useProveedor from '@/hooks/rco-libros/useProveedor'
+import { usePermissions } from '@/context/PermissionsContext'
 
 const Supplier = () => {
   const proveedorHook = useProveedor()
 
+  const { canDoAction } = usePermissions()
   const {
     handleOpen,
     proveedoresFiltrados,
+    proveedoresPaginados,
     loadingProveedor,
     busquedaProveedor,
     setBusquedaProveedor,
     proveedorSeleccionado,
     setProveedorSeleccionado,
-    handleEliminarProveedor
-
+    handleEliminarProveedor,
+    paginaActual,
+    totalPaginas,
+    totalProveedores,
+    totalFiltrados,
+    handlePageChange,
   } = proveedorHook
 
   const handleToggleSelect = (proveedor: any) => {
@@ -64,6 +72,7 @@ const Supplier = () => {
           </p>
         </div>
         <div className="d-flex gap-2">
+          {canDoAction('btn_crear_proveedor') && (
           <CButton
             color="success"
             variant='outline'
@@ -73,6 +82,7 @@ const Supplier = () => {
             <CIcon icon={cilPlus} />
             <span>Nuevo Proveedor</span>
           </CButton>
+          )}
         </div>
       </div>
 
@@ -84,11 +94,21 @@ const Supplier = () => {
                 <CIcon icon={cilTruck} size='lg' style={{ color: "#193CB8" }} />
                 <span>Catálogo de Proveedores</span>
               </div>
+              <div className="d-flex align-items-center gap-2">
+                {busquedaProveedor && (
+                  <CBadge color="info" shape="rounded-pill">
+                    {totalFiltrados} encontrados
+                  </CBadge>
+                )}
+                <CBadge color="primary" shape="rounded-pill">
+                  {totalProveedores} Registrados
+                </CBadge>
+              </div>
             </CCardHeader>
 
             <CCardBody className="p-3">
               <label className="form-label small fw-semibold text-muted">
-                Buscar proveedor por nombre o ID:
+                Buscar proveedor por nombre:
               </label>
               <CInputGroup className="mb-3">
                 <CInputGroupText className="bg-body">
@@ -127,7 +147,7 @@ const Supplier = () => {
                   </div>
                 ) : (
                   <div className="d-flex flex-column gap-2">
-                    {proveedoresFiltrados.map((proveedor) => {
+                    {proveedoresPaginados.map((proveedor) => {
                       const id = proveedor.ID_PROVEEDOR || proveedor.id
                       const isSelected =
                         String(proveedorSeleccionado?.ID_PROVEEDOR || proveedorSeleccionado?.id) === String(id)
@@ -163,49 +183,32 @@ const Supplier = () => {
                               <CIcon icon={cilTruck} />
                             </div>
                             <div>
-                              <div className="font-monospace small fw-semibold text-body">{proveedor.NOMBRE_PROVEEDOR}</div>
-                              <div className="text-muted small mt-1 font-monospace">
-                                ID: #{id}
+                              <div className="font-monospace small fw-semibold text-body">{proveedor.NOMBRE_PROVEEDOR}
                               </div>
                             </div>
                           </div>
-
-                          <div className="d-flex align-items-center">
-                            {isSelected ? (
-                              <CButton
-                                color="primary"
-                                size="sm"
-                                variant="ghost"
-                                className="d-flex align-items-center gap-1 p-0 text-decoration-none"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setProveedorSeleccionado(null)
-                                }}
-                                title="Clic para deseleccionar"
-                              >
-                                <CBadge color="primary" shape="rounded-pill" className="px-3 py-2">
-                                  Seleccionado ✕
-                                </CBadge>
-                              </CButton>
-                            ) : (
-                              <CButton
-                                color="primary"
-                                size="sm"
-                                variant="outline"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setProveedorSeleccionado(proveedor)
-                                }}
-                              >
-                                Seleccionar
-                              </CButton>
-                            )}
-                          </div>
+                          {isSelected && (
+                            <CBadge className="px-3 py-2 shadow-sm text-white" color="primary" shape="rounded-pill">
+                              Seleccionado ✕
+                            </CBadge>
+                          )}
                         </div>
                       )
                     })}
                   </div>
                 )}
+              </div>
+
+              <div className="d-flex flex-wrap justify-content-between align-items-center pt-3 mt-2 border-top bg-body">
+                <span className="text-muted small">
+                  Página <strong>{paginaActual}</strong> de <strong>{totalPaginas}</strong> ({totalFiltrados} proveedores)
+                </span>
+                <CSmartPagination
+                  size="sm"
+                  activePage={paginaActual}
+                  pages={totalPaginas}
+                  onActivePageChange={handlePageChange}
+                />
               </div>
             </CCardBody>
           </CCard>
@@ -249,16 +252,13 @@ const Supplier = () => {
                       </div>
                       <div>
                         <h5 className="fw-bold text-body mb-1">{proveedorSeleccionado.NOMBRE_PROVEEDOR}</h5>
-                        <span className="badge bg-body rounded-pill text-secondary border font-monospace">
-                          ID: #{proveedorSeleccionado.ID_PROVEEDOR || proveedorSeleccionado.id}
-                        </span>
                       </div>
                     </div>
 
                     <div className="d-flex flex-column gap-2 pt-2 border-top">
-                      <div className="d-flex justify-content-between py-1 border-bottom">
-                        <span className="text-muted small badge bg-body rounded-pill border">Nombre del Proveedor:</span>
-                        <span className="fw-semibold small text-body">
+                      <div className="d-flex justify-content-between align-items-center py-1">
+                        <span className="text-muted small badge bg-body rounded-pill border d-inline-flex align-items-center justify-content-center">Nombre del Proveedor:</span>
+                        <span className="fw-semibold small text-body text-end ms-2">
                           {proveedorSeleccionado.NOMBRE_PROVEEDOR}
                         </span>
                       </div>
@@ -266,6 +266,7 @@ const Supplier = () => {
                   </div>
 
                   <div className="d-flex gap-2 justify-content-end">
+                    {canDoAction('btn_eliminar_proveedor') && (
                     <CButton
                       color='danger'
                       variant='outline'
@@ -274,6 +275,8 @@ const Supplier = () => {
                       <CIcon icon={cilTrash} />
                       <span>Eliminar</span>
                     </CButton>
+                    )}
+                    {canDoAction('btn_editar_proveedor') && (
                     <CButton
                       color="success"
                       variant='outline'
@@ -283,6 +286,7 @@ const Supplier = () => {
                       <CIcon icon={cilPencil} />
                       <span>Editar Proveedor</span>
                     </CButton>
+                    )}
                   </div>
                 </div>
               ) : (

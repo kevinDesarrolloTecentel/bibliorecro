@@ -147,6 +147,30 @@ export const useEditorial = ({
     })
   }, [busquedaEditorial, listaEditorial])
 
+  const [paginaActual, setPaginaActual] = useState(1)
+  const itemsPorPagina = 20
+
+  useEffect(() => {
+    setPaginaActual(1)
+  }, [busquedaEditorial])
+
+  const totalPaginas = Math.max(1, Math.ceil(editorialFiltrados.length / itemsPorPagina))
+
+  useEffect(() => {
+    if (paginaActual > totalPaginas) {
+      setPaginaActual(totalPaginas)
+    }
+  }, [totalPaginas, paginaActual])
+
+  const editorialPaginados = useMemo(() => {
+    const start = (paginaActual - 1) * itemsPorPagina
+    return editorialFiltrados.slice(start, start + itemsPorPagina)
+  }, [editorialFiltrados, paginaActual, itemsPorPagina])
+
+  const handlePageChange = useCallback((page: number) => {
+    setPaginaActual(page)
+  }, [])
+
   const handleGuardarEditorial = useCallback(
     async (e?: React.FormEvent) => {
       if (e) e.preventDefault()
@@ -298,6 +322,7 @@ export const useEditorial = ({
     setBusquedaEditorial,
     guardando,
     editorialFiltrados,
+    editorialPaginados,
     handleGuardarEditorial,
     handleEliminarEditorial,
     editorialEnEdicion,
@@ -306,6 +331,11 @@ export const useEditorial = ({
     editorialSeleccionado,
     setEditorialSeleccionado,
     fetchEditoriales,
+    paginaActual,
+    totalPaginas,
+    totalEditoriales: listaEditorial.length,
+    totalFiltrados: editorialFiltrados.length,
+    handlePageChange,
   }
 }
 

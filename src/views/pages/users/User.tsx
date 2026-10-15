@@ -1,11 +1,13 @@
-import { CBadge, CButton, CSmartTable } from '@coreui/react-pro'
+import { useState } from 'react'
+import { CBadge, CButton, CCollapse, CSmartTable } from '@coreui/react-pro'
 import CIcon from '@coreui/icons-react'
-import { cilPencil, cilLockUnlocked, cilLockLocked, cilTrash } from '@coreui/icons'
+import { cilPencil, cilTrash } from '@coreui/icons'
 
 import HeaderUser from '@/components/users/headerUser'
 import ModalEdit from '@/components/users/ModalEdit'
 import Newuser from '@/components/users/ModalNew_user'
 import useUsers from '@/hooks/adm-user/useUsers'
+import { usePermissions } from '@/context/PermissionsContext'
 
 const getBadge = (status: string) => {
     switch (status) {
@@ -18,15 +20,28 @@ const getBadge = (status: string) => {
     }
 }
 
-const getBadgeRol = (rol: string) => {
-    const r = String(rol).toLowerCase()
-    if (r === 'administrador' || r === 'admin') return 'danger'
-    if (r === 'bibliotecario') return 'info'
-    return 'primary'
-}
-
 export const User = () => {
     const userState = useUsers()
+    const { canDoAction } = usePermissions()
+    const [details, setDetails] = useState<(string | number)[]>([])
+
+    const toggleDetails = (id: string | number) => {
+        setDetails((prev) => (prev.includes(id) ? [] : [id]))
+    }
+
+    const getBadgeRol = (rolName: string, item?: any) => {
+        const rawRol = item?.raw?.ID_ROL ?? item?.raw?.rol ?? rolName
+        const found = userState.rolesList.find((r: any) => {
+            const id = String(r.ID_ROL ?? r.id ?? '')
+            const nom = String(r.NOMBRE_ROL ?? r.nombre ?? '').toLowerCase().trim()
+            return id === String(rawRol) || nom === String(rolName || '').toLowerCase().trim()
+        })
+        const nivel = Number(found?.NIVEL_ROL ?? found?.nivel ?? 1)
+        if (nivel === 1) return 'danger'
+        if (nivel === 2) return 'info'
+        if (nivel === 3) return 'warning'
+        return 'primary'
+    }
 
     const items = userState.usuarios
         .filter((u: any) => {
@@ -34,8 +49,18 @@ export const User = () => {
             const rolVal = String(u.ID_ROL ?? u.rol ?? '').toLowerCase()
             const target = userState.filtroRol.toLowerCase()
             if (rolVal === target) return true
-            const nomRol = userState.getRolNombre(u.ID_ROL ?? u.rol).toLowerCase()
-            return nomRol === target
+            const nomRol = userState.getRolNombre(u.ID_ROL ?? u.rol, u).toLowerCase()
+            if (nomRol === target) return true
+
+            const targetRole = userState.rolesList.find((r: any) => {
+                const id = String(r.ID_ROL ?? r.id ?? '').toLowerCase()
+                return id === target
+            })
+            if (targetRole) {
+                const targetNom = String(targetRole.NOMBRE_ROL ?? targetRole.nombre ?? '').toLowerCase()
+                if (targetNom && (targetNom === nomRol || targetNom === rolVal)) return true
+            }
+            return false
         })
         .map((u: any) => {
             const rawPass = u.PASSWORD_USUARIO || u.password || u.contrasena || ''
@@ -45,20 +70,19 @@ export const User = () => {
                 Contraseña: rawPass,
                 Nombres: u.NOMBRES_USUARIO || u.nombres || u.name || 'No disponible',
                 Fecha_registro: u.FECHA_REGISTRO || u.fecha_registro || '',
-                Rol: userState.getRolNombre(u.ID_ROL ?? u.rol),
+                Rol: userState.getRolNombre(u.ID_ROL ?? u.rol, u),
                 Estado: (String(u.ESTADO_USUARIO ?? u.estado).toLowerCase() === '1' || String(u.ESTADO_USUARIO ?? u.estado).toLowerCase() === 'activo') ? 'Activo' : 'Inactivo',
                 raw: u
             }
         })
 
     const columns = [
-        { key: 'Usuario', _style: { width: '14%' } },
-        { key: 'Contraseña', _style: { width: '15%' } },
-        { key: 'Nombres', _style: { width: '17%' } },
-        { key: 'Fecha_registro', label: 'Fecha Registro', _style: { width: '17%' } },
-        { key: 'Rol', _style: { width: '13%' } },
-        { key: 'Estado', _style: { width: '11%' } },
-        { key: 'Acciones', label: 'Acciones', _style: { width: '13%' }, filter: false, sorter: false }
+        { key: 'Usuario', _style: { width: '18%' } },
+        { key: 'Contraseña', _style: { width: '16%' } },
+        { key: 'Nombres', _style: { width: '22%' } },
+        { key: 'Fecha_registro', label: 'Fecha Registro', _style: { width: '20%' } },
+        { key: 'Rol', _style: { width: '12%' } },
+        { key: 'Estado', _style: { width: '12%' } },
     ]
     return (
         <>
@@ -72,67 +96,25 @@ export const User = () => {
                 columnSorter
                 items={items}
                 itemsPerPageSelect
+                onRowClick={(item: any) => {
+                    const id = item?.id ?? item?.raw?.ID_USUARIO
+                    if (id) toggleDetails(id)
+                }}
                 scopedColumns={{
-                    Contraseña: (u: any) => {
-                        const current = u?.raw || u
-                        const id = u.id || current?.ID_USUARIO
-                        const rawPass = current?.PASSWORD_USUARIO || current?.password || current?.contrasena || (u.Contraseña && u.Contraseña !== '••••••••' ? u.Contraseña : '')
-                        const isVisible = userState.visiblePasswords[id] ?? userState.showTablePassword
-
-                        return (
-                            <td>
-                                <div className="d-flex align-items-center gap-2">
-                                    <span className="font-monospace small">
-                                        {isVisible && rawPass ? rawPass : '••••••••'}
-                                    </span>
-                                    <CButton
-                                        size="sm"
-                                        color="light"
-                                        variant="ghost"
-                                        onClick={() => userState.togglePasswordVisibility(id)}
-                                        title={isVisible ? "Ocultar contraseña" : "Ver contraseña"}
-                                    >
-                                        <CIcon icon={isVisible ? cilLockUnlocked : cilLockLocked} />
-                                    </CButton>
-                                </div>
-                            </td>
-                        )
-                    },
+                    Contraseña: () => (
+                        <td>
+                            <span className="font-monospace small">••••••••</span>
+                        </td>
+                    ),
 
                     Rol: (item: any) => (
                         <td>
-                            <CBadge color={getBadgeRol(item.Rol)}>{item.Rol}</CBadge>
+                            <CBadge color={getBadgeRol(item.Rol, item)}>{item.Rol}</CBadge>
                         </td>
                     ),
                     Estado: (item: any) => (
                         <td>
                             <CBadge color={getBadge(item.Estado)}>{item.Estado}</CBadge>
-                        </td>
-                    ),
-                    Acciones: (item: any) => (
-                        <td>
-                            <div className="d-flex align-items-center gap-1">
-                                <CButton
-                                    color="info"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => userState.handleAbrirEditar(item)}
-                                    title="Editar usuario"
-                                >
-                                    <CIcon icon={cilPencil} className="me-1" />
-                                    Editar
-                                </CButton>
-                                <CButton
-                                    color="danger"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => userState.handleEliminarUsuario(item.id, item.Nombres || item.Usuario)}
-                                    title="Eliminar usuario"
-                                >
-                                    <CIcon icon={cilTrash} className="me-1" />
-                                    Eliminar
-                                </CButton>
-                            </div>
                         </td>
                     ),
                     Fecha_registro: (item: any) => {
@@ -144,6 +126,46 @@ export const User = () => {
                             day: 'numeric',
                         }
                         return <td>{isNaN(date.getTime()) ? item.Fecha_registro : date.toLocaleDateString('es-ES', options)}</td>
+                    },
+                    details: (item: any) => {
+                        const id = item?.id ?? item?.raw?.ID_USUARIO
+                        const isVisible = details.includes(id)
+                        return (
+                            <CCollapse visible={isVisible} className="user-details-collapse">
+                                <div className="p-3 bg-body-tertiary border-top border-bottom d-flex flex-wrap gap-2 justify-content-end align-items-center">
+                                    {canDoAction('btn_editar_usuario') && (
+                                        <CButton
+                                            color="primary"
+                                            variant="outline"
+                                            size="sm"
+                                            className="d-flex align-items-center gap-1 shadow-sm"
+                                            onClick={(e) => {
+                                                e.stopPropagation()
+                                                userState.handleAbrirEditar(item)
+                                            }}
+                                        >
+                                            <CIcon icon={cilPencil} className="me-1" />
+                                            <span>Editar Usuario</span>
+                                        </CButton>
+                                    )}
+                                    {canDoAction('btn_eliminar_usuario') && (
+                                        <CButton
+                                            color="danger"
+                                            variant="outline"
+                                            size="sm"
+                                            className="hover:text-white d-flex align-items-center gap-1 shadow-sm"
+                                            onClick={(e) => {
+                                                e.stopPropagation()
+                                                userState.handleEliminarUsuario(item.id, item.Nombres || item.Usuario)
+                                            }}
+                                        >
+                                            <CIcon icon={cilTrash} className="me-1" />
+                                            <span>Eliminar Usuario</span>
+                                        </CButton>
+                                    )}
+                                </div>
+                            </CCollapse>
+                        )
                     }
                 }}
                 tableFilterPlaceholder="Buscar usuarios..."

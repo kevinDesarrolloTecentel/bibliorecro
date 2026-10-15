@@ -42,6 +42,7 @@ const LibroUModal: React.FC<HistLibProps> = ({ visible, setVisible }) => {
     libros,
     isLoading,
     excelLink,
+    haBuscado,
     handleGetPrestamos,
     handleDescargarExcel,
     handleReset,
@@ -50,6 +51,12 @@ const LibroUModal: React.FC<HistLibProps> = ({ visible, setVisible }) => {
   const handleClose = () => {
     handleReset()
     setVisible(false)
+  }
+
+  const bloquearCaracteresNoNumericos=(e:React.KeyboardEvent<HTMLInputElement>) => {
+    if (['-', '+', 'e', 'E', '.', ','].includes(e.key)) {
+      e.preventDefault()
+    }
   }
 
   const columns = [
@@ -111,9 +118,12 @@ const LibroUModal: React.FC<HistLibProps> = ({ visible, setVisible }) => {
                   <CInputGroupText>Cédula</CInputGroupText>
                   <CFormInput
                     type="text"
+                    inputMode="numeric"
+                    maxLength={10}
                     placeholder="Ingrese el número de cédula"
                     value={cedula}
-                    onChange={(e) => setCedula(e.target.value)}
+                    onKeyDown={bloquearCaracteresNoNumericos}
+                    onChange={(e) => setCedula(e.target.value.replace(/\D/g, '').slice(0, 10))}
                   />
                 </CInputGroup>
               </CCol>
@@ -172,57 +182,58 @@ const LibroUModal: React.FC<HistLibProps> = ({ visible, setVisible }) => {
               items={libros}
               itemsPerPage={60}
               noItemsLabel={
-                isLoading
-                  ? 'Cargando registros...'
-                  : <div className='d-flex justify-content-center '>
-                    <CSpinner color='primary' size='sm' variant='grow' />
-                  </div>
+                haBuscado
+                  ? 'No se encontraron registros para la cédula ingresada'
+                  : 'Ingrese un número de cédula para generar el reporte'
               }
               scopedColumns={{
                 nombre: (item: PrestamoReporteItem) => (
                   <td>
                     <span className='font-monospace small'>
-                      {item.NOMBRE_PERSONA}
+                      {item.NOMBRE_PERSONA || item.nombre_persona || item.nombre || item.persona?.NOMBRE_PERSONA || item.persona?.nombre || '-'}
                     </span>
                   </td>
                 ),
                 apellido: (item: PrestamoReporteItem) => (
                   <td>
                     <span className='font-monospace small'>
-                      {item.APELLIDO_PERSONA}
+                      {item.APELLIDO_PERSONA || item.apellido_persona || item.apellido || item.persona?.APELLIDO_PERSONA || item.persona?.apellido || '-'}
                     </span>
                   </td>
                 ),
                 isbn: (item: PrestamoReporteItem) => (
                   <td>
                     <span className="font-monospace small badge bg-body border text-muted">
-                      {item.ISBN_LIBROS}
+                      {item.ISBN_LIBROS || item.isbn_libros || item.isbn || item.libro?.ISBN_LIBROS || item.libro?.isbn || '-'}
                     </span>
                   </td>
                 ),
                 titulo: (item: PrestamoReporteItem) => (
                   <td>
                     <span className='font-monospace small'>
-                      {item.TITULO_LIBROS}
+                      {item.TITULO_LIBROS || item.titulo_libros || item.titulo || item.libro?.TITULO_LIBROS || item.libro?.titulo || '-'}
                     </span>
                   </td>
                 ),
                 nombreaut: (item: PrestamoReporteItem) => (
                   <td>
                     <span className='font-monospace small'>
-                      {item.NOMBRE_AUTOR}
+                      {item.NOMBRE_AUTOR || item.nombre_autor || item.autor || item.libro?.NOMBRE_AUTOR || item.libro?.autor || '-'}
                     </span>
                   </td>
                 ),
-                precio: (item: PrestamoReporteItem) => (
-                  <td>
-                    <span className="font-monospace badge bg-white border text-success">
-                      {item.PRECIO_LIBROS !== undefined && item.PRECIO_LIBROS !== null
-                        ? `$${Number(item.PRECIO_LIBROS).toFixed(2)}`
-                        : '-'}
-                    </span>
-                  </td>
-                ),
+                precio: (item: PrestamoReporteItem) => {
+                  const val = item.PRECIO_LIBROS ?? item.precio_libros ?? item.precio ?? item.libro?.PRECIO_LIBROS ?? item.libro?.precio
+                  return (
+                    <td>
+                      <span className="font-monospace badge bg-white border text-success">
+                        {val !== undefined && val !== null && val !== ''
+                          ? `$${Number(val).toFixed(2)}`
+                          : '-'}
+                      </span>
+                    </td>
+                  )
+                },
               }}
               tableProps={{
                 responsive: true,

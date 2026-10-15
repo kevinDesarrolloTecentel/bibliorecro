@@ -2,8 +2,11 @@ import useUsers from "@/hooks/adm-user/useUsers"
 import { cilExitToApp, cilLockLocked, cilLockUnlocked, cilPenNib } from "@coreui/icons"
 import CIcon from "@coreui/icons-react"
 import { CButton, CCol, CForm, CFormInput, CFormSelect, CInputGroup, CModal, CModalBody, CModalFooter, CModalHeader, CModalTitle, CSpinner } from "@coreui/react-pro"
+import { usePermissions } from "@/context/PermissionsContext"
 
 const ModalEdit = ({ userState }: { userState: ReturnType<typeof useUsers> }) => {
+
+    const {canDoAction} = usePermissions()
     return (
         <>
             <CModal visible={userState.modalEdit} onClose={() => userState.setModalEdit(false)}>
@@ -27,7 +30,7 @@ const ModalEdit = ({ userState }: { userState: ReturnType<typeof useUsers> }) =>
                             <CInputGroup>
                                 <CFormInput
                                     type={userState.showPassword ? 'text' : 'password'}
-                                    placeholder='••••••••'
+                                    placeholder='Dejar en blanco para conservar'
                                     value={userState.editFormData.password}
                                     onChange={(e) => userState.setEditFormData({ ...userState.editFormData, password: e.target.value })}
                                 />
@@ -58,10 +61,12 @@ const ModalEdit = ({ userState }: { userState: ReturnType<typeof useUsers> }) =>
                                 onChange={(e) => userState.setEditFormData({ ...userState.editFormData, rol: e.target.value })}
                             >
                                 <option value="">Elija un rol...</option>
-                                {userState.rolesList.length > 0 ? (
+                                {userState.loadingRoles ? (
+                                    <option value="" disabled>Cargando roles...</option>
+                                ) : userState.rolesList.length > 0 ? (
                                     userState.rolesList.map((r: any) => {
                                         const id = String(r.ID_ROL ?? r.id ?? '')
-                                        const nombre = r.NOMBRE_ROL ?? r.nombre ?? r.name ?? id
+                                        const nombre = r.NOMBRE_ROL ?? r.nombre ?? r.name ?? `Rol ${id}`
                                         return (
                                             <option key={id} value={id}>
                                                 {nombre}
@@ -69,10 +74,7 @@ const ModalEdit = ({ userState }: { userState: ReturnType<typeof useUsers> }) =>
                                         )
                                     })
                                 ) : (
-                                    <>
-                                        <option value="1">Administrador</option>
-                                        <option value="2">Bibliotecario</option>
-                                    </>
+                                    <option value="" disabled>No hay roles disponibles</option>
                                 )}
                             </CFormSelect>
                         </CCol>
@@ -94,11 +96,13 @@ const ModalEdit = ({ userState }: { userState: ReturnType<typeof useUsers> }) =>
                         <CIcon icon={cilExitToApp} className="me-1"/>
                         Cancelar
                     </CButton>
+                    {canDoAction('btn_actualizar_usuario') && (
                     <CButton color="success" variant="outline" className="hover:text-white" onClick={userState.handleGuardarEditar} disabled={userState.guardando}>
                         {userState.guardando ? <CSpinner size="sm" className="me-1" /> : null}
                         <CIcon icon={cilPenNib} className="me-1"/>
                         Actualizar Usuario
                     </CButton>
+                    )}
                 </CModalFooter>
             </CModal>
         </>

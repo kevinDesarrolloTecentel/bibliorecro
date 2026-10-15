@@ -9,7 +9,8 @@ import {
     CTabs,
 } from '@coreui/react-pro'
 import CIcon from '@coreui/icons-react'
-import { cibLibreoffice, cilBadge, cilCalendar, cilCheckCircle } from '@coreui/icons'
+import { cibLibreoffice } from '@coreui/icons'
+import { usePermissions } from '@/context/PermissionsContext'
 
 export interface PersonaReporteItem {
     ID_PERSONA?: number | string
@@ -45,6 +46,7 @@ const UsuNRT: React.FC<UsuNRTProps> = ({
     onExportarExcel,
 }) => {
 
+    const { canDoAction } = usePermissions()
 
     const columns = [
         { key: 'cedula', label: 'Cédula', _style: { width: '13%' } },
@@ -64,6 +66,7 @@ const UsuNRT: React.FC<UsuNRTProps> = ({
             itemsPerPage={10}
             pagination
             itemsPerPageSelect
+            tableFilter
             tableFilterPlaceholder="Buscar por cédula, nombre, correo..."
             columnSorter
             noItemsLabel={
@@ -102,7 +105,7 @@ const UsuNRT: React.FC<UsuNRTProps> = ({
                 ),
                 edad: (item: any) => (
                     <td>
-                        <span className="badge bg-light text-dark border">
+                        <span className="badge bg-body-secondary text-body border">
                             {item.edad}
                         </span>
                     </td>
@@ -134,41 +137,31 @@ const UsuNRT: React.FC<UsuNRTProps> = ({
 
     return (
         <CTabs defaultActiveItemKey="home">
-            <CTabList variant="tabs">
-                <CTab itemKey="home">
-                    Todos 
-                </CTab>
-                <CTab itemKey="profile">
-                    Nuevos 
-                </CTab>
-                <CTab itemKey="contact">
-                    Renovaciones 
-                </CTab>
+            <div className="d-flex flex-wrap justify-content-between align-items-center border-bottom mb-3 pb-1">
+                <CTabList variant="tabs" className="border-bottom-0 mb-0">
+                    <CTab itemKey="home" className="fw-semibold">
+                        Todos ({todosUsuarios.length})
+                    </CTab>
+                    <CTab itemKey="profile" className="fw-semibold">
+                        Nuevos ({usuariosNuevos.length})
+                    </CTab>
+                    <CTab itemKey="contact" className="fw-semibold">
+                        Renovaciones ({usuariosRenovaciones.length})
+                    </CTab>
+                </CTabList>
+                {canDoAction('btn_exportar_excel_usuario') && (
                 <CButton 
                     color='success' 
-                    variant='outline' 
                     size='sm' 
-                    className='hover:text-white fw-semibold'
+                    className='text-white fw-semibold mb-2 mb-sm-0'
                     onClick={onExportarExcel}
                     disabled={loading || (todosUsuarios.length === 0 && usuariosNuevos.length === 0 && usuariosRenovaciones.length === 0)}
                 >
                     <CIcon icon={cibLibreoffice} className='me-1' />
                     Exportar Excel
                 </CButton>
-            </CTabList>
-            <hr />
-            <div className='d-flex flex-wrap gap-2'>
-                <span className='badge border rounded-pill bg-secondary font-monospace px-3 py-2'>
-                    <CIcon icon={cilCalendar} className='me-1'/> Total: {todosUsuarios.length}
-                </span>
-                <span className='badge border rounded-pill bg-primary font-monospace px-3 py-2'>
-                    <CIcon icon={cilBadge} className='me-1'/> Nuevos: {usuariosNuevos.length}
-                </span>
-                <span className='badge border rounded-pill bg-info font-monospace px-3 py-2'>
-                    <CIcon icon={cilCheckCircle} className='me-1'/> Renovaciones: {usuariosRenovaciones.length}
-                </span>
+            )}
             </div>
-            <hr />
             <CTabContent>
                 <CTabPanel className="p-3" itemKey="home">
                     {renderTabla(todosUsuarios)}

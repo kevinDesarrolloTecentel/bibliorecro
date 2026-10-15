@@ -1,73 +1,70 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import Swal from 'sweetalert2'
 
 import { LibroOption, UsuarioOption } from '@/models/rco/prestamos'
-import { Lista, NuevoPrestamo } from '@/Service/rco/Prestamos'
-import apiClient, { BACKEND_API_BASE } from '@/Service/apiClient'
-import {
-  getInscripcionesUsuarios,
-  Personas,
-  PersonasActivasReport,
-  PersonasE,
-} from '@/Service/tab/Persona'
+import { NuevoPrestamo } from '@/Service/rco/Prestamos'
+import { BuscarLibros } from '@/Service/rco/libros'
+import { Personas } from '@/Service/tab/Persona'
 
 const toArray = (val: any): any[] => {
   if (!val) return []
   if (Array.isArray(val)) return val
-  if (Array.isArray(val.data)) return val.data
-  if (Array.isArray(val.data?.data)) return val.data.data
+  if (Array.isArray(val.personas?.data)) return val.personas.data
   if (Array.isArray(val.personas)) return val.personas
+  if (Array.isArray(val.data?.data)) return val.data.data
+  if (Array.isArray(val.data)) return val.data
+  if (Array.isArray(val.usuarios?.data)) return val.usuarios.data
   if (Array.isArray(val.usuarios)) return val.usuarios
+  if (Array.isArray(val.inscripciones?.data)) return val.inscripciones.data
   if (Array.isArray(val.inscripciones)) return val.inscripciones
+  if (Array.isArray(val.registradas?.data)) return val.registradas.data
   if (Array.isArray(val.registradas)) return val.registradas
   return []
 }
 
-const fetchInscripcionesData = async (): Promise<any[]> => {
-  // 1. Intentar POST /tab-persona/personasRegistradas (definida en Laravel como POST)
-  try {
-    const res = await apiClient.post(`${BACKEND_API_BASE}/tab-persona/personasRegistradas`, {})
-    const list = toArray(res?.data)
-    if (list.length > 0) return list
-  } catch (err) {
-    console.warn('POST /tab-persona/personasRegistradas no respondió o falló:', err)
-  }
+export const isUserActivoYDisponible = (u: any): boolean => {
+  const estRaw = String(u.ESTADO_PERSONA ?? u.estado ?? '1').toLowerCase().trim()
+  const isActivo = estRaw === '1' || estRaw === 'activo' || (!estRaw.includes('inactiv') && estRaw !== '0')
 
-  // 2. Intentar getInscripcionesUsuarios() del servicio (GET /personasRegistradas)
-  try {
-    const res = await getInscripcionesUsuarios()
-    const list = toArray(res)
-    if (list.length > 0) return list
-  } catch (err) {
-    console.warn('getInscripcionesUsuarios() falló:', err)
-  }
+  const estInscRaw = String(u.ESTADO_INSCRIPCION ?? u.ESTADOINSCRIPCION_PERSONA ?? '1').toLowerCase().trim()
+  const isInscrito = estInscRaw === '1' || estInscRaw === 'activo' || estInscRaw === 'true' || (!estInscRaw.includes('inactiv') && estInscRaw !== '0')
 
-  // 3. Intentar PersonasActivasReport() (usuarios con inscripción activa)
-  try {
-    const res = await PersonasActivasReport()
-    const list = toArray(res)
-    if (list.length > 0) return list
-  } catch (err) {
-    console.warn('PersonasActivasReport() falló:', err)
-  }
+  const isSancionado = Boolean(
+    u.ESTADO_SANCION === 1 ||
+    u.ESTADO_SANCION === '1' ||
+    u.ESTADO_PERSONA === 2 ||
+    u.ESTADO_PERSONA === '2' ||
+    (u.DETALLE_SANCION && !String(u.DETALLE_SANCION).toLowerCase().includes('sin sancion') && String(u.DETALLE_SANCION).trim() !== '')
+  )
+  return isActivo && isInscrito && !isSancionado
+}
 
-  // 4. Intentar Personas() con paginación amplia
-  try {
-    const res = await Personas(1, 500)
-    const list = toArray(res)
-    if (list.length > 0) return list
-  } catch (err) {
-    console.warn('Personas() falló:', err)
-  }
+export const isLibroDisponible = (l: any): boolean => {
+  const activo = Number(l.ESTADO_LIBROS ?? 1) === 1 && String(l.ESTADO_LIBRO ?? 'Activo').toLowerCase() !== 'inactivo'
+  const prestado =
+    Number(l.EN_PRESTAMO ?? 0) === 1 ||
+    String(l.ESTADO_PRESTAMO || '').toLowerCase().includes('préstamo')
+  return activo && !prestado
+}
 
-  // 5. Intentar PersonasE()
+const fetchInscripcionesData = async (busqueda: string = ''): Promise<any[]> => {
   try {
-    const res = await PersonasE()
-    return toArray(res)
+    const q = busqueda.trim()
+    // 1. Consultamos enviando estado: 1 y sancion: 0 para obtener directamente los usuarios activos
+    const res = await Personas(1, 50, q || undefined, 1, 0)
+    let list = toArray(res)
+
+    // 2. Si el backend devolvió vacío por el filtro compuesto, consultamos sin el filtro de estado estricto
+    if (list.length === 0) {
+      const fallbackRes = await Personas(1, 50, q || undefined)
+      list = toArray(fallbackRes)
+    }
+
+    return list.filter(isUserActivoYDisponible)
   } catch (err) {
-    console.error('Todos los intentos de carga de usuarios fallaron:', err)
-    return []
+    console.warn('Error al consultar usuarios inscritos activos:', err)
   }
+  return []
 }
 
 export interface UsePrestamoModalProps {
@@ -88,6 +85,7 @@ export const usePrestamoModal = ({
   const [libros, setLibros] = useState<LibroOption[]>([])
   const [usuarios, setUsuarios] = useState<UsuarioOption[]>([])
   const [loadingCatalogos, setLoadingCatalogos] = useState(false)
+  const [loadingUsuarios, setLoadingUsuarios] = useState(false)
 
   const [selectedLibro, setSelectedLibro] = useState<LibroOption | null>(null)
   const [selectedUsuario, setSelectedUsuario] = useState<UsuarioOption | null>(null)
@@ -95,9 +93,13 @@ export const usePrestamoModal = ({
   const [busquedaUsuario, setBusquedaUsuario] = useState('')
   const [guardando, setGuardando] = useState(false)
 
-  const fetchUsuarios = useCallback(async () => {
+  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null)
+  const searchLibroDebounceRef = useRef<NodeJS.Timeout | null>(null)
+
+  const fetchUsuarios = useCallback(async (query: string = '') => {
     try {
-      const rawData = await fetchInscripcionesData()
+      setLoadingUsuarios(true)
+      const rawData = await fetchInscripcionesData(query)
       const mapped: UsuarioOption[] = rawData
         .map((p: any) => {
           const idInscripcion =
@@ -146,6 +148,7 @@ export const usePrestamoModal = ({
             cedula,
             nombre,
             apellido,
+            estado: 'Activo',
           }
         })
         .filter((u: UsuarioOption) => u.value !== undefined && u.value !== null && u.value !== '')
@@ -153,34 +156,82 @@ export const usePrestamoModal = ({
       setUsuarios(mapped)
     } catch (err) {
       console.error('Error al cargar inscripciones de usuarios:', err)
+      setUsuarios([])
+    } finally {
+      setLoadingUsuarios(false)
     }
   }, [])
 
-  const fetchLibros = useCallback(async () => {
+  const fetchLibros = useCallback(async (query: string = '') => {
     try {
-      const res = await Lista()
-      const list = res?.data || (Array.isArray(res) ? res : [])
-      const mapped: LibroOption[] = list.map((l: any) => ({
-        value: l.ID_LIBROS,
-        label: `ISBN: ${l.ISBN_LIBROS || 'S/N'} - Título: ${l.TITULO_LIBROS || 'Sin título'} - Autor: ${l.AUTORTEJUELO_LIBROS || l.NOMBRE_AUTOR || '-'}`,
-        isbn: l.ISBN_LIBROS || '',
-        titulo: l.TITULO_LIBROS || '',
-        autor: l.AUTORTEJUELO_LIBROS || l.NOMBRE_AUTOR || '',
-      }))
+      setLoadingCatalogos(true)
+      const res = await BuscarLibros(query.trim(), 1, 30)
+      const list = toArray(res)
+      const disponibles = list.filter(isLibroDisponible)
+
+      const mapped: LibroOption[] = disponibles.map((l: any) => {
+        const idLibro = l.ID_LIBROS ?? l.id
+        const isbn = String(l.ISBN_LIBROS ?? l.isbn ?? '').trim()
+        const titulo = String(l.TITULO_LIBROS ?? l.titulo ?? 'Sin título').trim()
+        const autor = String(l.NOMBRE_AUTOR ?? l.AUTORTEJUELO_LIBROS ?? l.autor ?? '').trim()
+        const tejuelo = String(l.TITULOTEJUELO_LIBROS ?? l.AUTORTEJUELO_LIBROS ?? '').trim()
+
+        return {
+          value: idLibro,
+          label: `ISBN: ${isbn || 'S/N'} - Título: ${titulo} - Autor: ${autor || '-'}`,
+          isbn,
+          titulo,
+          autor: autor || tejuelo,
+        }
+      })
       setLibros(mapped)
     } catch (err) {
       console.error('Error al cargar libros disponibles:', err)
+      setLibros([])
+    } finally {
+      setLoadingCatalogos(false)
     }
   }, [])
 
+  // Carga y búsqueda dinámica de libros disponibles
   useEffect(() => {
-    if (isVisible) {
-      setLoadingCatalogos(true)
-      Promise.allSettled([fetchUsuarios(), fetchLibros()]).finally(() => {
-        setLoadingCatalogos(false)
-      })
+    if (!isVisible) return
+
+    if (searchLibroDebounceRef.current) {
+      clearTimeout(searchLibroDebounceRef.current)
     }
-  }, [isVisible, fetchUsuarios, fetchLibros])
+
+    const delay = busquedaLibro.trim() ? 350 : 0
+    searchLibroDebounceRef.current = setTimeout(() => {
+      fetchLibros(busquedaLibro)
+    }, delay)
+
+    return () => {
+      if (searchLibroDebounceRef.current) {
+        clearTimeout(searchLibroDebounceRef.current)
+      }
+    }
+  }, [busquedaLibro, isVisible, fetchLibros])
+
+  // Carga y búsqueda dinámica de usuarios
+  useEffect(() => {
+    if (!isVisible) return
+
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current)
+    }
+
+    const delay = busquedaUsuario.trim() ? 350 : 0
+    searchDebounceRef.current = setTimeout(() => {
+      fetchUsuarios(busquedaUsuario)
+    }, delay)
+
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current)
+      }
+    }
+  }, [busquedaUsuario, isVisible, fetchUsuarios])
 
   const handleBuscarLibro = (e: React.ChangeEvent<HTMLInputElement>) => {
     const q = e.target.value
@@ -204,6 +255,12 @@ export const usePrestamoModal = ({
     setSelectedUsuario(null)
     setBusquedaLibro('')
     setBusquedaUsuario('')
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current)
+    }
+    if (searchLibroDebounceRef.current) {
+      clearTimeout(searchLibroDebounceRef.current)
+    }
     if (setVisible) {
       setVisible(false)
     } else {
@@ -280,27 +337,23 @@ export const usePrestamoModal = ({
     }
   }
 
-  const librosFiltrados = libros.filter((l) => {
-    if (!busquedaLibro.trim()) return true
-    const q = busquedaLibro.toLowerCase()
-    return (
-      (l.titulo && l.titulo.toLowerCase().includes(q)) ||
-      (l.autor && l.autor.toLowerCase().includes(q)) ||
-      (l.isbn && l.isbn.toLowerCase().includes(q)) ||
-      (l.label && l.label.toLowerCase().includes(q))
-    )
-  })
+  const librosFiltrados = useMemo(() => {
+    let list = libros
+    // Si hay un libro seleccionado que no está en la lista actual de resultados de búsqueda, lo incluimos al inicio para que no desaparezca
+    if (selectedLibro && !list.some((l) => l.value === selectedLibro.value)) {
+      list = [selectedLibro, ...list]
+    }
+    return list
+  }, [libros, selectedLibro])
 
-  const usuariosFiltrados = usuarios.filter((u) => {
-    if (!busquedaUsuario.trim()) return true
-    const q = busquedaUsuario.toLowerCase()
-    return (
-      (u.label && u.label.toLowerCase().includes(q)) ||
-      (u.cedula && u.cedula.toLowerCase().includes(q)) ||
-      (u.nombre && u.nombre.toLowerCase().includes(q)) ||
-      (u.apellido && u.apellido.toLowerCase().includes(q))
-    )
-  })
+  const usuariosFiltrados = useMemo(() => {
+    let list = usuarios
+    // Si hay un usuario seleccionado que no está en la lista actual de resultados de búsqueda, lo incluimos al inicio para que no desaparezca
+    if (selectedUsuario && !list.some((u) => u.value === selectedUsuario.value)) {
+      list = [selectedUsuario, ...list]
+    }
+    return list
+  }, [usuarios, selectedUsuario])
 
   return {
     isVisible,
@@ -310,6 +363,7 @@ export const usePrestamoModal = ({
     libros,
     usuarios,
     loadingCatalogos,
+    loadingUsuarios,
     selectedLibro,
     setSelectedLibro,
     selectedUsuario,
@@ -329,7 +383,6 @@ export const usePrestamoModal = ({
     setUsuarioSeleccionado: setSelectedUsuario,
     librosFiltrados,
     usuariosFiltrados,
-    loadingUsuarios: loadingCatalogos,
   }
 }
 

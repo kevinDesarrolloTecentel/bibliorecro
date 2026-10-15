@@ -12,8 +12,9 @@ import {
   CSpinner,
 } from '@coreui/react-pro'
 import CIcon from '@coreui/icons-react'
-import { cilColorBorder, cilExitToApp} from '@coreui/icons'
+import { cilColorBorder, cilExitToApp } from '@coreui/icons'
 import { PersonaRenovacion } from '@/hooks/tab-persona/useRenovaciones'
+import { usePermissions } from '@/context/PermissionsContext'
 
 export interface ModalAceptarSolicitudProps {
   visible: boolean
@@ -34,6 +35,7 @@ const ModalAceptarSolicitud: React.FC<ModalAceptarSolicitudProps> = ({
   onAceptar,
   loading,
 }) => {
+  const { canDoAction } = usePermissions()
   return (
     <CModal 
     size="lg"  
@@ -75,18 +77,20 @@ const ModalAceptarSolicitud: React.FC<ModalAceptarSolicitudProps> = ({
         <CButton color="danger" variant="outline" className='hover:text-white' onClick={onClose} disabled={loading}>
           <CIcon icon={cilExitToApp} className="me-1" /> Cerrar
         </CButton>
-        <CButton color="success" variant="outline" className='hover:text-white' onClick={onAceptar} disabled={loading}>
-          {loading ? (
-            <>
-              <CSpinner size="sm" className="me-1" />
-              Activando...
-            </>
-          ) : (
-            <>
-              <CIcon icon={cilColorBorder} className="me-1" /> Activar
-            </>
-          )}
-        </CButton>
+        {canDoAction('btn_aceptar_solicitud') && (
+          <CButton color="success" variant="outline" className='hover:text-white' onClick={onAceptar} disabled={loading}>
+            {loading ? (
+              <>
+                <CSpinner size="sm" className="me-1" />
+                Activando...
+              </>
+            ) : (
+              <>
+                <CIcon icon={cilColorBorder} className="me-1" /> Activar
+              </>
+            )}
+          </CButton>
+        )}
       </CModalFooter>
     </CModal>
   )

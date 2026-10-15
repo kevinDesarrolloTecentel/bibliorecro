@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
-import { getUserImageUrl } from '@/.env'
+import { getUserImageUrl } from '@/utils/imageUtils'
 
-import usePersonas from './usePersonas'
+import usePersonas, { deduplicarPersonas } from './usePersonas'
 import { ClienteItem } from '@/models/tab/persona.model'
 
 export type { ClienteItem }
@@ -12,16 +12,26 @@ export const getBadge = (estado: string) => {
       return 'success'
     case 'Inactivo':
       return 'danger'
+    default:
+      return 'secondary'
+  }
+}
+
+export const getBadgeSancion = (sancionado: string) => {
+  switch (sancionado) {
+    case 'Con sanción':
     case 'Sancionado':
       return 'warning'
+    case 'Sin sanción':
+      return 'secondary'
     default:
-      return 'primary'
+      return 'secondary'
   }
 }
 
 export const formatFecha = (f: any) => {
   if (!f) return 'No registrada'
-  if (f === 'No registrada') return 'No registrada'
+  if (f === 'No registrada' || f === 'Sin inscripción') return f
   if (typeof f === 'string') {
     if (
       f.startsWith('0000-00-00') ||
@@ -48,39 +58,88 @@ export const formatFecha = (f: any) => {
   return String(f)
 }
 
+export const calcularFinUnAnio = (fecha: any): string | null => {
+  if (!fecha) return null
+  try {
+    const s = String(fecha).trim()
+    const clean = s.includes('T') ? s.split('T')[0] : s.includes(' ') ? s.split(' ')[0] : s
+    if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) {
+      const [y, m, d] = clean.split('-')
+      const nextYear = parseInt(y, 10) + 1
+      return `${nextYear}-${m}-${d}`
+    }
+  } catch {
+    return null
+  }
+  return null
+}
+
 export const mapearPersona = (item: any, index: number): ClienteItem => {
   const id = item.ID_PERSONA ?? item.id ?? (index + 1)
   const identificacion = item.IDENTIFICACION_PERSONA ?? item.identificacion ?? ''
   const nombre = item.NOMBRE_PERSONA ?? item.nombres ?? ''
   const apellido = item.APELLIDO_PERSONA ?? item.apellidos ?? ''
   const email = item.CORREO_PERSONA ?? item.correo ?? ''
-  const inicio_inscripcion =
-    item.FECHAINICIO_INSCRIPCION ??
-    item.inscripcion?.FECHAINICIO_INSCRIPCION ??
-    item.FECHAREGISTRO_PERSONA ??
-    null
 
-  const fin_inscripcion =
-    item.FECHAFIN_INSCRIPCION ??
-    item.inscripcion?.FECHAFIN_INSCRIPCION ??
-    inicio_inscripcion
+  // Identificar si existe inscripción formal
+  const rawIdInscripcion = item.ID_INSCRIPCION ?? item.inscripcion?.ID_INSCRIPCION
+  const rawInicio = item.FECHAINICIO_INSCRIPCION ?? item.inscripcion?.FECHAINICIO_INSCRIPCION
+  const rawFin = item.FECHAFIN_INSCRIPCION ?? item.inscripcion?.FECHAFIN_INSCRIPCION
+  const rawCosto = item.COSTO_INSCRIPCION ?? item.inscripcion?.COSTO_INSCRIPCION
 
-  const costo =
-    item.COSTO_INSCRIPCION ??
-    item.inscripcion?.COSTO_INSCRIPCION ??
-    '10.00'
+  const tieneInscripcion = Boolean(
+    rawInicio ||
+    (rawIdInscripcion !== null &&
+      rawIdInscripcion !== undefined &&
+      rawIdInscripcion !== '' &&
+      rawIdInscripcion !== 0 &&
+      rawIdInscripcion !== '0')
+  )
+
+  let inicio_inscripcion = 'Sin inscripción'
+  let fin_inscripcion = 'Sin inscripción'
+
+  if (tieneInscripcion) {
+    if (rawInicio) {
+      inicio_inscripcion = formatFecha(rawInicio)
+      const finCalculado = rawFin || calcularFinUnAnio(rawInicio)
+      fin_inscripcion = formatFecha(finCalculado)
+    } else {
+      // Inscripción histórica con ID o cobro pero fechas no registradas
+      inicio_inscripcion = 'No registrada'
+      fin_inscripcion = 'No registrada'
+    }
+  }
+
+  // Costo
+  let costo = '0.00'
+  if (rawCosto !== null && rawCosto !== undefined && rawCosto !== '') {
+    const num = parseFloat(String(rawCosto))
+    costo = isNaN(num) ? String(rawCosto) : num.toFixed(2)
+  } else if (tieneInscripcion) {
+    costo = '10.00'
+  } else {
+    costo = '0.00'
+  }
+
+  const tieneSancion = Boolean(
+    item.ESTADO_SANCION === 1 ||
+    item.ESTADO_SANCION === '1' ||
+    item.ESTADO_PERSONA === 2 ||
+    item.ESTADO_PERSONA === '2' ||
+    (item.DETALLE_SANCION && !String(item.DETALLE_SANCION).toLowerCase().includes('sin sancion'))
+  )
+
+  const sancionado: 'Con sanción' | 'Sin sanción' = tieneSancion ? 'Con sanción' : 'Sin sanción'
 
   const sancion =
-    item.ESTADO_SANCION ??
-    item.DETALLE_SANCION ??
-    'Sin sanciones'
+    item.DETALLE_SANCION ||
+    (tieneSancion ? 'Usuario con sanción activa' : 'Sin sanciones')
 
   const estadoRaw = String(item.ESTADO_PERSONA ?? item.estado ?? 'Activo')
-  let estado: 'Activo' | 'Inactivo' | 'Sancionado' = 'Activo'
+  let estado: 'Activo' | 'Inactivo' = 'Activo'
   if (estadoRaw.toLowerCase().includes('inactiv') || estadoRaw === '0') {
     estado = 'Inactivo'
-  } else if (estadoRaw.toLowerCase().includes('sancion') || estadoRaw === '2') {
-    estado = 'Sancionado'
   }
 
   const fotoRaw = item.FOTO_PERSONA || item.IMAGEN_PERSONA || ''
@@ -116,11 +175,12 @@ export const mapearPersona = (item: any, index: number): ClienteItem => {
     apellido: String(apellido),
     fotografia,
     email: String(email),
-    inicio_inscripcion: formatFecha(inicio_inscripcion),
-    fin_inscripcion: formatFecha(fin_inscripcion),
+    inicio_inscripcion,
+    fin_inscripcion,
     costo: String(costo),
     sancion: String(sancion),
     estado,
+    sancionado,
     id_tipo_identificacion: String(tipoIdentificacionId),
     id_nacionalidad: String(nacionalidadId),
     id_genero: String(generoId),
@@ -143,6 +203,7 @@ export const parseDateToTimestamp = (val: any): number => {
   if (
     !s ||
     s === 'No registrada' ||
+    s === 'Sin inscripción' ||
     s.startsWith('0000-00-00') ||
     s.startsWith('1970-01-01') ||
     s.startsWith('1969-12-31')
@@ -206,34 +267,32 @@ export const clienteColumns = [
   {
     key: 'identificacion',
     label: 'Identificación',
-    _style: { width: '15%' },
+    _style: { width: '14%' },
   },
   {
     key: 'nombre',
     label: 'Nombres',
-    _style: { width: '15%' },
+    _style: { width: '18%' },
   },
   {
     key: 'apellido',
     label: 'Apellidos',
-    _style: { width: '15%' },
+    _style: { width: '18%' },
   },
   {
     key: 'email',
     label: 'Email',
-    _style: { width: '10%' },
+    _style: { width: '22%' },
   },
   {
     key: 'estado',
     label: 'Estado',
-    _style: { width: '10%' },
+    _style: { width: '14%' },
   },
   {
-    key: 'show_details',
-    label: 'Acciones',
-    _style: { width: '10%' },
-    filter: false,
-    sorter: false,
+    key: 'sancionado',
+    label: 'Sanción',
+    _style: { width: '14%' },
   },
 ]
 
@@ -242,7 +301,8 @@ export const useClienteDs = (customPersonaState?: ReturnType<typeof usePersonas>
   const personaState = customPersonaState || internalPersonaState
 
   const items = useMemo(() => {
-    return (personaState.personas || [])
+    const rawList = deduplicarPersonas(personaState.personas || [])
+    return rawList
       .map((item, idx) => mapearPersona(item, idx))
       .sort((a, b) => {
         const timeA = obtenerTimestampInscripcion(a)
@@ -263,6 +323,7 @@ export const useClienteDs = (customPersonaState?: ReturnType<typeof usePersonas>
     items,
     columns: clienteColumns,
     getBadge,
+    getBadgeSancion,
     loading: personaState.loading,
     details: personaState.details,
     toggleDetails: personaState.toggleDetails,

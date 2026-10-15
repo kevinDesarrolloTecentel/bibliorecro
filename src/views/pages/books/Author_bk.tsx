@@ -1,12 +1,27 @@
 import React from 'react'
-import { CBadge, CButton, CCard, CCardBody, CCardHeader, CCol, CFormInput, CInputGroup, CInputGroupText, CRow, CSpinner } from '@coreui/react-pro'
+import {
+  CBadge,
+  CButton,
+  CCard,
+  CCardBody,
+  CCardHeader,
+  CCol,
+  CFormInput,
+  CInputGroup,
+  CInputGroupText,
+  CRow,
+  CSmartPagination,
+  CSpinner,
+} from '@coreui/react-pro'
 import CIcon from '@coreui/icons-react'
 import { cilCheckCircle, cilInfo, cilPencil, cilPlus, cilSearch, cilTrash, cilUser, cilX } from '@coreui/icons'
 import useAutor from '@/hooks/rco-libros/useAutor'
 import ModalAt from '@/components/details_bk/author'
+import { usePermissions } from '@/context/PermissionsContext'
 
 const Author: React.FC = () => {
   const autorHook = useAutor()
+  const { canDoAction } = usePermissions()
   const {
     handleOpen,
     autoresFiltrados,
@@ -17,6 +32,10 @@ const Author: React.FC = () => {
     setBusquedaAutor,
     autorSeleccionado,
     setAutorSeleccionado,
+    paginaActual,
+    totalPaginas,
+    totalAutores,
+    handlePageChange,
   } = autorHook
 
   const handleToggleSelect = (autor: any) => {
@@ -42,6 +61,7 @@ const Author: React.FC = () => {
           </p>
         </div>
         <div className="d-flex gap-2">
+          {canDoAction('btn_crear_autor') && (
           <CButton
             color="success"
             variant="outline"
@@ -51,6 +71,7 @@ const Author: React.FC = () => {
             <CIcon icon={cilPlus} />
             <span>Nuevo Autor</span>
           </CButton>
+          )}
         </div>
       </div>
 
@@ -65,18 +86,18 @@ const Author: React.FC = () => {
               <div className="d-flex align-items-center gap-2">
                 {busquedaAutor && (
                   <CBadge color="info" shape="rounded-pill">
-                    {autoresFiltrados.length} encontrados
+                    {totalAutores} encontrados
                   </CBadge>
                 )}
                 <CBadge color="primary" shape="rounded-pill">
-                  {listaAutores.length} Registrados
+                  {totalAutores} Registrados
                 </CBadge>
               </div>
             </CCardHeader>
 
             <CCardBody className="p-3">
               <label className="form-label small fw-semibold text-muted">
-                Buscar autor por nombre o ID:
+                Buscar autor por nombre:
               </label>
               <CInputGroup className="mb-3">
                 <CInputGroupText className="bg-body border">
@@ -176,54 +197,36 @@ const Author: React.FC = () => {
                                 {autor.NOMBRE_AUTOR}
                               </div>
                               <div className="d-flex align-items-center gap-2 mt-1">
-                                <span className="badge bg-body text-secondary border font-monospace">
-                                  ID: #{id}
-                                </span>
                               </div>
                             </div>
                           </div>
 
-                          <div className="d-flex align-items-center ms-2">
-                            {isSelected ? (
-                              <CButton
-                                color="success"
-                                size="sm"
-                                variant="ghost"
-                                className="d-flex align-items-center gap-1 p-0 text-decoration-none"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setAutorSeleccionado(null)
-                                }}
-                                title="Clic para deseleccionar"
-                              >
-                                <CBadge
-                                  color="success"
-                                  shape="rounded-pill"
-                                  className="px-3 py-2 shadow-sm text-white"
-                                >
-                                  Seleccionado ✕
-                                </CBadge>
-                              </CButton>
-                            ) : (
-                              <CButton
-                                color="success"
-                                size="sm"
-                                variant="outline"
-                                className="px-3"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setAutorSeleccionado(autor)
-                                }}
-                              >
-                                Seleccionar
-                              </CButton>
-                            )}
-                          </div>
+                          {isSelected && (
+                            <CBadge
+                              color="success"
+                              shape="rounded-pill"
+                              className="px-3 py-2 shadow-sm text-white"
+                            >
+                              Seleccionado ✕
+                            </CBadge>
+                          )}
                         </div>
                       )
                     })}
                   </div>
                 )}
+              </div>
+
+              <div className="d-flex flex-wrap justify-content-between align-items-center pt-3 mt-2 border-top bg-body">
+                <span className="text-muted small">
+                  Página <strong>{paginaActual}</strong> de <strong>{totalPaginas}</strong> ({totalAutores} autores)
+                </span>
+                <CSmartPagination
+                  size="sm"
+                  activePage={paginaActual}
+                  pages={totalPaginas}
+                  onActivePageChange={handlePageChange}
+                />
               </div>
             </CCardBody>
           </CCard>
@@ -267,14 +270,11 @@ const Author: React.FC = () => {
                       </div>
                       <div>
                         <h5 className="fw-bold text-body mb-1">{autorSeleccionado.NOMBRE_AUTOR}</h5>
-                        <span className="badge bg-body text-secondary border font-monospace">
-                          ID: #{autorSeleccionado.ID_AUTOR ?? autorSeleccionado.id}
-                        </span>
                       </div>
                     </div>
 
                     <div className="d-flex flex-column gap-2 pt-2 border-top">
-                      <div className="d-flex justify-content-between py-2 border-bottom">
+                      <div className="d-flex justify-content-between py-2">
                         <span className="text-muted small badge bg-body rounded-pill border">
                           Nombre:
                         </span>
@@ -282,19 +282,11 @@ const Author: React.FC = () => {
                           {autorSeleccionado.NOMBRE_AUTOR}
                         </span>
                       </div>
-
-                      <div className="d-flex justify-content-between py-2 border-bottom">
-                        <span className="text-muted small badge bg-body rounded-pill border">
-                          Identificador del Sistema:
-                        </span>
-                        <span className="text-success font-monospace fw-semibold small badge bg-success bg-opacity-10 rounded-pill px-2 py-1">
-                          #{autorSeleccionado.ID_AUTOR ?? autorSeleccionado.id}
-                        </span>
-                      </div>
                     </div>
                   </div>
 
                   <div className="d-flex gap-2 justify-content-end">
+                    {canDoAction('btn_eliminar_autor') && (
                     <CButton
                       color="danger"
                       variant="outline"
@@ -304,6 +296,8 @@ const Author: React.FC = () => {
                       <CIcon icon={cilTrash} />
                       <span>Eliminar Autor</span>
                     </CButton>
+                    )}
+                    {canDoAction('btn_editar_autor') && (
                     <CButton
                       color="success"
                       variant="outline"
@@ -313,6 +307,7 @@ const Author: React.FC = () => {
                       <CIcon icon={cilPencil} />
                       <span>Editar Autor</span>
                     </CButton>
+                    )}
                   </div>
                 </div>
               ) : (

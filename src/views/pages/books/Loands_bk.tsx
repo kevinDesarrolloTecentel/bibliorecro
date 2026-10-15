@@ -5,6 +5,7 @@ import {
   cilContact,
   cilMobile,
   cilPhone,
+  cilReload,
   cilReportSlash,
   cilUser,
 } from '@coreui/icons'
@@ -14,19 +15,19 @@ import {
   CButton,
   CCard,
   CCardBody,
-  CCardHeader,
   CCol,
   CCollapse,
-  CContainer,
   CRow,
   CSmartPagination,
   CSmartTable,
+  CSpinner,
 } from '@coreui/react-pro'
 import usePrestamos from '@/hooks/rco-prestamos/usePrestamos'
-import HeaderPrestamos from '@/components/details_bk/HeaderPrestamos'
 import Modal_prestamo from '@/components/details_bk/prestamos'
+import { usePermissions } from '@/context/PermissionsContext'
 
 const Loands: React.FC = () => {
+  const { canDoAction, recargarPermisos } = usePermissions()
   const prestamoState = usePrestamos()
   const {
     prestamos,
@@ -46,14 +47,52 @@ const Loands: React.FC = () => {
   } = prestamoState
 
   const columns = [
-    { key: 'Libro', label: 'Libro', _style: { width: '22%' } },
-    { key: 'Nombres', label: 'Nombres', _style: { width: '15%' } },
-    { key: 'Apellidos', label: 'Apellidos ', _style: { width: '15%' } },{ key: 'show_details', label: '', _style: { width: '1%' }, filter: false, sorter: false },
+    { key: 'Libro', label: 'Libro', _style: { width: '30%' } },
+    { key: 'Nombres', label: 'Nombres', _style: { width: '20%' } },
+    { key: 'Apellidos', label: 'Apellidos', _style: { width: '20%' } },
+    { key: 'Celular', label: 'Celular', _style: { width: '15%' } },
+    { key: 'status', label: 'Estado', _style: { width: '15%' } },
   ]
 
   return (
-    <CContainer fluid className="mb-4">
-      <HeaderPrestamos prestamoState={prestamoState} />
+    <>
+      <div className="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <div>
+          <h4 className="fw-bold mb-1 text-body d-flex align-items-center gap-2">
+            <span>Préstamos de Libros</span>
+          </h4>
+          <p className="text-muted small mb-0">
+            Visualiza y gestiona los préstamos activos otorgados a los lectores de la biblioteca.
+          </p>
+        </div>
+        <div className="d-flex align-items-center gap-2">
+          <CButton
+            color="secondary"
+            variant="outline"
+            disabled={loading}
+            className="hover:text-white d-flex align-items-center gap-1 shadow-sm"
+            onClick={() => {
+              prestamoState.handleRecargar()
+              recargarPermisos(true)
+            }}
+            title="Recargar"
+          >
+            <CIcon icon={cilReload} className={`me-1 ${loading ? 'rotate-animation' : ''}`} />
+            <span>{loading ? 'Cargando...' : 'Recargar'}</span>
+          </CButton>
+          {canDoAction('btn_crear_prestamo') && (
+            <CButton
+              color="primary"
+              variant="outline"
+              className="hover:text-white d-flex align-items-center gap-2 shadow-sm"
+              onClick={() => setModalRegister(true)}
+            >
+              <CIcon icon={cilBook} className="me-1" />
+              <span>Nuevo Préstamo</span>
+            </CButton>
+          )}
+        </div>
+      </div>
 
       <Modal_prestamo
         visible={modalRegister}
@@ -61,26 +100,38 @@ const Loands: React.FC = () => {
         onPrestamoCreado={handlePrestamoCreado}
       />
 
-      <CCard className="shadow-sm border-0">
-        <CCardHeader className="bg-body py-3 border-bottom d-flex justify-content-between align-items-center">
-          <div className="d-flex align-items-center gap-2">
-            <CIcon icon={cilBook} style={{ color: '#34A6F4' }} size="xl" />
-            <h5 className="mb-0 fw-bold text-body">Préstamos de Libros</h5>
-          </div>
-          <span className="badge bg-light text-dark border px-2 py-1">
-            Total Registros: <strong>{totalItems}</strong>
-          </span>
-        </CCardHeader>
-
-        <CCardBody className="p-0">
+      {loading && prestamos.length === 0 ? (
+        <div className="text-center py-5">
+          <CSpinner color="primary" />
+          <div className="mt-2 text-muted small">Cargando préstamos desde el servidor...</div>
+        </div>
+      ) : (
+        <>
           <CSmartTable
+            key={prestamoState.tableKey}
+            activePage={currentPage}
+            clickableRows
+            columnSorter
+            cleaner
+            itemsPerPage={10}
+            tableFilter={{ external: true }}
+            tableFilterPlaceholder="Buscar préstamos por cédula, lector, libro, ISBN..."
+            onTableFilterChange={(busqueda) => prestamoState.handleBuscarGlobal(busqueda || '')}
+            onRowClick={(item: any) => {
+              const id = item?.id ?? item?.ID_PRESTAMO
+              if (id) toggleDetails(id)
+            }}
             items={prestamos}
             columns={columns}
             loading={loading}
             tableProps={{
+              className: 'border rounded',
               responsive: true,
+              striped: true,
               hover: true,
-              className: 'align-middle mb-0 text-nowrap',
+            }}
+            tableBodyProps={{
+              className: 'align-middle',
             }}
             scopedColumns={{
               Libro: (item: any) => (
@@ -93,56 +144,26 @@ const Loands: React.FC = () => {
               ),
               Nombres: (item: any) => (
                 <td>
-                  <span className="font-monospace small fw-semibold">{item.Nombres || '-'}</span>
+                  <span className="text-body fw-medium">{item.Nombres || '-'}</span>
                 </td>
               ),
               Apellidos: (item: any) => (
                 <td>
-                  <span className="font-monospace small fw-semibold">{item.Apellidos || '-'}</span>
+                  <span className="text-body fw-medium">{item.Apellidos || '-'}</span>
                 </td>
               ),
-              Cedula: (item: any) => (
+              Celular: (item: any) => (
                 <td>
-                  <span className="font-monospace small fw-semibold badge text-dark">{item.Cedula || '-'}</span>
-                </td>
-              ),
-              Fecha_prestamo: (item: any) => (
-                <td>
-                  <CBadge color="primary" className="px-2 py-1 font-monospace">
-                    {item.Fecha_prestamo || '-'}
-                  </CBadge>
-                </td>
-              ),
-              Fecha_entrega: (item: any) => (
-                <td>
-                  <CBadge color="danger" className="px-2 py-1 font-monospace">
-                    {item.Fecha_entrega || '-'}
-                  </CBadge>
+                  <span className="font-monospace fw-semibold text-secondary">{item.Celular || '-'}</span>
                 </td>
               ),
               status: (item: any) => (
                 <td>
-                  <CBadge color={getBadgeColor(item.status)} shape="rounded-pill" className="px-2 py-1">
+                  <CBadge color={getBadgeColor(item.status)} shape="rounded-pill" className="px-2.5 py-1">
                     {item.status || 'En préstamo'}
                   </CBadge>
                 </td>
               ),
-              show_details: (item: any) => {
-                const isOpened = details.includes(item.id)
-                return (
-                  <td className="py-2 text-end">
-                    <CButton
-                      color="primary"
-                      variant={isOpened ? undefined : 'outline'}
-                      shape="square"
-                      size="sm"
-                      onClick={() => toggleDetails(item.id)}
-                    >
-                      {isOpened ? 'Ocultar' : 'Mostrar'}
-                    </CButton>
-                  </td>
-                )
-              },
               details: (item: any) => {
                 const isOpened = details.includes(item.id)
                 return (
@@ -162,7 +183,7 @@ const Loands: React.FC = () => {
                           </div>
                           <h6 className="fw-bold mb-1 text-body small">{item.Libro}</h6>
                           <span className="text-muted small mb-2">{item.Nombres} {item.Apellidos}</span>
-                          <span className="badge bg-body text-dark border font-monospace mb-2">
+                          <span className="badge bg-body text-body border font-monospace mb-2">
                             Cédula: {item.Cedula || '-'}
                           </span>
                           <CBadge color={getBadgeColor(item.status)} shape="rounded-pill" className="px-3 py-1">
@@ -205,7 +226,7 @@ const Loands: React.FC = () => {
                                     <CIcon icon={cilCalendar} className="me-1 text-body" />
                                     Fecha de Entrega
                                   </span>
-                                  <CBadge color='light' shape='rounded-pill' className='px-2 py-1 text-danger'>
+                                  <CBadge color="light" shape="rounded-pill" className="px-2 py-1 text-danger">
                                     <span className="fw-bold">{item.Fecha_entrega || '-'}</span>
                                   </CBadge>
                                 </CCardBody>
@@ -219,7 +240,7 @@ const Loands: React.FC = () => {
                                     <CIcon icon={cilMobile} className="me-1 text-body" />
                                     Celular
                                   </span>
-                                  <CBadge color='light' shape='rounded-pill' className='px-2 py-1 text-dark font-monospace'>
+                                  <CBadge color="light" shape="rounded-pill" className="px-2 py-1 text-body font-monospace">
                                     <span className="fw-bold">{item.Celular || '-'}</span>
                                   </CBadge>
                                 </CCardBody>
@@ -233,7 +254,7 @@ const Loands: React.FC = () => {
                                     <CIcon icon={cilPhone} className="me-1 text-body" />
                                     Teléfono
                                   </span>
-                                  <CBadge color='light' shape='rounded-pill' className='text-dark'>
+                                  <CBadge color="light" shape="rounded-pill" className="text-body">
                                     <span className="fw-bold">{item.Telefono || '-'}</span>
                                   </CBadge>
                                 </CCardBody>
@@ -247,7 +268,7 @@ const Loands: React.FC = () => {
                                     <CIcon icon={cilUser} className="me-1 text-body" />
                                     Estado
                                   </span>
-                                  <CBadge color={getBadgeColor(item.status)} shape='rounded-pill' className="px-2 py-1">
+                                  <CBadge color={getBadgeColor(item.status)} shape="rounded-pill" className="px-2 py-1">
                                     {item.status || 'En préstamo'}
                                   </CBadge>
                                 </CCardBody>
@@ -256,29 +277,33 @@ const Loands: React.FC = () => {
                           </CRow>
 
                           <div className="d-flex flex-wrap gap-2 justify-content-end mt-3 pt-2 border-top">
-                            <CButton
-                              color="primary"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleExtenderPrestamo(item)}
-                              title="Extender fecha de entrega"
-                              className="d-flex align-items-center gap-1 shadow-sm"
-                            >
-                              <CIcon icon={cilCalendar} />
-                              <span>Extender</span>
-                            </CButton>
-                            <CButton
-                              color="danger"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleMarcarNoDevuelto(item)}
-                              title="Marcar como no devuelto / dañado"
-                              className="hover:text-body d-flex align-items-center gap-1 shadow-sm"
-                              disabled={item.status === 'No Devuelto' || item.status === '2'}
-                            >
-                              <CIcon icon={cilReportSlash} />
-                              <span>No Devuelto</span>
-                            </CButton>
+                            {canDoAction('btn_extender_prestamo') && (
+                              <CButton
+                                color="primary"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleExtenderPrestamo(item)}
+                                title="Extender fecha de entrega"
+                                className="d-flex align-items-center gap-1 shadow-sm"
+                              >
+                                <CIcon icon={cilCalendar} />
+                                <span>Extender</span>
+                              </CButton>
+                            )}
+                            {canDoAction('btn_no_devuelto') && (
+                              <CButton
+                                color="danger"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleMarcarNoDevuelto(item)}
+                                title="Marcar como no devuelto / dañado"
+                                className="hover:text-white d-flex align-items-center gap-1 shadow-sm"
+                                disabled={item.status === 'No Devuelto' || item.status === '2'}
+                              >
+                                <CIcon icon={cilReportSlash} />
+                                <span>No Devuelto</span>
+                              </CButton>
+                            )}
                           </div>
                         </CCol>
                       </CRow>
@@ -289,20 +314,22 @@ const Loands: React.FC = () => {
             }}
           />
 
-          <div className="d-flex flex-wrap justify-content-between align-items-center p-3 border-top bg-body">
-            <span className="text-muted small">
+          <div className="d-flex flex-wrap justify-content-between align-items-center p-3 border-top bg-body mt-2">
+            <span className="text-body-secondary small">
               Página <strong>{currentPage}</strong> de <strong>{totalPages}</strong> (Total: {totalItems} préstamos)
             </span>
-            <CSmartPagination
-              size="sm"
-              activePage={currentPage}
-              pages={totalPages}
-              onActivePageChange={handlePageChange}
-            />
+            {totalPages > 1 && (
+              <CSmartPagination
+                size="sm"
+                activePage={currentPage}
+                pages={totalPages}
+                onActivePageChange={handlePageChange}
+              />
+            )}
           </div>
-        </CCardBody>
-      </CCard>
-    </CContainer>
+        </>
+      )}
+    </>
   )
 }
 

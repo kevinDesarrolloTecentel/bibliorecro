@@ -156,7 +156,7 @@ export const usePersonaRegister = ({
       formDataToSend.append('CORREO_PERSONA', formData.CORREO_PERSONA?.trim() || '')
       formDataToSend.append('DIRECCION_PERSONA', formData.DIRECCION_PERSONA?.trim() || '')
       formDataToSend.append('DETALLE_PERSONA', formData.DETALLE_PERSONA?.trim() || '')
-      formDataToSend.append('DETALLE_INSCRIPCION', formData.DETALLE_PERSONA?.trim() || 'Inscripción de usuario')
+      formDataToSend.append('DETALLE_INSCRIPCION', formData.DETALLE_INSCRIPCION?.trim() || 'Inscripción de usuario')
       const today = new Date()
       const fechaHoy = today.toISOString().split('T')[0]
       const nextYear = new Date(today)

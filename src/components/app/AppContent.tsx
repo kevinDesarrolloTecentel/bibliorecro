@@ -20,13 +20,9 @@ const AppContent = () => {
                 key={idx}
                 path={route.path}
                 element={
-                  route.roles ? (
-                    <ProtectedRoute roles={route.roles}>
-                      <ElementComponent />
-                    </ProtectedRoute>
-                  ) : (
+                  <ProtectedRoute>
                     <ElementComponent />
-                  )
+                  </ProtectedRoute>
                 }
               />
             )

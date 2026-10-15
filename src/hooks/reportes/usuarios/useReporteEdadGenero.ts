@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react'
 import Swal from 'sweetalert2'
 import { ListarPersonaReport } from '@/Service/tab/Persona'
 import { ListarGenero } from '@/Service/tab/Genero'
-import { STORAGE_BASE_URL } from '@/.env'
+import { STORAGE_BASE_URL } from '@/utils/imageUtils'
 
 export { STORAGE_BASE_URL }
 
@@ -35,6 +35,7 @@ export const useReporteUsuariosEdadGenero = () => {
   const [usuarios, setUsuarios] = useState<PersonaReporteItem[]>([])
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [excelLink, setExcelLink] = useState<string | null>(null)
+  const [haBuscado, setHaBuscado] = useState<boolean>(false)
 
   useEffect(() => {
     ListarGenero()
@@ -68,7 +69,25 @@ export const useReporteUsuariosEdadGenero = () => {
       return
     }
 
+    if (Number(edadDesde) > Number(edadHasta)){
+      Swal.mixin({
+        toast: true,
+        position: 'top-end',
+        timer: 3000,
+        timerProgressBar: false,
+        showConfirmButton: false,
+      }).fire({
+        icon: 'warning',
+        title: 'La edad mínima no puede ser mayor que la edad máxima'
+      })
+      return
+    }
+
     setIsLoading(true)
+    setHaBuscado(true)
+    setUsuarios([])
+    setExcelLink(null)
+
     try {
       const params: Record<string, any> = {
         edadDesde,
@@ -86,23 +105,59 @@ export const useReporteUsuariosEdadGenero = () => {
 
       setUsuarios(personasFiltradas)
       setExcelLink(data?.excel_path || null)
-    } catch (error) {
+
+      if (personasFiltradas.length === 0) {
+        const generoSeleccionado = generos.find((g) => String(g.value) === String(generoId))?.label
+        const detalleFiltro = generoSeleccionado
+          ? `con el rango de edad (${edadDesde} a ${edadHasta} años) y género "${generoSeleccionado}".`
+          : `con el rango de edad (${edadDesde} a ${edadHasta} años).`
+
+        Swal.fire({
+          icon: 'info',
+          title: 'Sin usuarios encontrados',
+          text: `No se encontraron usuarios registrados ${detalleFiltro}`,
+          confirmButtonColor: '#0d6efd',
+        })
+      }
+    } catch (error: any) {
       console.error('Error al obtener las personas por edad y género:', error)
-      Swal.mixin({
-        toast: true,
-        position: 'top-end',
-        timer: 2500,
-        timerProgressBar: false,
-        showConfirmButton: false,
-      }).fire({
-        icon: 'error',
-        title: 'Error!',
-        text: 'Hubo un problema al obtener los usuarios. Por favor, inténtelo de nuevo más tarde.',
-      })
+      const respData = error?.response?.data
+      const isZeroResultsError =
+        error?.response?.status === 500 &&
+        ((typeof respData === 'string' && (respData.includes('PersonasExport') || respData.includes('toArray() on null'))) ||
+          (error?.response?.data?.message && error.response.data.message.includes('toArray() on null')))
+
+      if (isZeroResultsError) {
+        setUsuarios([])
+        setExcelLink(null)
+        const generoSeleccionado = generos.find((g) => String(g.value) === String(generoId))?.label
+        const detalleFiltro = generoSeleccionado
+          ? `con el rango de edad (${edadDesde} a ${edadHasta} años) y género "${generoSeleccionado}".`
+          : `con el rango de edad (${edadDesde} a ${edadHasta} años).`
+
+        Swal.fire({
+          icon: 'info',
+          title: 'Sin usuarios encontrados',
+          text: `No se encontraron usuarios registrados ${detalleFiltro}`,
+          confirmButtonColor: '#0d6efd',
+        })
+      } else {
+        Swal.mixin({
+          toast: true,
+          position: 'top-end',
+          timer: 2500,
+          timerProgressBar: false,
+          showConfirmButton: false,
+        }).fire({
+          icon: 'error',
+          title: 'Error!',
+          text: error?.response?.data?.message || 'Hubo un problema al obtener los usuarios. Por favor, inténtelo de nuevo más tarde.',
+        })
+      }
     } finally {
       setIsLoading(false)
     }
-  }, [edadDesde, edadHasta, generoId])
+  }, [edadDesde, edadHasta, generoId, generos])
 
   const handleDescargarExcel = useCallback(() => {
     if (excelLink) {
@@ -116,6 +171,7 @@ export const useReporteUsuariosEdadGenero = () => {
     setGeneroId('')
     setUsuarios([])
     setExcelLink(null)
+    setHaBuscado(false)
   }, [])
 
   return {
@@ -129,6 +185,7 @@ export const useReporteUsuariosEdadGenero = () => {
     usuarios,
     isLoading,
     excelLink,
+    haBuscado,
     handleGet,
     handleDescargarExcel,
     handleReset,

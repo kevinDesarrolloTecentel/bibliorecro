@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import {
+  CAvatar,
   CDropdown,
   CDropdownHeader,
   CDropdownItem,
@@ -13,29 +14,29 @@ import {
 import CIcon from '@coreui/icons-react'
 import { useNavigate } from 'react-router-dom'
 import useAuth from '@/hooks/useAuth'
+import userAvatar from '@/assets/images/user (2).png'
 
 
 const AppHeaderDropdown = () => {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const { logout, user } = useAuth()
+  const { logout } = useAuth()
 
   const handleLogout = () => {
     logout()
-    navigate('/login')
   }
 
   return (
     <CDropdown variant="nav-item" alignment="end">
-      <CDropdownToggle className="py-0" caret={false}>
-        <CIcon icon={cilUser}/>
+      <CDropdownToggle className="py-0 pe-0 ms-0" caret={false}>
+        <CAvatar src={userAvatar} size="md" />
       </CDropdownToggle>
       <CDropdownMenu className="pt-0">
         <CDropdownHeader className="bg-body-secondary text-body-secondary fw-semibold rounded-top mb-2">
-          {user?.NICK_USUARIO || t('Cuenta')}
+          Cuenta
         </CDropdownHeader>
-        <CDropdownItem onClick={() => navigate('/perfil')} style={{ cursor: 'pointer' }}>
-          <CIcon icon={cilUser} className="me-2" />
+        <CDropdownItem onClick={() => navigate('/administracion/perfil')} style={{ cursor: 'pointer' }}>
+          <CIcon icon={cilUser} className="me-2 text-dark" />
           {t('Perfil')}
         </CDropdownItem>
         <CDropdownItem onClick={handleLogout} style={{ cursor: 'pointer' }}>

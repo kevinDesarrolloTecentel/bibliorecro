@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import Swal from 'sweetalert2'
 import { useCatalogos } from '../tab-catalogos/useCatalogos'
-import { getUserImageUrl } from '@/.env'
+import { getUserImageUrl } from '@/utils/imageUtils'
 import { filterOnlyDigits, filterOnlyLetters } from '@/utils/validations'
 import usePersonas from './usePersonas'
 import { initialPersona, Persona } from '@/models/tab/persona.model'
@@ -128,6 +128,9 @@ export const usePersonaEdit = ({
         DETALLE_PERSONA: String(
           raw.DETALLE_PERSONA ?? currentUser.detalles ?? '',
         ),
+        DETALLE_INSCRIPCION: String(
+          raw.DETALLE_INSCRIPCION ?? raw.inscripcion?.DETALLE_INSCRIPCION ?? '',
+        ),
         FECHAREGISTRO_PERSONA: raw.FECHAREGISTRO_PERSONA ?? '',
         FOTO_PERSONA: '',
         FECHA_PERSONA: String(fechaNac || ''),
@@ -187,11 +190,12 @@ export const usePersonaEdit = ({
       return
     }
 
-    if (formData.TELEFONO_PERSONA?.toString().trim() && formData.TELEFONO_PERSONA.toString().trim().length !== 10) {
+    const telFijo = formData.TELEFONO_PERSONA?.toString().trim()
+    if (telFijo && (telFijo.length < 7 || telFijo.length > 10)) {
       Swal.fire({
         icon: 'warning',
         title: 'Teléfono fijo inválido',
-        text: 'El teléfono fijo debe contener exactamente 10 dígitos numéricos.',
+        text: 'El teléfono fijo debe contener entre 7 y 10 dígitos numéricos (ej: 7 dígitos para número de casa local).',
       })
       return
     }
@@ -224,15 +228,29 @@ export const usePersonaEdit = ({
           ? formData.FECHA_PERSONA.trim().split('T')[0]
           : ''
 
+      // Preservar el estado del usuario existente (no forzar inactivo/activo si ya tenía un valor)
+      const rawOriginalPersona = currentUser?.raw?.ESTADO_PERSONA ?? formData.ESTADO_PERSONA
       let estadoPersona = '1'
-      const rawEstadoSubmit = String(formData.ESTADO_PERSONA || '1').trim()
-      if (rawEstadoSubmit === '0' || rawEstadoSubmit.toLowerCase().includes('inactiv')) {
-        estadoPersona = '0'
-      } else if (rawEstadoSubmit === '2' || rawEstadoSubmit.toLowerCase().includes('sancion')) {
-        estadoPersona = '2'
+      if (rawOriginalPersona !== undefined && rawOriginalPersona !== null) {
+        estadoPersona = String(rawOriginalPersona)
       } else {
-        estadoPersona = '1'
+        const rawEstadoSubmit = String(formData.ESTADO_PERSONA || '1').trim()
+        if (rawEstadoSubmit === '0' || rawEstadoSubmit.toLowerCase().includes('inactiv')) {
+          estadoPersona = '0'
+        } else if (rawEstadoSubmit === '2' || rawEstadoSubmit.toLowerCase().includes('sancion')) {
+          estadoPersona = '2'
+        } else {
+          estadoPersona = '1'
+        }
       }
+
+      // Preservar el ESTADOINSCRIPCION_PERSONA original (crucial para no sacarlo de Renovaciones y Nuevos)
+      const rawOriginalInscrip =
+        currentUser?.raw?.ESTADOINSCRIPCION_PERSONA ?? formData.ESTADOINSCRIPCION_PERSONA
+      const estadoInscrip =
+        rawOriginalInscrip !== undefined && rawOriginalInscrip !== null
+          ? String(rawOriginalInscrip)
+          : '0'
 
       const isActivo =
         typeof formData.ESTADOINSCRIPCION_PERSONA === 'boolean'
@@ -241,7 +259,6 @@ export const usePersonaEdit = ({
           String(formData.ESTADOINSCRIPCION_PERSONA ?? '').trim() !== '0'
 
       const estadoInscripcion = isActivo ? '1' : '0'
-      const estadoInscrip = '0'
 
       const formDataToSend = new FormData()
       formDataToSend.append('ID_GENERO', String(formData.ID_GENERO || ''))
@@ -255,7 +272,7 @@ export const usePersonaEdit = ({
       formDataToSend.append('CELULAR_PERSONA', formData.CELULAR_PERSONA?.trim() || '')
       formDataToSend.append('CORREO_PERSONA', formData.CORREO_PERSONA?.trim() || '')
       formDataToSend.append('DIRECCION_PERSONA', formData.DIRECCION_PERSONA?.trim() || '')
-      formDataToSend.append('DETALLE_INSCRIPCION', formData.DETALLE_PERSONA?.trim() || 'Inscripción de usuario')
+      formDataToSend.append('DETALLE_INSCRIPCION', formData.DETALLE_INSCRIPCION?.trim() || '')
       formDataToSend.append('DETALLE_PERSONA', formData.DETALLE_PERSONA?.trim() || '')
       formDataToSend.append('FECHA_PERSONA', fechaPersona)
 

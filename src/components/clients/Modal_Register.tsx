@@ -2,7 +2,6 @@ import usePersonaRegister, { UsePersonaRegisterProps } from "@/hooks/tab-persona
 import {
     cilCalendar,
     cilContact,
-    cilDescription,
     cilEnvelopeClosed,
     cilExitToApp,
     cilGlobeAlt,
@@ -34,9 +33,12 @@ import {
     CSpinner
 } from "@coreui/react-pro"
 
+import { usePermissions } from "@/context/PermissionsContext"
+
 interface ModalRegisterProps extends UsePersonaRegisterProps { }
 
 const Modal_Register = (props: ModalRegisterProps) => {
+    const { canDoAction } = usePermissions()
     const {
         isVisible,
         formData,
@@ -359,7 +361,7 @@ const Modal_Register = (props: ModalRegisterProps) => {
                                 inputMode="numeric"
                                 maxLength={10}
                                 name="TELEFONO_PERSONA"
-                                placeholder="Ej: 0223456780"
+                                placeholder="Ej: 2073303 o 022345678"
                                 value={formData.TELEFONO_PERSONA || ''}
                                 onChange={handleChange}
                                 onBlur={() => handleBlur('TELEFONO_PERSONA')}
@@ -417,23 +419,18 @@ const Modal_Register = (props: ModalRegisterProps) => {
                         )}
                     </CCol>
 
-                    <CCol xs={12} className="mt-4">
-                        <div className="d-flex align-items-center gap-2 pb-2 border-bottom fw-bold text-secondary">
-                            <CIcon icon={cilDescription} />
-                            <span>INFORMACIÓN ADICIONAL</span>
-                        </div>
-                    </CCol>
-
-                    <CCol xs={12}>
-                        <CFormSelect
-                            name="ESTADOINSCRIPCION_PERSONA"
-                            label="Estado de Inscripción:"
-                            value={String(formData.ESTADOINSCRIPCION_PERSONA ?? 'Activo')}
+                    <CCol xs={12} className="mt-3">
+                        <hr style={{ borderTop: '1px dashed #ced4da' }} className="my-2" />
+                        <h6 className="fw-bold text-secondary mb-2">INSCRIPCIÓN:</h6>
+                        <label className="form-label small fw-semibold text-muted">Detalle:</label>
+                        <CFormTextarea
+                            name="DETALLE_INSCRIPCION"
+                            placeholder="Ingrese información o detalle de la inscripción..."
+                            rows={3}
+                            value={formData.DETALLE_INSCRIPCION || ''}
                             onChange={handleChange}
-                        >
-                            <option value="Activo">Activo</option>
-                            <option value="Inactivo">Inactivo</option>
-                        </CFormSelect>
+                        />
+                        <hr style={{ borderTop: '1px dashed #ced4da' }} className="mt-3 mb-1" />
                     </CCol>
                 </CForm>
             </CModalBody>
@@ -449,26 +446,28 @@ const Modal_Register = (props: ModalRegisterProps) => {
                     <CIcon icon={cilExitToApp} className="me-1" />
                     Cancelar
                 </CButton>
-                <CButton
-                    color="success"
-                    variant="outline"
-                    type="submit"
-                    form="formRegistroUsuario"
-                    disabled={loading}
-                    className="hover:text-white d-flex align-items-center gap-1 shadow-sm"
-                >
-                    {loading ? (
-                        <>
-                            <CSpinner size="sm" className="me-1" />
-                            Guardando...
-                        </>
-                    ) : (
-                        <>
-                            <CIcon icon={cilSave} className="me-1" />
-                            <span>Guardar Usuario</span>
-                        </>
-                    )}
-                </CButton>
+                {canDoAction('btn_crear_usuario_gestion_usuario') && (
+                    <CButton
+                        color="success"
+                        variant="outline"
+                        type="submit"
+                        form="formRegistroUsuario"
+                        disabled={loading}
+                        className="hover:text-white d-flex align-items-center gap-1 shadow-sm"
+                    >
+                        {loading ? (
+                            <>
+                                <CSpinner size="sm" className="me-1" />
+                                Guardando...
+                            </>
+                        ) : (
+                            <>
+                                <CIcon icon={cilSave} className="me-1" />
+                                <span>Guardar Usuario</span>
+                            </>
+                        )}
+                    </CButton>
+                )}
             </CModalFooter>
         </CModal>
     )

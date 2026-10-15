@@ -7,6 +7,7 @@ import { cilCalendar, cilCloudDownload, cilNoteAdd, cilReload, cilWarning } from
 import CIcon from "@coreui/icons-react"
 import { CButton, CCard, CCardBody, CCol, CRow } from "@coreui/react-pro"
 import { useState } from "react"
+import { usePermissions } from "@/context/PermissionsContext"
 
 const Rep_prestamos = () => { 
 
@@ -15,10 +16,12 @@ const Rep_prestamos = () => {
   const [visibleCantidad, setVisibleCantidad] = useState(false)
   const [visibleMensual, setVisibleMensual] = useState(false)
   const [visibleAnuales, setVisibleAnuales] = useState(false)
+  const {canDoAction} = usePermissions()
 
   const loanReports = [
     {
       title: "Libros Pendientes Por Devolver",
+      action:'btn_generar_reporte_libros_pendientes',
       icon: cilReload,
       description:
         "Personaliza tu análisis al obtener un  informe detallado sobre la información de los libros.",
@@ -26,6 +29,7 @@ const Rep_prestamos = () => {
     },
     {
       title: "Libros No Devueltos y Dañados",
+      action:'btn_generar_reporte_libros_no_devueltos',
       icon:cilWarning,
       description:
         "Personaliza tu análisis al obtener un informme  detallado sobre la información de libros.",
@@ -33,6 +37,7 @@ const Rep_prestamos = () => {
     },
     {
       title: "Cantidad de Préstamos",
+      action:'btn_generar_reporte_cantidad_prestamos',
       icon:cilNoteAdd,  
       description:
         "Consulta y genera el reporte de libros no devueltos en la fecha pactada para realizar el seguimiento y gestión de sanciones.",
@@ -40,6 +45,7 @@ const Rep_prestamos = () => {
     },
     {
       title: "Préstamos Mensuales",
+      action:'btn_generar_reporte_prestamos_mensuales',
       icon:cilCalendar,
       description:
         "Informe detallado sobre las solicitudes de renovación y ampliación de plazos concedidas a los usuarios del sistema.",
@@ -47,6 +53,7 @@ const Rep_prestamos = () => {
     },
     {
       title: "Préstamos Anuales",
+      action:'btn_generar_reporte_prestamos_anuales',
       icon:cilCalendar,
       description:
         "Identifica los títulos, autores y géneros más solicitados en préstamo por los lectores en el transcurso del año.",
@@ -78,6 +85,7 @@ const Rep_prestamos = () => {
                 </p>
 
                 <div className="mt-auto pt-2">
+                  {canDoAction(report.action)&&(
                   <CButton
                     color="primary"
                     variant="outline"
@@ -87,6 +95,7 @@ const Rep_prestamos = () => {
                     <CIcon icon={cilCloudDownload} />
                     <span>Generar Reporte</span>
                   </CButton>
+                  )}
                 </div>
               </CCardBody>
             </CCard>

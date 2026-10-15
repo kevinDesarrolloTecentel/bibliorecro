@@ -46,6 +46,7 @@ const MDAModal: React.FC<UsuMDAModalProps> = ({ visible, setVisible }) => {
     usuarios,
     isLoading,
     excelLink,
+    haBuscado,
     handleGetRenovaciones,
     handleDescargarExcel,
     handleReset,
@@ -54,6 +55,12 @@ const MDAModal: React.FC<UsuMDAModalProps> = ({ visible, setVisible }) => {
   const handleClose = () => {
     handleReset()
     setVisible(false)
+  }
+
+  const bloquearCaracteresNoNumericos=(e:React.KeyboardEvent<HTMLInputElement>) => {
+    if (['-', '+', 'e', 'E', '.', ','].includes(e.key)) {
+      e.preventDefault()
+    }
   }
 
   const columns = [
@@ -114,7 +121,14 @@ const MDAModal: React.FC<UsuMDAModalProps> = ({ visible, setVisible }) => {
                     max={31}
                     placeholder="1-31"
                     value={diaRegistro}
-                    onChange={(e) => setDiaRegistro(e.target.value)}
+                    onKeyDown={bloquearCaracteresNoNumericos}
+                    onChange={(e) => setDiaRegistro(e.target.value.replace(/\D/g, '').slice(0, 2))}
+                    onBlur={()=>{
+                      if (diaRegistro && Number(diaRegistro) > 31)
+                        setDiaRegistro('31')
+                      if (diaRegistro && Number(diaRegistro)<1)
+                        setDiaRegistro('1')
+                    }}
                   />
                 </CInputGroup>
               </CCol>
@@ -129,7 +143,14 @@ const MDAModal: React.FC<UsuMDAModalProps> = ({ visible, setVisible }) => {
                     max={12}
                     placeholder="1-12"
                     value={mesRegistro}
-                    onChange={(e) => setMesRegistro(e.target.value)}
+                    onKeyDown={bloquearCaracteresNoNumericos}
+                    onChange={(e) => setMesRegistro(e.target.value.replace(/\D/g, '').slice(0,2))}
+                    onBlur={() =>{
+                      if (mesRegistro && Number(mesRegistro) > 12)
+                        setMesRegistro('12')
+                      if (mesRegistro && Number(mesRegistro)<1)
+                        setMesRegistro('1')
+                    }}
                   />
                 </CInputGroup>
               </CCol>
@@ -142,7 +163,8 @@ const MDAModal: React.FC<UsuMDAModalProps> = ({ visible, setVisible }) => {
                     type="number"
                     placeholder="Ej. 2024"
                     value={anoRegistro}
-                    onChange={(e) => setAnoRegistro(e.target.value)}
+                    onKeyDown={bloquearCaracteresNoNumericos}
+                    onChange={(e) => setAnoRegistro(e.target.value.replace(/\D/g, '').slice(0,4))}
                   />
                 </CInputGroup>
               </CCol>
@@ -200,39 +222,67 @@ const MDAModal: React.FC<UsuMDAModalProps> = ({ visible, setVisible }) => {
               columnSorter
               items={usuarios}
               itemsPerPage={60}
-              noItemsLabel={'Inserte un día, mes y año para generar el reporte'}
+              noItemsLabel={
+                haBuscado
+                  ? 'No se encontraron renovaciones para la fecha seleccionada'
+                  : 'Inserte un día, mes y año para generar el reporte'
+              }
               scopedColumns={{
-                cedula: (item: PersonaReporteItem) => (
+                cedula: (item: PersonaReporteItem) => {
+                  const cedula = item.IDENTIFICACION_PERSONA || item.PERSONA?.IDENTIFICACION_PERSONA || '-'
+                  return (
+                    <td>
+                      <span className="font-monospace fw-semibold badge bg-body border text-muted">
+                        {cedula}
+                      </span>
+                    </td>
+                  )
+                },
+                nombre: (item: PersonaReporteItem) => (
                   <td>
-                    <span className="font-monospace fw-semibold">
-                      {item.IDENTIFICACION_PERSONA}
+                    <span className="fw-medium">
+                      {item.NOMBRE_PERSONA || item.PERSONA?.NOMBRE_PERSONA || '-'}
                     </span>
                   </td>
-                ),
-                nombre: (item: PersonaReporteItem) => (
-                  <td>{item.NOMBRE_PERSONA}</td>
                 ),
                 apellido: (item: PersonaReporteItem) => (
-                  <td>{item.APELLIDO_PERSONA}</td>
-                ),
-                fechaNacimiento: (item: PersonaReporteItem) => (
                   <td>
-                    {item.FECHA_PERSONA
-                      ? new Date(item.FECHA_PERSONA || 'N/A').toLocaleDateString()
-                      : '-'}
-                  </td>
-                ),
-                correo: (item: PersonaReporteItem) => (
-                  <td>
-                    <span
-                      className="font-monospace small text-body-secondary d-inline-block text-truncate"
-                      style={{ maxWidth: '240px' }}
-                      title={item.CORREO_PERSONA}
-                    >
-                      {item.CORREO_PERSONA}
+                    <span className="fw-medium">
+                      {item.APELLIDO_PERSONA || item.PERSONA?.APELLIDO_PERSONA || '-'}
                     </span>
                   </td>
                 ),
+                fechaNacimiento: (item: PersonaReporteItem) => {
+                  const fechaRaw = item.FECHA_PERSONA || item.PERSONA?.FECHA_PERSONA
+                  if (!fechaRaw) return <td><span className="text-muted">-</span></td>
+                  const parsed = new Date(fechaRaw)
+                  const esValida = !isNaN(parsed.getTime()) && parsed.getFullYear() > 1900 && parsed.getFullYear() < 2100
+                  return (
+                    <td>
+                      <span className="font-monospace small badge bg-body border text-primary">
+                        {esValida ? parsed.toLocaleDateString() : '-'}
+                      </span>
+                    </td>
+                  )
+                },
+                correo: (item: PersonaReporteItem) => {
+                  const correo = item.CORREO_PERSONA || item.PERSONA?.CORREO_PERSONA
+                  return (
+                    <td>
+                      {correo ? (
+                        <span
+                          className="font-monospace small rounded-pill border px-2 text-muted d-inline-block text-truncate"
+                          style={{ maxWidth: '240px' }}
+                          title={correo}
+                        >
+                          {correo}
+                        </span>
+                      ) : (
+                        <span className="text-muted">-</span>
+                      )}
+                    </td>
+                  )
+                },
               }}
               tableProps={{
                 responsive: true,

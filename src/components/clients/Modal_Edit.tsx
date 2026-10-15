@@ -1,8 +1,8 @@
+import { useState, useEffect } from "react"
 import usePersonaEdit, { UsePersonaEditProps } from "@/hooks/tab-persona/usePersonaEdit"
 import {
     cilCalendar,
     cilContact,
-    cilDescription,
     cilEnvelopeClosed,
     cilExitToApp,
     cilGlobeAlt,
@@ -35,9 +35,41 @@ import {
 } from "@coreui/react-pro"
 
 
+import { usePermissions } from "@/context/PermissionsContext"
+
 interface ModalEditProps extends UsePersonaEditProps { }
 
+const ModalEditAvatar = ({ src }: { src?: string }) => {
+    const [hasError, setHasError] = useState(false)
+
+    useEffect(() => {
+        setHasError(false)
+    }, [src])
+
+    if (!src || hasError) {
+        return (
+            <div
+                className="rounded-circle border border-2 border-secondary d-flex align-items-center justify-content-center bg-body-secondary text-secondary"
+                style={{ width: '75px', height: '75px', minWidth: '75px', userSelect: 'none' }}
+            >
+                <CIcon icon={cilUser} size="lg" className="text-secondary opacity-75" />
+            </div>
+        )
+    }
+
+    return (
+        <img
+            src={src}
+            alt="Foto del usuario"
+            className="rounded-circle border border-2 border-primary shadow-sm object-fit-cover"
+            style={{ width: '75px', height: '75px', minWidth: '75px' }}
+            onError={() => setHasError(true)}
+        />
+    )
+}
+
 const Modal_Edit = (props: ModalEditProps) => {
+    const { canDoAction } = usePermissions()
     const {
         isVisible,
         formData,
@@ -271,17 +303,9 @@ const Modal_Edit = (props: ModalEditProps) => {
                                 onChange={handleFotoChange}
                             />
                         </CInputGroup>
-                        {(previewFoto || fotoActual) && (
+                        {(previewFoto || fotoActual) ? (
                             <div className="mt-2 d-flex align-items-center gap-3 p-2 bg-body rounded border shadow-sm">
-                                <img
-                                    src={previewFoto || fotoActual}
-                                    alt="Foto del usuario"
-                                    className="rounded-circle border border-2 border-primary shadow-sm object-fit-cover"
-                                    style={{ width: '75px', height: '75px' }}
-                                    onError={(e: any) => {
-                                        e.currentTarget.style.display = 'none'
-                                    }}
-                                />
+                                <ModalEditAvatar src={previewFoto || fotoActual} />
                                 <div>
                                     <span className="fw-semibold d-block small text-body">
                                         {previewFoto ? 'Nueva fotografía seleccionada' : 'Fotografía actual'}
@@ -289,6 +313,19 @@ const Modal_Edit = (props: ModalEditProps) => {
                                     <span className="text-muted small">
                                         {previewFoto ? 'La fotografía será actualizada al guardar.' : 'Fotografía registrada actualmente.'}
                                     </span>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="mt-2 d-flex align-items-center gap-3 p-2 bg-body-tertiary rounded border border-dashed">
+                                <div
+                                    className="rounded-circle border border-2 border-secondary d-flex align-items-center justify-content-center bg-body-secondary text-secondary"
+                                    style={{ width: '75px', height: '75px', minWidth: '75px', userSelect: 'none' }}
+                                >
+                                    <CIcon icon={cilUser} size="xl" className="text-secondary opacity-50" />
+                                </div>
+                                <div>
+                                    <span className="fw-semibold d-block small text-body">Sin fotografía</span>
+                                    <span className="text-muted small">El usuario no tiene una fotografía registrada.</span>
                                 </div>
                             </div>
                         )}
@@ -330,7 +367,7 @@ const Modal_Edit = (props: ModalEditProps) => {
                                 inputMode="numeric"
                                 maxLength={10}
                                 name="TELEFONO_PERSONA"
-                                placeholder="Ej: 0223456780"
+                                placeholder="Ej: 2073303 o 022345678"
                                 value={formData.TELEFONO_PERSONA || ''}
                                 onChange={handleChange}
                             />
@@ -373,27 +410,18 @@ const Modal_Edit = (props: ModalEditProps) => {
                         </CInputGroup>
                     </CCol>
 
-                    <CCol xs={12} className="mt-4">
-                        <div className="d-flex align-items-center gap-2 pb-2 border-bottom fw-bold text-secondary">
-                            <CIcon icon={cilDescription} />
-                            <span>INFORMACIÓN ADICIONAL</span>
-                        </div>
-                    </CCol>
-
-                    <CCol xs={12}>
-                        <CFormSelect
-                            name="ESTADOINSCRIPCION_PERSONA"
-                            label="Estado de Inscripción:"
-                            value={
-                                typeof formData.ESTADOINSCRIPCION_PERSONA === 'boolean'
-                                    ? (formData.ESTADOINSCRIPCION_PERSONA ? 'Activo' : 'Inactivo')
-                                    : String(formData.ESTADOINSCRIPCION_PERSONA || 'Activo')
-                            }
+                    <CCol xs={12} className="mt-3">
+                        <hr style={{ borderTop: '1px dashed #ced4da' }} className="my-2" />
+                        <h6 className="fw-bold text-secondary mb-2">INSCRIPCIÓN:</h6>
+                        <label className="form-label small fw-semibold text-muted">Detalle:</label>
+                        <CFormTextarea
+                            name="DETALLE_INSCRIPCION"
+                            placeholder="Ingrese información o detalle de la inscripción..."
+                            rows={3}
+                            value={formData.DETALLE_INSCRIPCION || ''}
                             onChange={handleChange}
-                        >
-                            <option value="Activo">Activo</option>
-                            <option value="Inactivo">Inactivo</option>
-                        </CFormSelect>
+                        />
+                        <hr style={{ borderTop: '1px dashed #ced4da' }} className="mt-3 mb-1" />
                     </CCol>
                 </CForm>
             </CModalBody>
@@ -408,26 +436,28 @@ const Modal_Edit = (props: ModalEditProps) => {
                     <CIcon icon={cilExitToApp} className="me-1" />
                     Cancelar
                 </CButton>
-                <CButton
-                    color="primary"
-                    variant="outline"
-                    type="submit"
-                    form="formEditUsuario"
-                    disabled={loading}
-                    className="d-flex align-items-center gap-1 shadow-sm"
-                >
-                    {loading ? (
-                        <>
-                            <CSpinner size="sm" className="me-1" />
-                            Actualizando...
-                        </>
-                    ) : (
-                        <>
-                            <CIcon icon={cilSave} className="me-1" />
-                            <span>Guardar Cambios</span>
-                        </>
-                    )}
-                </CButton>
+                {(canDoAction('btn_editar_usuario_gestion_usuario') || canDoAction('btn_editar_usuario_renovaciones')) && (
+                    <CButton
+                        color="primary"
+                        variant="outline"
+                        type="submit"
+                        form="formEditUsuario"
+                        disabled={loading}
+                        className="d-flex align-items-center gap-1 shadow-sm"
+                    >
+                        {loading ? (
+                            <>
+                                <CSpinner size="sm" className="me-1" />
+                                Actualizando...
+                            </>
+                        ) : (
+                            <>
+                                <CIcon icon={cilSave} className="me-1" />
+                                <span>Guardar Cambios</span>
+                            </>
+                        )}
+                    </CButton>
+                )}
             </CModalFooter>
         </CModal>
     )

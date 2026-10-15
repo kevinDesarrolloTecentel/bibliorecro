@@ -48,10 +48,12 @@ const Newuser = ({ userState }: { userState: ReturnType<typeof useUsers> }) => {
                                 onChange={(e) => userState.setFormData({ ...userState.formData, rol: e.target.value })}
                             >
                                 <option value="">Elija un rol...</option>
-                                {userState.rolesList.length > 0 ? (
+                                {userState.loadingRoles ? (
+                                    <option value="" disabled>Cargando roles...</option>
+                                ) : userState.rolesList.length > 0 ? (
                                     userState.rolesList.map((r: any) => {
                                         const id = String(r.ID_ROL ?? r.id ?? '')
-                                        const nombre = r.NOMBRE_ROL ?? r.nombre ?? r.name ?? id
+                                        const nombre = r.NOMBRE_ROL ?? r.nombre ?? r.name ?? `Rol ${id}`
                                         return (
                                             <option key={id} value={id}>
                                                 {nombre}
@@ -59,10 +61,7 @@ const Newuser = ({ userState }: { userState: ReturnType<typeof useUsers> }) => {
                                         )
                                     })
                                 ) : (
-                                    <>
-                                        <option value="1">Administrador</option>
-                                        <option value="2">Bibliotecario</option>
-                                    </>
+                                    <option value="" disabled>No hay roles disponibles</option>
                                 )}
                             </CFormSelect>
                         </CCol>

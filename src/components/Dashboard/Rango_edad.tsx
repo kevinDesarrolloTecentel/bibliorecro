@@ -2,8 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import 'chart.js/auto'
 import { CChartPolarArea } from '@coreui/react-chartjs'
 import { CButton, CButtonGroup } from '@coreui/react-pro'
-
-
+import { getStyle } from '@coreui/utils'
 
 export interface ChartPolarAreaExampleProps {
   data?: any[]
@@ -31,13 +30,48 @@ export const ChartPolarAreaExample: React.FC<ChartPolarAreaExampleProps> = ({
     return () => observer.disconnect()
   }, [])
 
+  useEffect(() => {
+    const handleColorSchemeChange = () => {
+      const chartInstance = chartRef.current
+      if (chartInstance) {
+        const { options } = chartInstance
+        const bodyColor = getStyle('--cui-body-color') || '#8a93a2'
+        const gridColor = getStyle('--cui-border-color-translucent') || 'rgba(255,255,255,0.08)'
+
+        if (options.plugins?.legend?.labels) {
+          options.plugins.legend.labels.color = bodyColor
+        }
+
+        if (options.scales?.r) {
+          if (options.scales.r.grid) {
+            options.scales.r.grid.color = gridColor
+          }
+          if (options.scales.r.ticks) {
+            options.scales.r.ticks.color = bodyColor
+            options.scales.r.ticks.backdropColor = 'transparent'
+          }
+        }
+
+        chartInstance.update()
+      }
+    }
+
+    document.documentElement.addEventListener('ColorSchemeChange', handleColorSchemeChange)
+    return () => {
+      document.documentElement.removeEventListener('ColorSchemeChange', handleColorSchemeChange)
+    }
+  }, [])
+
+  const currentBodyColor = typeof window !== 'undefined' ? (getStyle('--cui-body-color') || '#4f5d73') : '#4f5d73'
+  const currentGridColor = typeof window !== 'undefined' ? (getStyle('--cui-border-color-translucent') || 'rgba(0,0,0,0.08)') : 'rgba(0,0,0,0.08)'
+
   const getPolarData = () => {
     const defaultItems: any[] = [
-      { rango_edad: '0-17', hombres: 124, mujeres: 172 },
-      { rango_edad: '18-25', hombres: 51, mujeres: 74 },
-      { rango_edad: '26-35', hombres: 53, mujeres: 80 },
-      { rango_edad: '36-50', hombres: 59, mujeres: 70 },
-      { rango_edad: '51+', hombres: 30, mujeres: 39 },
+      { rango_edad: '0-17', hombres: 0, mujeres: 0 },
+      { rango_edad: '18-25', hombres: 0, mujeres: 0 },
+      { rango_edad: '26-35', hombres: 0, mujeres: 0 },
+      { rango_edad: '36-50', hombres: 0, mujeres: 0 },
+      { rango_edad: '51+', hombres: 0, mujeres: 0 },
     ]
     const items: any[] = propData && propData.length > 0 ? propData : defaultItems
 
@@ -168,10 +202,22 @@ export const ChartPolarAreaExample: React.FC<ChartPolarAreaExampleProps> = ({
                 position: 'right',
                 labels: {
                   font: { size: 12 },
+                  color: currentBodyColor,
                 },
               },
               tooltip: {
                 enabled: true,
+              },
+            },
+            scales: {
+              r: {
+                grid: {
+                  color: currentGridColor,
+                },
+                ticks: {
+                  color: currentBodyColor,
+                  backdropColor: 'transparent',
+                },
               },
             },
           }}

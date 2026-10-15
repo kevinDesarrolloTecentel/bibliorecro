@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import Swal from 'sweetalert2'
 import { librosPDF } from '@/Service/rco/libros'
-import { STORAGE_BASE_URL } from '@/.env'
+import { STORAGE_BASE_URL } from '@/utils/imageUtils'
 
 export { STORAGE_BASE_URL }
 
@@ -81,7 +81,6 @@ export const useReportTej = (): UseReportTejReturn => {
       const response = await librosPDF({
         fechaDesde: startDate,
         fechaHasta: endDate,
-        fechafinal: endDate,
       })
 
       const data = response?.data || response

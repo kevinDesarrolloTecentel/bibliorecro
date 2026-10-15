@@ -20,6 +20,7 @@ import {
   CSpinner,
 } from '@coreui/react-pro'
 import useReportTej from '@/hooks/reportes/tejuelo/Tejuelo'
+import { usePermissions } from '@/context/PermissionsContext'
 
 const borderBoxStyle: React.CSSProperties = {
   padding: '0.6rem 0.4rem',
@@ -38,6 +39,7 @@ const borderBoxStyle: React.CSSProperties = {
 }
 
 const ImpresionTej: React.FC = () => {
+  const { canDoAction } = usePermissions()
   const {
     startDate,
     setStartDate,
@@ -96,6 +98,7 @@ const ImpresionTej: React.FC = () => {
             </CCol>
 
             <CCol xs={12} sm={12} md={4} className="d-flex align-items-end gap-2">
+              {canDoAction('btn_generar_reporte_tejuelos') && (
               <CButton
                 color="primary"
                 variant='outline'
@@ -114,7 +117,7 @@ const ImpresionTej: React.FC = () => {
                   </>
                 )}
               </CButton>
-
+              )}
               {pdfPath && (
                 <CButton
                   color="success"
@@ -187,7 +190,7 @@ const ImpresionTej: React.FC = () => {
 
                   return (
                     <div key={index} style={borderBoxStyle} className="tejuelo-card bg-body border">
-                      <p className="badge bg-dark border rounded-pill text-body ">
+                      <p className="badge bg-body border rounded-pill text-body ">
                         {codigo}
                       </p>
                       <p className="font-monospace mb-1 text-body">

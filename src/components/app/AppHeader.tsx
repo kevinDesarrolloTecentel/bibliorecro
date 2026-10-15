@@ -17,7 +17,9 @@ import {
 } from '@coreui/react-pro'
 import CIcon from '@coreui/icons-react'
 import {
+  cilBell,
   cilContrast,
+  cilEnvelopeOpen,
   cilMenu,
   cilMoon,
   cilSun,
@@ -60,9 +62,19 @@ const AppHeader = () => {
         </CHeaderNav>
         <CHeaderNav className="d-none d-md-flex ms-auto">
         </CHeaderNav>
-        <CHeaderNav className="ms-auto ms-md-0">
-          <li className="nav-item py-1">
-            <div className="vr h-100 mx-2 text-body text-opacity-75"></div>
+        <CHeaderNav className="ms-auto ms-md-0 d-flex align-items-center me-2 ">
+          <CNavItem>
+            <CNavLink href="#" className="px-2 me-3" style={{ cursor: 'pointer' }} title={t('Notificaciones')}>
+              <CIcon icon={cilBell} size="lg" />
+            </CNavLink>
+          </CNavItem>
+          <CNavItem>
+            <CNavLink href="#" className="px-2 me-2" style={{ cursor: 'pointer' }} title={t('Mensajes')}>
+              <CIcon icon={cilEnvelopeOpen} size="lg" />
+            </CNavLink>
+          </CNavItem>
+          <li className="nav-item py-1 d-flex align-items-center">
+            <div className="vr mx-2 text-body text-opacity-75" style={{ height: '32px' }}></div>
           </li>
           <CDropdown variant="nav-item" placement="bottom-end">
             <CDropdownToggle caret={false}>
@@ -82,7 +94,7 @@ const AppHeader = () => {
                 type="button"
                 onClick={() => setColorMode('light')}
               >
-                <CIcon className="me-2" icon={cilSun} size="lg" /> {t('Claro')}
+                <CIcon className="me-2" icon={cilSun} size="lg" /> {t('light')}
               </CDropdownItem>
               <CDropdownItem
                 active={colorMode === 'dark'}
@@ -91,7 +103,7 @@ const AppHeader = () => {
                 type="button"
                 onClick={() => setColorMode('dark')}
               >
-                <CIcon className="me-2" icon={cilMoon} size="lg" /> {t('Oscuro')}
+                <CIcon className="me-2" icon={cilMoon} size="lg" /> {t('dark')}
               </CDropdownItem>
               <CDropdownItem
                 active={colorMode === 'auto'}
@@ -104,8 +116,8 @@ const AppHeader = () => {
               </CDropdownItem>
             </CDropdownMenu>
           </CDropdown>
-          <li className="nav-item py-1">
-            <div className="vr h-100 mx-2 text-body text-opacity-75"></div>
+          <li className="nav-item py-1 d-flex align-items-center">
+            <div className="vr mx-2 text-body text-opacity-75" style={{ height: '32px' }}></div>
           </li>
           <AppHeaderDropdown />
         </CHeaderNav>

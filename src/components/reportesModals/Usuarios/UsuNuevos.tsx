@@ -46,6 +46,7 @@ const UsuNuevoModal: React.FC<useNuevosProps> = ({ visible, setVisible }) => {
     usuarios,
     isLoading,
     excelLink,
+    haBuscado,
     handleGetNuevosUsuarios,
     handleDescargarExcel,
     handleReset,
@@ -54,6 +55,12 @@ const UsuNuevoModal: React.FC<useNuevosProps> = ({ visible, setVisible }) => {
   const handleClose = () => {
     handleReset()
     setVisible(false)
+  }
+
+  const bloquearCaracteresNoNumericos = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (['-', '+', 'e', 'E', '.', ','].includes(e.key)) {
+      e.preventDefault()
+    }
   }
 
   const columns = [
@@ -114,7 +121,12 @@ const UsuNuevoModal: React.FC<useNuevosProps> = ({ visible, setVisible }) => {
                     max={31}
                     placeholder="1-31"
                     value={diaRegistro}
-                    onChange={(e) => setDiaRegistro(e.target.value)}
+                    onKeyDown={bloquearCaracteresNoNumericos}
+                    onChange={(e) => setDiaRegistro(e.target.value.replace(/\D/g, '').slice(0, 2))}
+                    onBlur={() => {
+                      if (diaRegistro && Number(diaRegistro) > 31) setDiaRegistro('31')
+                      if (diaRegistro && Number(diaRegistro) < 1) setDiaRegistro('1')
+                    }}
                   />
                 </CInputGroup>
               </CCol>
@@ -129,7 +141,12 @@ const UsuNuevoModal: React.FC<useNuevosProps> = ({ visible, setVisible }) => {
                     max={12}
                     placeholder="1-12"
                     value={mesRegistro}
-                    onChange={(e) => setMesRegistro(e.target.value)}
+                    onKeyDown={bloquearCaracteresNoNumericos}
+                    onChange={(e) => setMesRegistro(e.target.value.replace(/\D/g, '').slice(0, 2))}
+                    onBlur={() => {
+                      if (mesRegistro && Number(mesRegistro) > 12) setMesRegistro('12')
+                      if (mesRegistro && Number(mesRegistro) < 1) setMesRegistro('1')
+                    }}
                   />
                 </CInputGroup>
               </CCol>
@@ -142,7 +159,8 @@ const UsuNuevoModal: React.FC<useNuevosProps> = ({ visible, setVisible }) => {
                     type="number"
                     placeholder="Ej. 2024"
                     value={anoRegistro}
-                    onChange={(e) => setAnoRegistro(e.target.value)}
+                    onKeyDown={bloquearCaracteresNoNumericos}
+                    onChange={(e) => setAnoRegistro(e.target.value.replace(/\D/g, '').slice(0, 4))}
                   />
                 </CInputGroup>
               </CCol>
@@ -199,11 +217,9 @@ const UsuNuevoModal: React.FC<useNuevosProps> = ({ visible, setVisible }) => {
               items={usuarios}
               itemsPerPage={60}
               noItemsLabel={
-                isLoading
-                  ? 'Cargando registros...'
-                  : <div className='d-flex justify-content-center'>
-                    <CSpinner size='sm' variant='grow' color='primary'/>
-                  </div>
+                haBuscado
+                  ? 'No se encontraron nuevos usuarios para la fecha seleccionada'
+                  : 'Inserte un día, mes y año para generar el reporte'
               }
               scopedColumns={{
                 cedula: (item: PersonaReporteItem) => (

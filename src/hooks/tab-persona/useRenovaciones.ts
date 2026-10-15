@@ -1,11 +1,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import Swal from 'sweetalert2'
 import apiClient, { BACKEND_API_BASE } from '@/Service/apiClient'
-import { STORAGE_BASE_URL } from '@/.env'
-import { ListarGenero } from '@/Service/tab/Genero'
-import { listarTipoIdentificacion } from '@/Service/tab/TipoIdentificacion'
-import { ListarNacionalidad } from '@/Service/tab/Nacionalidad'
-import { ListarEstadoCivil } from '@/Service/tab/EstadoCivil'
+import { STORAGE_BASE_URL } from '@/utils/imageUtils'
 import { PersonasE } from '@/Service/tab/Persona'
 
 export { STORAGE_BASE_URL }
@@ -40,26 +36,22 @@ export interface PersonaRenovacion {
   [key: string]: any
 }
 
-export interface CatalogOption {
-  label: string
-  value: number | string
-}
-
 export const useRenovaciones = () => {
   const [personas, setPersonas] = useState<PersonaRenovacion[]>([])
   const [loading, setLoading] = useState<boolean>(false)
   const [submitting, setSubmitting] = useState<boolean>(false)
-
-  const [generos, setGeneros] = useState<CatalogOption[]>([])
-  const [tiposIdentificacion, setTiposIdentificacion] = useState<CatalogOption[]>([])
-  const [nacionalidades, setNacionalidades] = useState<CatalogOption[]>([])
-  const [estadosCiviles, setEstadosCiviles] = useState<CatalogOption[]>([])
 
   const [visibleEditar, setVisibleEditar] = useState<boolean>(false)
   const [visibleAceptar, setVisibleAceptar] = useState<boolean>(false)
 
   const [solicitudSeleccionada, setSolicitudSeleccionada] = useState<PersonaRenovacion | null>(null)
   const [detalleRenovacion, setDetalleRenovacion] = useState<string>('')
+
+  const [details, setDetails] = useState<(number | string)[]>([])
+
+  const toggleDetails = (id: number | string) => {
+    setDetails((prev) => (prev.includes(id) ? [] : [id]))
+  }
 
   const fetchSolicitudes = useCallback(async () => {
     setLoading(true)
@@ -81,69 +73,6 @@ export const useRenovaciones = () => {
 
   useEffect(() => {
     fetchSolicitudes()
-
-    const cargarCatalogos = async () => {
-      try {
-        const [resGen, resTipos, resNac, resEst] = await Promise.allSettled([
-          ListarGenero(),
-          listarTipoIdentificacion(),
-          ListarNacionalidad(),
-          ListarEstadoCivil(),
-        ])
-
-        if (resGen.status === 'fulfilled') {
-          const raw = Array.isArray(resGen.value?.data) ? resGen.value.data : Array.isArray(resGen.value) ? resGen.value : []
-          setGeneros(
-            raw
-              .filter((g: any) => g.ID_GENERO)
-              .map((g: any) => ({
-                label: g.NOMBRE_GENERO,
-                value: g.ID_GENERO,
-              })),
-          )
-        }
-
-        if (resTipos.status === 'fulfilled') {
-          const raw = Array.isArray(resTipos.value?.data) ? resTipos.value.data : Array.isArray(resTipos.value) ? resTipos.value : []
-          setTiposIdentificacion(
-            raw
-              .filter((t: any) => t.ID_TIPOIDENTIFICACION)
-              .map((t: any) => ({
-                label: t.NOMBRE_TIPOIDENTIFICACION,
-                value: t.ID_TIPOIDENTIFICACION,
-              })),
-          )
-        }
-
-        if (resNac.status === 'fulfilled') {
-          const raw = Array.isArray(resNac.value?.data) ? resNac.value.data : Array.isArray(resNac.value) ? resNac.value : []
-          setNacionalidades(
-            raw
-              .filter((n: any) => n.ID_NACIONALIDAD)
-              .map((n: any) => ({
-                label: n.NOMBRE_NACIONALIDAD,
-                value: n.ID_NACIONALIDAD,
-              })),
-          )
-        }
-
-        if (resEst.status === 'fulfilled') {
-          const raw = Array.isArray(resEst.value?.data) ? resEst.value.data : Array.isArray(resEst.value) ? resEst.value : []
-          setEstadosCiviles(
-            raw
-              .filter((e: any) => e.ID_ESTADOCIVIL)
-              .map((e: any) => ({
-                label: e.NOMBRE_ESTADOCIVIL,
-                value: e.ID_ESTADOCIVIL,
-              })),
-          )
-        }
-      } catch (err) {
-        console.error('Error al cargar catálogos en renovaciones', err)
-      }
-    }
-
-    cargarCatalogos()
   }, [fetchSolicitudes])
 
   const handleAbrirEditar = (item: PersonaRenovacion) => {
@@ -192,46 +121,10 @@ export const useRenovaciones = () => {
     }
   }
 
-  const handleActualizarPersona = async (formData: FormData, idPersona: number | string) => {
-    setSubmitting(true)
-    formData.append('_method', 'PUT')
-    try {
-      await apiClient.post(`${BACKEND_API_BASE}/tab-persona/persona/${idPersona}`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      })
-
-      setVisibleEditar(false)
-      setSolicitudSeleccionada(null)
-      fetchSolicitudes()
-
-      Swal.fire({
-        icon: 'success',
-        title: 'ÉXITO!',
-        text: 'Usuario actualizado con éxito.',
-        confirmButtonColor: '#04833c',
-      })
-    } catch (err) {
-      console.error('Error al actualizar persona', err)
-      Swal.fire({
-        icon: 'error',
-        title: 'Error!',
-        text: 'Hubo un error al guardar los datos del usuario.',
-      })
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
   return {
     personas,
     loading,
     submitting,
-    generos,
-    tiposIdentificacion,
-    nacionalidades,
-    estadosCiviles,
     visibleEditar,
     setVisibleEditar,
     visibleAceptar,
@@ -243,6 +136,7 @@ export const useRenovaciones = () => {
     handleAbrirEditar,
     handleAbrirAceptar,
     handleAceptarSolicitud,
-    handleActualizarPersona,
+    details,
+    toggleDetails,
   }
 }

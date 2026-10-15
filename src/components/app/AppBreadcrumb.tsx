@@ -1,6 +1,5 @@
 import { ReactNode } from 'react'
 import { useLocation } from 'react-router-dom'
-import { useTranslation } from 'react-i18next'
 import { CBreadcrumb, CBreadcrumbItem } from '@coreui/react-pro'
 import routes, { Route } from '@/routes'
 
@@ -35,12 +34,11 @@ const getBreadcrumbs = (location: string) => {
 
 const AppBreadcrumb = () => {
   const currentLocation = useLocation().pathname
-  const { t } = useTranslation()
   const breadcrumbs = getBreadcrumbs(currentLocation)
 
   return (
     <CBreadcrumb className="m-0">
-      <CBreadcrumbItem href="/">{t('Inicio')}</CBreadcrumbItem>
+      <CBreadcrumbItem href="/">{('home')}</CBreadcrumbItem>
       {breadcrumbs.map((breadcrumb, index) => {
         return (
           <CBreadcrumbItem

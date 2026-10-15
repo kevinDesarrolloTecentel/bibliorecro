@@ -379,6 +379,12 @@ export function AuthFormSplitScreen({
             src={imageSrc}
             alt={imageAlt}
             className="h-full w-full object-cover object-center transition-transform duration-700 hover:scale-105"
+            onError={(e) => {
+              const target = e.currentTarget as HTMLImageElement
+              if (!target.src.includes('/bus-1.jpg')) {
+                target.src = '/bus-1.jpg'
+              }
+            }}
           />
         </div>
       </motion.div>

@@ -106,8 +106,8 @@ export const validatePersonaField = (
     case 'TELEFONO_PERSONA':
       if (!strVal) return 'El teléfono fijo es requerido.'
       if (!/^\d+$/.test(strVal)) return 'Solo se permiten números.'
-      if (strVal.length !== 10) {
-        return `Debe contener exactamente 10 dígitos numéricos (tiene ${strVal.length}).`
+      if (strVal.length < 7 || strVal.length > 10) {
+        return `El teléfono fijo debe contener entre 7 y 10 dígitos numéricos (tiene ${strVal.length}).`
       }
       return undefined
 

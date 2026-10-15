@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Swal from 'sweetalert2'
 import { PrestamoItem } from '@/models/rco/prestamos'
-import { CambioEstado, ExtenderFecha, Lista } from '@/Service/rco/Prestamos'
+import { CambioEstado, ExtenderFecha, buscarPrestamos } from '@/Service/rco/Prestamos'
 
 
 export const getBadgeColor = (status: string | number): string => {
@@ -51,28 +51,25 @@ export const usePrestamos = (autoFetch: boolean = true) => {
   const [totalItems, setTotalItems] = useState(0)
   const [searchTerm, setSearchTerm] = useState('')
   const [activeQuery, setActiveQuery] = useState('')
+  const [tableKey, setTableKey] = useState(0)
+
+  const currentSearchRef = useRef<string>('')
+  const searchDebounceRef = useRef<any>(null)
 
   const [modalRegister, setModalRegister] = useState(false)
   const [details, setDetails] = useState<(string | number)[]>([])
 
   const toggleDetails = (id: string | number) => {
-    setDetails((prev) => {
-      const position = prev.indexOf(id)
-      let newDetails = [...prev]
-      if (position !== -1) {
-        newDetails.splice(position, 1)
-      } else {
-        newDetails = [...prev, id]
-      }
-      return newDetails
-    })
+    setDetails((prev) => (prev.includes(id) ? [] : [id]))
   }
 
   const fetchPrestamos = useCallback(
-    async () => {
+    async (pageToFetch?: number, queryToSearch?: string) => {
       setLoading(true)
+      const targetPage = typeof pageToFetch === 'number' && pageToFetch > 0 ? pageToFetch : currentPage
+      const query = typeof queryToSearch === 'string' ? queryToSearch : currentSearchRef.current
       try {
-        const response = await Lista()
+        const response = await buscarPrestamos(query, targetPage)
         const rawData = response?.data || []
 
         const parsedList: PrestamoItem[] = rawData.map((item: any, index: number) => {
@@ -103,7 +100,7 @@ export const usePrestamos = (autoFetch: boolean = true) => {
         })
 
         setPrestamos(parsedList)
-        setCurrentPage(response?.current_page)
+        setCurrentPage(response?.current_page || targetPage)
         setTotalPages(response?.last_page || 1)
         setTotalItems(response?.total || rawData.length)
       } catch (err) {
@@ -113,36 +110,59 @@ export const usePrestamos = (autoFetch: boolean = true) => {
         setLoading(false)
       }
     },
-    [activeQuery],
+    [currentPage],
   )
 
   useEffect(() => {
     if (autoFetch) {
-      fetchPrestamos()
+      fetchPrestamos(1, '')
     }
-  }, [autoFetch, fetchPrestamos])
+  }, [autoFetch])
+
+  const handleBuscarGlobal = useCallback(
+    (busqueda: string) => {
+      const q = busqueda.trim()
+      currentSearchRef.current = q
+      setSearchTerm(q)
+
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current)
+      }
+
+      searchDebounceRef.current = setTimeout(() => {
+        fetchPrestamos(1, q)
+      }, 350)
+    },
+    [fetchPrestamos],
+  )
+
+  const handleRecargar = useCallback(async () => {
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current)
+    }
+    currentSearchRef.current = ''
+    setSearchTerm('')
+    setTableKey((k) => k + 1)
+    setDetails([])
+    await fetchPrestamos(1, '')
+  }, [fetchPrestamos])
 
   const handleBuscar = () => {
     const q = searchTerm.trim()
     setActiveQuery(q)
-    setCurrentPage(1)
-    fetchPrestamos()
+    fetchPrestamos(1, q)
   }
 
   const handleLimpiarBusqueda = () => {
-    setSearchTerm('')
-    setActiveQuery('')
-    setCurrentPage(1)
-    fetchPrestamos()
+    handleRecargar()
   }
 
   const handlePageChange = (page: number) => {
-    setCurrentPage(page)
-    fetchPrestamos()
+    fetchPrestamos(page, currentSearchRef.current)
   }
 
   const handlePrestamoCreado = () => {
-    fetchPrestamos()
+    fetchPrestamos(1, currentSearchRef.current)
   }
 
   const handleExtenderPrestamo = async (item: PrestamoItem) => {
@@ -256,6 +276,9 @@ export const usePrestamos = (autoFetch: boolean = true) => {
     handleExtenderPrestamo,
     handleMarcarNoDevuelto,
     getBadgeColor,
+    tableKey,
+    handleBuscarGlobal,
+    handleRecargar,
 
     paginaActual: currentPage,
     totalPaginas: totalPages,

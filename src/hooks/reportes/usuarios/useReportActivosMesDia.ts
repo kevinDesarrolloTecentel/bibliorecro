@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import Swal from 'sweetalert2'
 import { PersonasActivasMesReport } from '@/Service/tab/Persona'
-import { STORAGE_BASE_URL } from '@/.env'
+import { STORAGE_BASE_URL } from '@/utils/imageUtils'
 
 export { STORAGE_BASE_URL }
 
@@ -28,6 +28,7 @@ export const useReportActivosMesDia = () => {
   const [usuarios, setUsuarios] = useState<PersonaReporteItem[]>([])
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [excelLink, setExcelLink] = useState<string | null>(null)
+  const [haBuscado, setHaBuscado] = useState<boolean>(false)
 
   const handleGetActivasMes = useCallback(async () => {
     if (!mesRegistro || !anoRegistro) {
@@ -45,12 +46,14 @@ export const useReportActivosMesDia = () => {
     }
 
     setIsLoading(true)
+    setHaBuscado(true)
+    setUsuarios([])
+    setExcelLink(null)
+
     try {
       const params: Record<string, any> = {
         mesRegistro,
         anoRegistro,
-        anio: anoRegistro,
-        mes: mesRegistro,
       }
       if (diaRegistro) {
         params.diaRegistro = diaRegistro
@@ -63,20 +66,48 @@ export const useReportActivosMesDia = () => {
         .filter((item: PersonaReporteItem) => item.ESTADOINSCRIPCION_PERSONA !== 1)
         .sort((a: PersonaReporteItem, b: PersonaReporteItem) => (a.EDAD_PERSONA || 0) - (b.EDAD_PERSONA || 0))
 
+      
       setUsuarios(personasFiltradas)
       setExcelLink(data?.excel_path || null)
-    } catch (error) {
+
+      if(personasFiltradas.length === 0){
+        Swal.fire({
+          icon: 'info',
+          title: 'Sin usuarios activos',
+          text: 'No se encontraron usuarios activos registrados en la fecha seleccionada',
+          confirmButtonColor: '#0d6efd',
+        })
+      }
+    } catch (error: any) {
       console.error('Error al obtener las personas activas por mes/día', error)
-      Swal.mixin({
-        toast: true,
-        position: 'top-end',
-        timer: 2500,
-        timerProgressBar: false,
-        showConfirmButton: false,
-      }).fire({
-        icon: 'warning',
-        title: 'Hubo un problema al obtener los usuarios activos.',
-      })
+      const respData = error?.response?.data
+      const isZeroResultsError =
+        error?.response?.status === 500 &&
+        ((typeof respData === 'string' && (respData.includes('PersonasExport') || respData.includes('toArray() on null'))) ||
+          (error?.response?.data?.message && error.response.data.message.includes('toArray() on null')))
+
+          if (isZeroResultsError){
+            setUsuarios([])
+            setExcelLink(null)
+            Swal.fire({
+              icon: 'info',
+              title: 'Sin usuarios activos',
+              text: 'No se encontraron usuarios activos registrados en la fecha seleccionada',
+              confirmButtonColor: '#0d6efd',
+            })
+          }else {
+            Swal.mixin({
+              toast: true,
+              position: 'top-end',
+              timer: 2500,
+              timerProgressBar: false,
+              showConfirmButton: false,
+            }).fire({
+              icon: 'warning',
+              title: 'Error!',
+              text: 'Hubo un problema al obtener los usuarios activos.',
+            })
+          }
     } finally {
       setIsLoading(false)
     }
@@ -94,6 +125,7 @@ export const useReportActivosMesDia = () => {
     setAnoRegistro('')
     setUsuarios([])
     setExcelLink(null)
+    setHaBuscado(false)
   }, [])
 
   return {
@@ -109,6 +141,7 @@ export const useReportActivosMesDia = () => {
     handleGetActivasMes,
     handleDescargarExcel,
     handleReset,
+    haBuscado,
   }
 }
 

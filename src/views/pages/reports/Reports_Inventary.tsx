@@ -5,8 +5,11 @@ import { cilBan, cilBook, cilBookmark, cilCloudDownload,} from '@coreui/icons'
 import LibBajaModal from '@/components/reportesModals/Inventario/LibBaja'
 import LibCategoriaModal from '@/components/reportesModals/Inventario/LibCategoria'
 import LibSistemaModal from '@/components/reportesModals/Inventario/LibSistema'
+import { usePermissions } from '@/context/PermissionsContext'
 
 const RP_inv: React.FC = () => {
+  const { canDoAction } = usePermissions()
+
   const [visibleSistema, setVisibleSistema] = useState<boolean>(false)
   const [visibleCategoria, setVisibleCategoria] = useState<boolean>(false)
   const [visibleBaja, setVisibleBaja] = useState<boolean>(false)
@@ -14,6 +17,7 @@ const RP_inv: React.FC = () => {
   const reports = [
     {
       title: 'Libros del Sistema',
+      action:'btn_generar_reporte_libros_sistema',
       icon:cilBook,
       description:
         'Personaliza tu análisis y obtén un informe detallado sobre la información de libros.',
@@ -21,6 +25,7 @@ const RP_inv: React.FC = () => {
     },
     {
       title: 'Libros por Categoría',
+      action:'btn_generar_reporte_libros_categoria',
       icon: cilBookmark,
       description:
         'Personaliza tu análisis al obtener un informe detallado sobre la información de libros.',
@@ -28,6 +33,7 @@ const RP_inv: React.FC = () => {
     },
     {
       title: 'Libros Dados de Baja',
+      action:'btn_generar_reporte_libros_baja',
       icon: cilBan,
       description:
         'Personaliza tu análisis y obtén un informe detallado sobre la información de libros.',
@@ -58,6 +64,7 @@ const RP_inv: React.FC = () => {
                 </p>
 
                 <div className="mt-auto pt-2">
+                  {canDoAction(item.action) && (
                   <CButton
                     color="primary"
                     variant="outline"
@@ -67,6 +74,7 @@ const RP_inv: React.FC = () => {
                     <CIcon icon={cilCloudDownload} />
                     <span>Generar Reporte</span>
                   </CButton>
+                  )}
                 </div>
               </CCardBody>
             </CCard>

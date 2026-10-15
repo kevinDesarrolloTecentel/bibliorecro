@@ -141,6 +141,30 @@ export const useProveedor = ({
     })
   }, [busquedaProveedor, listaProveedores])
 
+  const [paginaActual, setPaginaActual] = useState(1)
+  const itemsPorPagina = 20
+
+  useEffect(() => {
+    setPaginaActual(1)
+  }, [busquedaProveedor])
+
+  const totalPaginas = Math.max(1, Math.ceil(proveedoresFiltrados.length / itemsPorPagina))
+
+  useEffect(() => {
+    if (paginaActual > totalPaginas) {
+      setPaginaActual(totalPaginas)
+    }
+  }, [totalPaginas, paginaActual])
+
+  const proveedoresPaginados = useMemo(() => {
+    const start = (paginaActual - 1) * itemsPorPagina
+    return proveedoresFiltrados.slice(start, start + itemsPorPagina)
+  }, [proveedoresFiltrados, paginaActual, itemsPorPagina])
+
+  const handlePageChange = useCallback((page: number) => {
+    setPaginaActual(page)
+  }, [])
+
   const handleGuardarProveedor = useCallback(
     async (e?: React.FormEvent) => {
       if (e) e.preventDefault()
@@ -293,11 +317,17 @@ export const useProveedor = ({
     setProveedorEnEdicion,
     nombreProveedor,
     setNombreProveedor,
-    setGuardando,
     proveedoresFiltrados,
+    proveedoresPaginados,
     handleGuardarProveedor,
     handleEliminarProveedor,
-    guardando
+    guardando,
+    fetchProveedores,
+    paginaActual,
+    totalPaginas,
+    totalProveedores: listaProveedores.length,
+    totalFiltrados: proveedoresFiltrados.length,
+    handlePageChange,
   }
 }
 

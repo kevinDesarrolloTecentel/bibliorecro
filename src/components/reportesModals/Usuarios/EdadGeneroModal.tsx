@@ -48,6 +48,7 @@ const EGModal: React.FC<EGModalProps> = ({ visible, setVisible }) => {
     usuarios,
     isLoading,
     excelLink,
+    haBuscado,
     handleGet,
     handleDescargarExcel,
     handleReset,
@@ -57,6 +58,16 @@ const EGModal: React.FC<EGModalProps> = ({ visible, setVisible }) => {
     handleReset()
     setVisible(false)
   }
+
+  const bloquearCaracteresNoNumericos = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (['-', '+', 'e', 'E', '.', ','].includes(e.key)) {
+      e.preventDefault()
+    }
+  }
+
+  const esRangoInvalido = Boolean(
+    edadDesde !== '' && edadHasta !== ''&& Number(edadDesde) > Number(edadHasta)
+  )
 
   const columns = [
     {
@@ -118,10 +129,17 @@ const EGModal: React.FC<EGModalProps> = ({ visible, setVisible }) => {
                   <CFormInput
                     type="number"
                     min={0}
-                    max={120}
+                    max={edadHasta !== '' ? Number(edadHasta): 120}
                     placeholder="Ej. 1"
                     value={edadDesde}
-                    onChange={(e) => setEdadDesde(e.target.value)}
+                    invalid = {esRangoInvalido}
+                    onKeyDown={bloquearCaracteresNoNumericos}
+                    onChange={(e) => setEdadDesde(e.target.value.replace(/\D/g, '').slice(0, 3))}
+                    onBlur={() =>{
+                      if (edadDesde !== '' && edadHasta !== '' && Number(edadDesde) > Number(edadHasta)){
+                        setEdadHasta(edadDesde)
+                      }
+                    }}
                   />
                 </CInputGroup>
               </CCol>
@@ -132,11 +150,18 @@ const EGModal: React.FC<EGModalProps> = ({ visible, setVisible }) => {
                   <CInputGroupText>Máx</CInputGroupText>
                   <CFormInput
                     type="number"
-                    min={0}
+                    min={edadDesde !== '' ? Number(edadDesde) : 0}
                     max={120}
-                    placeholder="Ej. +65"
+                    placeholder="Ej. 65"
                     value={edadHasta}
-                    onChange={(e) => setEdadHasta(e.target.value)}
+                    invalid = {esRangoInvalido}
+                    onKeyDown={bloquearCaracteresNoNumericos}
+                    onChange={(e) => setEdadHasta(e.target.value.replace(/\D/g, '').slice(0, 3))}
+                    onBlur={() => {
+                      if (edadHasta !== '' && edadDesde !== '' && Number(edadHasta) < Number(edadDesde)){
+                        setEdadHasta(edadDesde)
+                      }
+                    }}
                   />
                 </CInputGroup>
               </CCol>
@@ -148,7 +173,7 @@ const EGModal: React.FC<EGModalProps> = ({ visible, setVisible }) => {
                   value={generoId}
                   onChange={(e) => setGeneroId(e.target.value)}
                 >
-                  <option value="">Seleccionar...</option>
+                  <option value="">Todos los géneros</option>
                   {generos.map((g) => (
                     <option key={g.value} value={g.value}>
                       {g.label}
@@ -164,7 +189,7 @@ const EGModal: React.FC<EGModalProps> = ({ visible, setVisible }) => {
                   size="sm"
                   className="w-100 d-flex align-items-center justify-content-center"
                   onClick={handleGet}
-                  disabled={isLoading}
+                  disabled={isLoading || esRangoInvalido}
                 >
                   {isLoading ? (
                     <>
@@ -212,7 +237,11 @@ const EGModal: React.FC<EGModalProps> = ({ visible, setVisible }) => {
               itemsPerPage={60}
               pagination
               tableFilterPlaceholder="Buscar en la tabla..."
-              noItemsLabel={'Seleccione un Rango de Edad y el Genero para la consulta'}
+              noItemsLabel={
+                haBuscado
+                  ? 'No se encontraron usuarios registrados con los filtros seleccionados'
+                  : 'Seleccione un Rango de Edad y el Género para la consulta'
+              }
               scopedColumns={{
                 cedula: (item: PersonaReporteItem) => (
                   <td>

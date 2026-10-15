@@ -1,6 +1,5 @@
 import React, { LazyExoticComponent, FC, ReactNode, ComponentType } from 'react'
 import { Translation } from 'react-i18next'
-import { hasPermission } from '@/components/guards/ProtectedRoute'
 
 export type Route = {
   element?: LazyExoticComponent<FC> | ComponentType<any>
@@ -8,11 +7,8 @@ export type Route = {
   name?: ReactNode
   path?: string
   auth?: boolean
-  roles?: (string | number)[]
   routes?: Route[]
 }
-
-export { hasPermission }
 
 const Dashboard = React.lazy(() => import('./views/dashboard/Dashboard'))
 const Profile = React.lazy(() => import('./views/pages/profile/Profile'))
@@ -20,7 +16,6 @@ const Profile = React.lazy(() => import('./views/pages/profile/Profile'))
 // Admin
 const User = React.lazy(() => import('./views/pages/users/User'))
 const Roles = React.lazy(() => import('./views/pages/roles/Roles'))
-const AdminRoles = React.lazy(() => import('./views/pages/roles/admin_roles'))
 
 // Clientes / Usuarios Lectores
 const Cliente = React.lazy(() => import('./views/pages/clients/ClienteDs'))
@@ -55,94 +50,74 @@ const routes: Route[] = [
     exact: true,
     name: 'Administración',
     element: User,
-    roles: [1],
   },
   {
     path: '/administracion/usuarios',
     name: 'Usuarios',
     element: User,
-    roles: [1],
   },
   {
     path: '/administracion/roles',
-    name: 'Gestión de Roles',
+    name: 'Roles y Permisos',
     element: Roles,
-    roles: [1],
-  },
-  {
-    path: '/administracion/roles-admin',
-    name: 'Asignación de Roles',
-    element: AdminRoles,
-    roles: [1],
   },
   {
     path: '/administracion/perfil',
     name: 'Perfil',
     element: Profile,
-    roles: [1, 2],
   },
 
   {
     path: '/usuarios/registrados',
     name: 'Registrados',
     element: Cliente,
-    roles: [1, 2],
   },
   {
     path: '/usuarios/renovaciones',
     name: 'Renovaciones y Nuevos',
     element: Renovate,
-    roles: [1, 2],
   },
 
   {
     path: '/biblioteca/inventario',
     name: 'Libros Inventario',
     element: Inventary,
-    roles: [1, 2],
   },
   {
     path: '/biblioteca/prestamos',
     name: 'Libros en Prestamos',
     element: Loands,
-    roles: [1, 2],
   },
   {
     path: '/biblioteca/devoluciones',
     name: 'Libros por Devolver',
     element: BooksRT,
-    roles: [1, 2],
   },
 
   {
     path: '/libro/categoria',
     name: 'Libro Categoria',
     element: Category,
-    roles: [1, 2],
   },
   {
     path: '/libro/editorial',
     name: 'Libro Editorial',
     element: Editorial,
-    roles: [1, 2],
   },
   {
     path: '/libro/proveedor',
     name: 'Libro Proveedor',
     element: Supplier,
-    roles: [1, 2],
   },
   {
     path: '/libro/autor',
     name: 'Libro Autor',
     element: Author,
-    roles: [1, 2],
   },
   {
     path: '/libro/genero',
     name: 'Libro Genero',
     element: Genre,
-    roles: [1, 2],
   },
 
   {
@@ -150,51 +125,45 @@ const routes: Route[] = [
     exact: true,
     name: 'Reportes',
     element: RP_usu,
-    roles: [1, 2],
   },
   {
     path: '/reportes/usuario',
     name: 'Reporte de Usuarios',
     element: RP_usu,
-    roles: [1, 2],
   },
   {
     path: '/reportes/prestamos',
     name: 'Reporte de Prestamos',
     element: RP_prest,
-    roles: [1, 2],
   },
   {
     path: '/reportes/inventario',
     name: 'Reporte de Inventario',
     element: RP_in,
-    roles: [1, 2],
   },
   {
     path: '/reportes/tejuelo',
     name: 'Impresión de Tejuelos',
     element: RP_tej,
-    roles: [1, 2],
   },
 
-  { path: '/perfil', element: Profile, roles: [1, 2] },
-  { path: '/usuarios', element: User, roles: [1] },
-  { path: '/roles', element: Roles, roles: [1] },
-  { path: '/roles-admin', element: AdminRoles, roles: [1] },
-  { path: '/clientes', element: Cliente, roles: [1, 2] },
-  { path: '/renovacion-usuarios', element: Renovate, roles: [1, 2] },
-  { path: '/inventariado', element: Inventary, roles: [1, 2] },
-  { path: '/prestamos', element: Loands, roles: [1, 2] },
-  { path: '/devoluciones', element: BooksRT, roles: [1, 2] },
-  { path: '/categorias', element: Category, roles: [1, 2] },
-  { path: '/editorial', element: Editorial, roles: [1, 2] },
-  { path: '/proveedor', element: Supplier, roles: [1, 2] },
-  { path: '/autor', element: Author, roles: [1, 2] },
-  { path: '/generos', element: Genre, roles: [1, 2] },
-  { path: '/reporte-usuario', element: RP_usu, roles: [1, 2] },
-  { path: '/reporte-prestamos', element: RP_prest, roles: [1, 2] },
-  { path: '/reporte-inventario', element: RP_in, roles: [1, 2] },
-  { path: '/reporte-tejuelo', element: RP_tej, roles: [1, 2] },
+  { path: '/perfil', element: Profile },
+  { path: '/usuarios', element: User },
+  { path: '/roles', element: Roles },
+  { path: '/clientes', element: Cliente },
+  { path: '/renovacion-usuarios', element: Renovate },
+  { path: '/inventariado', element: Inventary },
+  { path: '/prestamos', element: Loands },
+  { path: '/devoluciones', element: BooksRT },
+  { path: '/categorias', element: Category },
+  { path: '/editorial', element: Editorial },
+  { path: '/proveedor', element: Supplier },
+  { path: '/autor', element: Author },
+  { path: '/generos', element: Genre },
+  { path: '/reporte-usuario', element: RP_usu },
+  { path: '/reporte-prestamos', element: RP_prest },
+  { path: '/reporte-inventario', element: RP_in },
+  { path: '/reporte-tejuelo', element: RP_tej },
 ]
 
 export default routes

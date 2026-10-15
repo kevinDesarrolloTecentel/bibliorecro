@@ -76,8 +76,8 @@ export const Estadistics: React.FC<EstadisticsProps> = ({
         <CCol xs={12} sm={6} md={4}>
           <CWidgetStatsA
             className="shadow-sm border-0"
-            color="primary"
-            title={<span className='badge bg-gray-200 text-primary font-monospace'>Total de Usuarios Nuevos</span>}
+            color="success"
+            title={<span className='text-white fw-semibold'>Usuarios Nuevos</span>}
             value={
               <div className="fs-3 fw-bold text-white my-1">
                 {loading ? <CSpinner size="sm" /> : totalNuevos}
@@ -95,7 +95,7 @@ export const Estadistics: React.FC<EstadisticsProps> = ({
                       label: 'Usuarios Nuevos',
                       backgroundColor: 'transparent',
                       borderColor: 'rgba(255,255,255,.75)',
-                      pointBackgroundColor: '#5856d6',
+                      pointBackgroundColor: '#2eb85c',
                       data: dNuevos,
                     },
                   ],
@@ -109,8 +109,8 @@ export const Estadistics: React.FC<EstadisticsProps> = ({
         <CCol xs={12} sm={6} md={4}>
           <CWidgetStatsA
             className="shadow-sm border-0"
-            color="info"
-            title={<span className='border badge bg-gray-200 text-info font-monospace'>Total de Renovaciones</span>}
+            color="primary"
+            title={<span className='text-white fw-semibold'>Renovaciones</span>}
             value={
               <div className="fs-3 fw-bold text-white my-1">
                 {loading ? <CSpinner size="sm" /> : totalRenovaciones}
@@ -128,7 +128,7 @@ export const Estadistics: React.FC<EstadisticsProps> = ({
                       label: 'Renovaciones',
                       backgroundColor: 'transparent',
                       borderColor: 'rgba(255,255,255,.75)',
-                      pointBackgroundColor: '#39f',
+                      pointBackgroundColor: '#5856d6',
                       data: dRenovaciones,
                     },
                   ],
@@ -142,8 +142,8 @@ export const Estadistics: React.FC<EstadisticsProps> = ({
         <CCol xs={12} sm={6} md={4}>
           <CWidgetStatsA
             className="shadow-sm border-0"
-            color="success"
-            title={<span className='badge bg-gray-200 text-success font-monospace'>Sumatoria Total</span>}
+            color="info"
+            title={<span className='text-white fw-semibold'>Total General</span>}
             value={
               <div className="fs-3 fw-bold text-white my-1">
                 {loading ? <CSpinner size="sm" /> : sumatoriaTotal}
@@ -161,7 +161,7 @@ export const Estadistics: React.FC<EstadisticsProps> = ({
                       label: 'Total General',
                       backgroundColor: 'transparent',
                       borderColor: 'rgba(255,255,255,.75)',
-                      pointBackgroundColor: '#2eb85c',
+                      pointBackgroundColor: '#39f',
                       data: dTotal,
                     },
                   ],

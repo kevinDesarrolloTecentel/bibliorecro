@@ -62,6 +62,7 @@ export interface UsuarioOption {
   cedula?: string
   nombre?: string
   apellido?: string
+  estado?: string
 }
 
 export interface PrestamosPaginadosResponse {

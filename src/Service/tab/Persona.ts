@@ -13,6 +13,11 @@ export const PersonaNueva = async (params?: any) => {
     return data;
 };
 
+export const PersonasNuevasDetalle = async (params?: any) => {
+    const { data } = await apiClient.get(`${BACKEND_API_BASE}/personasNuevas`, { params });
+    return data;
+};
+
 export const AniosDisponibles = async () => {
     const { data } = await apiClient.get(`${API_BASE_URL_PERSONA}/aniosDisponibles`);
     return data;
@@ -23,27 +28,43 @@ export const UsuActEG = async () => {
     return data;
 };
 
-export const Personas = async (page?: number, per_page?: number, search?: string) => {
+export const Personas = async (
+    page?: number,
+    per_page?: number,
+    search?: string,
+    estado?: number | string,
+    sancion?: number | string
+) => {
     const params: Record<string, any> = {};
     if (page !== undefined) params.page = page;
     if (per_page !== undefined) params.per_page = per_page;
-    if (search !== undefined && search !== '') params.search = search;
-    const { data } = await apiClient.get(`${API_BASE_URL_PERSONA}/personas`, { params });
+    if (estado !== undefined && estado !== '') params.estado = estado;
+    if (sancion !== undefined && sancion !== '') params.sancion = sancion;
+
+    const payload: Record<string, any> = {};
+    if (search !== undefined && search.trim() !== '') {
+        payload.nombre = search.trim();
+        params.nombre = search.trim();
+        params.search = search.trim();
+    }
+    if (estado !== undefined && estado !== '') payload.estado = estado;
+    if (sancion !== undefined && sancion !== '') payload.sancion = sancion;
+
+    const { data } = await apiClient.post(`${API_BASE_URL_PERSONA}/personasRegistradas`, payload, { params });
     return data;
 };
 export const listarPersonas = Personas;
+export const PersonasRegistradas = Personas;
 
 export const PersonasE = async () => {
     const { data } = await apiClient.get(`${API_BASE_URL_PERSONA}/personasE`);
     return data;
 };
 
-// POST
-export const PersonasRegistradas = async () => {
-    const { data } = await apiClient.get(`${API_BASE_URL_PERSONA}/personasRegistradas`);
+export const PersonasBiblio = async (params?: any) => {
+    const { data } = await apiClient.get(`${API_BASE_URL_PERSONA}/personas`, { params });
     return data;
 };
-export const getInscripcionesUsuarios = PersonasRegistradas;
 
 // Reportes -- GET
 // 1. Reporte de Usuarios por Edad y Género
@@ -80,12 +101,10 @@ export const PersonasNuevasReport = async (params?: any) => {
 };
 export const PersonasNuevasDiaMesAnoReport = PersonasNuevasReport;
 
-// 6. Reporte de Historial de Libros por Usuario
-export const PersonasHistorialLibrosReport = async (params?: any) => {
-    const { data } = await apiClient.get(`${BACKEND_API_BASE}/prestamosReport`, { params });
-    return data;
-};
-export const PrestamosReportPorUsuario = PersonasHistorialLibrosReport;
+// 6. Reporte de Historial de Libros por Usuario (Reexport/retrocompatibilidad)
+import { listarPrestamosCedula } from '../rco/Prestamos';
+export const PersonasHistorialLibrosReport = listarPrestamosCedula;
+export const PrestamosReportPorUsuario = listarPrestamosCedula;
 
 // 7. Reporte de Mejores Usuarios (Ranking)
 export const PersonasMejoresReport = async (params?: any) => {

@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Swal from 'sweetalert2'
 import { Persona } from '@/models/tab/persona.model'
+import { usePermissions } from '@/context/PermissionsContext'
 import {
   ActualizarPersonaNueva,
-  actualizarPersona,
   CrearPersonas,
   EliminarPersona,
   listarPersonas,
@@ -11,6 +11,24 @@ import {
   PersonaNueva,
   verPersonas,
 } from '@/Service/tab/Persona'
+
+export interface PersonaColumnFilters {
+  identificacion?: string
+  nombre?: string
+  apellido?: string
+  email?: string
+  estado?: string
+  sancionado?: string
+}
+
+export const isUserSancionado = (u: any): boolean =>
+  Boolean(
+    u.ESTADO_SANCION === 1 ||
+    u.ESTADO_SANCION === '1' ||
+    u.ESTADO_PERSONA === 2 ||
+    u.ESTADO_PERSONA === '2' ||
+    (u.DETALLE_SANCION && !String(u.DETALLE_SANCION).toLowerCase().includes('sin sancion'))
+  )
 
 
 
@@ -44,6 +62,69 @@ const formatApiError = (error: any, defaultMsg: string): string => {
   if (data.msg && typeof data.msg === 'string') return data.msg
   return defaultMsg
 }
+
+export const deduplicarPersonas = (lista: any[]): any[] => {
+  if (!Array.isArray(lista) || lista.length === 0) return []
+  const map = new Map<string, any>()
+  for (const item of lista) {
+    if (!item) continue
+    const key = String(
+      item.ID_PERSONA ?? item.id ?? item.IDENTIFICACION_PERSONA ?? item.identificacion ?? ''
+    ).trim()
+    if (!key) continue
+
+    if (!map.has(key)) {
+      map.set(key, { ...item })
+    } else {
+      const existing = map.get(key)
+      // Fusionar detalles de sanción para no perder información
+      const detalleExistente = (existing.DETALLE_SANCION || '').trim()
+      const detalleNuevo = (item.DETALLE_SANCION || '').trim()
+
+      if (!detalleExistente && detalleNuevo) {
+        existing.DETALLE_SANCION = detalleNuevo
+      } else if (
+        detalleExistente &&
+        detalleNuevo &&
+        detalleExistente !== detalleNuevo &&
+        !detalleExistente.toLowerCase().includes(detalleNuevo.toLowerCase())
+      ) {
+        existing.DETALLE_SANCION = `${detalleExistente} | ${detalleNuevo}`
+      }
+
+      // Si cualquiera de las filas tiene sanción activa, prevalece
+      if (
+        item.ESTADO_SANCION === 1 ||
+        item.ESTADO_SANCION === '1' ||
+        item.ESTADO_PERSONA === 2 ||
+        item.ESTADO_PERSONA === '2'
+      ) {
+        existing.ESTADO_SANCION = 1
+      }
+
+      // Preservar fechas de sanción si el nuevo las tiene
+      if (!existing.FECHAINICIO_SANCION && item.FECHAINICIO_SANCION) {
+        existing.FECHAINICIO_SANCION = item.FECHAINICIO_SANCION
+      }
+      if (!existing.FECHAFIN_SANCION && item.FECHAFIN_SANCION) {
+        existing.FECHAFIN_SANCION = item.FECHAFIN_SANCION
+      }
+
+      // Preservar fechas de inscripción
+      if (!existing.FECHAINICIO_INSCRIPCION && item.FECHAINICIO_INSCRIPCION) {
+        existing.FECHAINICIO_INSCRIPCION = item.FECHAINICIO_INSCRIPCION
+      }
+      if (!existing.FECHAFIN_INSCRIPCION && item.FECHAFIN_INSCRIPCION) {
+        existing.FECHAFIN_INSCRIPCION = item.FECHAFIN_INSCRIPCION
+      }
+      if (!existing.COSTO_INSCRIPCION && item.COSTO_INSCRIPCION) {
+        existing.COSTO_INSCRIPCION = item.COSTO_INSCRIPCION
+      }
+    }
+  }
+  return Array.from(map.values())
+}
+
 interface InfoPaginacion {
   items: any[]
   total: number
@@ -103,7 +184,11 @@ const extraerInfoPaginacion = (res: any): InfoPaginacion => {
     }
   }
 
+  items = deduplicarPersonas(items)
+
   if (total === 0 && items.length > 0) {
+    total = items.length
+  } else if (total > 0 && total <= perPage) {
     total = items.length
   }
   if (lastPage === 1 && total > 0 && perPage > 0) {
@@ -114,6 +199,7 @@ const extraerInfoPaginacion = (res: any): InfoPaginacion => {
 }
 
 const usePersonas = (autoFetch: boolean = true) => {
+  const { canDoAction } = usePermissions()
   const [personas, setPersonas] = useState<(Persona | any)[]>([])
   const [personasNuevas, setPersonasNuevas] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -122,25 +208,22 @@ const usePersonas = (autoFetch: boolean = true) => {
   const [paginaActual, setPaginaActual] = useState(1)
   const [totalPaginas, setTotalPaginas] = useState(1)
   const [totalRegistros, setTotalRegistros] = useState(0)
-  const [porPagina, setPorPagina] = useState(60)
-  const knownTotal = useRef<number>(3764)
-  const knownBackendPerPage = useRef<number>(10)
-  const backendPageCache = useRef<Map<number, any[]>>(new Map())
+  const [porPagina, setPorPagina] = useState(10)
+  const [columnFilters, setColumnFilters] = useState<PersonaColumnFilters>({})
+  const [searchTerm, setSearchTerm] = useState<string>('')
+  const [tableKey, setTableKey] = useState<number>(0)
+  const columnFiltersRef = useRef<PersonaColumnFilters>({})
+  const currentSearchRef = useRef<string>('')
+  const lastSearchTermRef = useRef<string>('')
+  const searchDebounceRef = useRef<any>(null)
+
   const [modalRegister, setModalRegister] = useState(false)
   const [modalEdit, setModalEdit] = useState(false)
   const [selectedUser, setSelectedUser] = useState<Persona | any | null>(null)
   const [details, setDetails] = useState<(number | string)[]>([])
 
   const toggleDetails = (id: number | string) => {
-    setDetails((prev) => {
-      const position = prev.indexOf(id)
-      if (position === -1) {
-        return [...prev, id]
-      }
-      const newDetails = [...prev]
-      newDetails.splice(position, 1)
-      return newDetails
-    })
+    setDetails((prev) => (prev.includes(id) ? [] : [id]))
   }
 
   const handleAbrirEditar = (item: any) => {
@@ -173,7 +256,8 @@ const usePersonas = (autoFetch: boolean = true) => {
 
   const ordenarPorFechaReciente = (lista: any[]) => {
     if (!Array.isArray(lista)) return []
-    return [...lista].sort((a: any, b: any) => {
+    const deduped = deduplicarPersonas(lista)
+    return [...deduped].sort((a: any, b: any) => {
       const rawA = a?.FECHAINICIO_INSCRIPCION ?? a?.FECHAREGISTRO_PERSONA ?? ''
       const rawB = b?.FECHAINICIO_INSCRIPCION ?? b?.FECHAREGISTRO_PERSONA ?? ''
 
@@ -191,153 +275,161 @@ const usePersonas = (autoFetch: boolean = true) => {
   }
 
   const fetchPersonas = useCallback(
-    async (page?: number, perPage?: number, search?: string, clearCache?: boolean) => {
-      const targetUiPage = typeof page === 'number' && page > 0 ? page : 1
-      const actualPerPage = typeof perPage === 'number' && perPage > 0 ? perPage : porPagina
-      const actualSearch = typeof search === 'string' && search.trim().length > 0 ? search.trim() : undefined
+    (
+      page?: number,
+      perPage?: number,
+      search?: string,
+      clearSearch?: boolean,
+      customFilters?: PersonaColumnFilters
+    ) => {
+      const isSearchParamGiven = typeof search === 'string'
 
-      if (clearCache) {
-        backendPageCache.current.clear()
+      let areFiltersChanged = false
+      if (customFilters !== undefined) {
+        const prevF = JSON.stringify(columnFiltersRef.current)
+        const nextF = JSON.stringify(customFilters)
+        if (prevF !== nextF) {
+          areFiltersChanged = true
+          columnFiltersRef.current = customFilters
+          setColumnFilters(customFilters)
+        }
       }
 
-      setLoading(true)
-      setErrorMsg(null)
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current)
+      }
 
-      try {
-        if (actualSearch) {
-          backendPageCache.current.clear()
-          const response = await listarPersonas(targetUiPage, actualPerPage, actualSearch)
-          const info = extraerInfoPaginacion(response)
-          setTotalPaginas(info.lastPage || 1)
-          setTotalRegistros(info.total || info.items.length)
-          setPaginaActual(targetUiPage)
-          setPersonas(ordenarPorFechaReciente(info.items))
-          return
+      const executeFetch = async () => {
+        const targetUiPage =
+          typeof page === 'number' && page > 0 ? page : (typeof page === 'number' ? 1 : paginaActual)
+        let validUiPage = targetUiPage
+        const S = typeof perPage === 'number' && perPage > 0 ? perPage : porPagina
+
+        if (clearSearch) {
+          currentSearchRef.current = ''
+          lastSearchTermRef.current = ''
+          columnFiltersRef.current = {}
+          setColumnFilters({})
+          setSearchTerm('')
+          setTableKey((k) => k + 1)
+          setDetails([])
+        } else if (isSearchParamGiven) {
+          const trimmed = search.trim()
+          currentSearchRef.current = trimmed
+          setSearchTerm(trimmed)
+          validUiPage = 1
         }
 
-        const S = actualPerPage
-        let B = knownBackendPerPage.current || 10
-        let T = knownTotal.current || 3764
+        if (areFiltersChanged) {
+          validUiPage = 1
+        }
 
-        let itemEnd = T - (targetUiPage - 1) * S
-        let itemStart = Math.max(1, T - targetUiPage * S + 1)
+        const filters = columnFiltersRef.current || {}
+        const actualSearch = currentSearchRef.current || undefined
+        const estadoFilter = (filters.estado || '').trim()
+        const sancionadoFilter = (filters.sancionado || '').trim()
 
-        let bFirst = Math.max(1, Math.floor((itemStart - 1) / B) + 1)
-        let bLast = Math.max(1, Math.floor((itemEnd - 1) / B) + 1)
+        setLoading(true)
+        setErrorMsg(null)
 
-        const missingPages: number[] = []
-        for (let b = bFirst; b <= bLast; b++) {
-          if (!backendPageCache.current.has(b)) {
-            missingPages.push(b)
+        try {
+          // Mapeo de filtros: estado (1=Activo, 0=Inactivo) y sanción (1=Con sanción, 0=Sin sanción)
+          let estadoParam: number | undefined = undefined
+          if (estadoFilter === 'Activo') {
+            estadoParam = 1
+          } else if (estadoFilter === 'Inactivo') {
+            estadoParam = 0
           }
-        }
 
-        if (missingPages.length > 0) {
-          const results = await Promise.allSettled(
-            missingPages.map((b) => listarPersonas(b, B))
-          )
-
-          let metadataChanged = false
-          results.forEach((result, idx) => {
-            const bPage = missingPages[idx]
-            if (result.status === 'fulfilled') {
-              const info = extraerInfoPaginacion(result.value)
-              backendPageCache.current.set(bPage, info.items)
-
-              if (info.total > 0 && info.total !== knownTotal.current) {
-                knownTotal.current = info.total
-                T = info.total
-                metadataChanged = true
-              }
-              if (info.perPage > 0 && info.perPage !== knownBackendPerPage.current) {
-                knownBackendPerPage.current = info.perPage
-                B = info.perPage
-                metadataChanged = true
-              }
-            } else {
-              console.warn(`[usePersonas] Página ${bPage} no pudo cargarse:`, result.reason)
-              backendPageCache.current.set(bPage, [])
-            }
-          })
-
-          if (metadataChanged) {
-            itemEnd = T - (targetUiPage - 1) * S
-            itemStart = Math.max(1, T - targetUiPage * S + 1)
-            bFirst = Math.max(1, Math.floor((itemStart - 1) / B) + 1)
-            bLast = Math.max(1, Math.floor((itemEnd - 1) / B) + 1)
-
-            const extraMissing: number[] = []
-            for (let b = bFirst; b <= bLast; b++) {
-              if (!backendPageCache.current.has(b)) {
-                extraMissing.push(b)
-              }
-            }
-            if (extraMissing.length > 0) {
-              const extraResults = await Promise.allSettled(
-                extraMissing.map((b) => listarPersonas(b, B))
-              )
-              extraResults.forEach((res, idx) => {
-                const bPage = extraMissing[idx]
-                if (res.status === 'fulfilled') {
-                  const info = extraerInfoPaginacion(res.value)
-                  backendPageCache.current.set(bPage, info.items)
-                } else {
-                  backendPageCache.current.set(bPage, [])
-                }
-              })
-            }
+          let sancionParam: number | undefined = undefined
+          if (sancionadoFilter === 'Con sanción' || sancionadoFilter === 'Sancionado') {
+            sancionParam = 1
+          } else if (sancionadoFilter === 'Sin sanción') {
+            sancionParam = 0
           }
-        }
 
-        const pageItems: any[] = []
-        for (let b = bFirst; b <= bLast; b++) {
-          const itemsDePagina = backendPageCache.current.get(b) || []
-          itemsDePagina.forEach((item: any, idx: number) => {
-            const globalIdx = (b - 1) * B + idx + 1
-            if (globalIdx >= itemStart && globalIdx <= itemEnd) {
-              pageItems.push(item)
-            }
-          })
-        }
+          // Determinar término para búsqueda en backend
+          const idF = (filters.identificacion || '').trim()
+          const nomF = (filters.nombre || '').trim()
+          const apeF = (filters.apellido || '').trim()
+          const emailF = (filters.email || '').trim()
+          const genF = (actualSearch || '').trim()
 
-        // Si no se obtuvieron registros mediante cálculo inverso, usar consulta directa como respaldo
-        if (pageItems.length === 0) {
-          try {
-            const fallbackRes = await listarPersonas(targetUiPage, actualPerPage)
-            const fallbackInfo = extraerInfoPaginacion(fallbackRes)
-            if (fallbackInfo.items.length > 0) {
-              setTotalPaginas(fallbackInfo.lastPage || 1)
-              setTotalRegistros(fallbackInfo.total || fallbackInfo.items.length)
-              setPaginaActual(targetUiPage)
-              setPorPagina(actualPerPage)
-              setPersonas(ordenarPorFechaReciente(fallbackInfo.items))
-              return
-            }
-          } catch (e) {
-            console.warn('[usePersonas] Fallback de paginación falló:', e)
+          let backendTerm: string | undefined = undefined
+          if (idF) {
+            backendTerm = idF
+          } else if (nomF && apeF) {
+            backendTerm = `${nomF} ${apeF}`.trim()
+          } else if (nomF) {
+            backendTerm = nomF
+          } else if (apeF) {
+            backendTerm = apeF
+          } else if (genF) {
+            backendTerm = genF
+          } else if (emailF) {
+            backendTerm = emailF.includes('@') ? emailF.split('@')[0] : emailF
           }
-        }
 
-        const totalUiPages = Math.max(1, Math.ceil(T / S))
-        const sortedItems = ordenarPorFechaReciente(pageItems)
+          // Petición directa al backend con paginación y filtros nativos
+          const res = await listarPersonas(validUiPage, S, backendTerm, estadoParam, sancionParam)
+          const info = extraerInfoPaginacion(res)
 
-        setTotalPaginas(totalUiPages)
-        setTotalRegistros(T)
-        setPaginaActual(targetUiPage)
-        setPorPagina(S)
-        setPersonas(sortedItems)
-      } catch (error: any) {
-        console.error('[usePersonas] Error al obtener clientes:', error)
-        if (personas.length === 0) {
+          let pageItems = info.items || []
+
+          // Filtro local complementario para campos adicionales si se ingresaron
+          if (emailF) {
+            pageItems = pageItems.filter((u: any) => {
+              const em = String(u.CORREO_PERSONA || u.correo || u.email || '').toLowerCase()
+              return em.includes(emailF.toLowerCase())
+            })
+          }
+          if (idF && !backendTerm) {
+            pageItems = pageItems.filter((u: any) => {
+              const id = String(u.IDENTIFICACION_PERSONA || u.identificacion || '').toLowerCase()
+              return id.includes(idF.toLowerCase())
+            })
+          }
+
+          const totalItems = info.total > 0 ? info.total : pageItems.length
+          const totalPages = info.lastPage > 0 ? info.lastPage : Math.max(1, Math.ceil(totalItems / S))
+          const currentPageNum = info.currentPage > 0 ? info.currentPage : validUiPage
+
+          setPersonas(ordenarPorFechaReciente(pageItems))
+          setPaginaActual(currentPageNum)
+          setTotalPaginas(totalPages)
+          setTotalRegistros(totalItems)
+          setPorPagina(S)
+        } catch (error: any) {
+          console.error('[usePersonas] Error al obtener clientes:', error)
           const msg = formatApiError(error, 'Error al obtener la lista de clientes.')
           setErrorMsg(msg)
           Toast.fire({ icon: 'error', title: msg })
+        } finally {
+          setLoading(false)
         }
-      } finally {
-        setLoading(false)
+      }
+
+      if (!clearSearch && (isSearchParamGiven || areFiltersChanged)) {
+        searchDebounceRef.current = setTimeout(executeFetch, 350)
+      } else {
+        return executeFetch()
       }
     },
-    [porPagina],
+    [paginaActual, porPagina],
+  )
+
+  const handleRecargar = useCallback(async () => {
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current)
+    }
+    await fetchPersonas(1, porPagina, '', true, {})
+  }, [fetchPersonas, porPagina])
+
+  const handleColumnFilterChange = useCallback(
+    (filters: PersonaColumnFilters) => {
+      fetchPersonas(1, porPagina, undefined, false, filters)
+    },
+    [fetchPersonas, porPagina],
   )
 
 
@@ -346,7 +438,6 @@ const usePersonas = (autoFetch: boolean = true) => {
     try {
       await CrearPersonas(data)
       Toast.fire({ icon: 'success', title: 'Registrado correctamente' })
-      backendPageCache.current.clear()
       await fetchPersonas(1, porPagina, undefined, true)
       return true
     } catch (e: any) {
@@ -387,7 +478,6 @@ const usePersonas = (autoFetch: boolean = true) => {
     try {
       await CrearPersonas(personaData)
       Toast.fire({ icon: 'success', title: 'Persona registrada exitosamente' })
-      backendPageCache.current.clear()
       await fetchPersonas(1, porPagina, undefined, true)
       return true
     } catch (error: any) {
@@ -409,11 +499,10 @@ const usePersonas = (autoFetch: boolean = true) => {
       if (personaData instanceof FormData) {
         await ActualizarPersonaNueva(id, personaData)
       } else {
-        await actualizarPersona(id, personaData)
+        await ActualizarPersonaNueva(id, personaData)
       }
       Toast.fire({ icon: 'success', title: 'Datos actualizados correctamente' })
-      backendPageCache.current.clear()
-      await fetchPersonas(paginaActual, porPagina, undefined, true)
+      await fetchPersonas(paginaActual, porPagina)
       return true
     } catch (error: any) {
       console.error('Error detallado de backend al actualizar persona:', error?.response?.data || error)
@@ -432,8 +521,7 @@ const usePersonas = (autoFetch: boolean = true) => {
     try {
       await PersonaEstado(id, { ESTADO_PERSONA: nuevoEstado })
       Toast.fire({ icon: 'success', title: 'Estado actualizado' })
-      backendPageCache.current.clear()
-      await fetchPersonas(paginaActual, porPagina, undefined, true)
+      await fetchPersonas(paginaActual, porPagina)
       return true
     } catch (error: any) {
       const msg = formatApiError(error, 'No se pudo actualizar el estado')
@@ -461,12 +549,19 @@ const usePersonas = (autoFetch: boolean = true) => {
 
 
   const handleEliminarPersona = async (id: string | number): Promise<boolean> => {
+    if (!canDoAction('btn_eliminar_usuario_gestion_usuario')) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Acceso Denegado',
+        text: 'No tienes permisos para eliminar usuarios.',
+      })
+      return false
+    }
     setGuardando(true)
     try {
       await EliminarPersona(id)
       Toast.fire({ icon: 'success', title: 'Usuario eliminado exitosamente' })
-      backendPageCache.current.clear()
-      await fetchPersonas(paginaActual, porPagina, undefined, true)
+      await fetchPersonas(paginaActual, porPagina)
       return true
     } catch (error: any) {
       console.error('Error al eliminar persona:', error)
@@ -508,6 +603,14 @@ const usePersonas = (autoFetch: boolean = true) => {
     porPagina,
     setPaginaActual,
     setPorPagina,
+    columnFilters,
+    setColumnFilters,
+    handleColumnFilterChange,
+    searchTerm,
+    setSearchTerm,
+    tableKey,
+    setTableKey,
+    handleRecargar,
   }
 }
 

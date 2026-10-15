@@ -3,7 +3,7 @@ import Swal from 'sweetalert2'
 import { librosPorCategoria } from '@/Service/rco/libros'
 import { CatLibros } from '@/Service/rco/CatLib'
 import apiClient, { BACKEND_API_BASE } from '@/Service/apiClient'
-import { STORAGE_BASE_URL } from '@/.env'
+import { STORAGE_BASE_URL } from '@/utils/imageUtils'
 
 export { STORAGE_BASE_URL }
 
@@ -78,8 +78,6 @@ export const useReporteLibrosCategoria = () => {
     try {
       const params = {
         generoId: selectedValue.value,
-        idCategoria: selectedValue.value,
-        categoriaId: selectedValue.value,
       }
       const data = await librosPorCategoria(params)
       const rawData: LibroInventarioItem[] = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []

@@ -4,10 +4,12 @@ import { cilBarcode, cilBook,
 import CIcon from '@coreui/icons-react'
 import { CButton, CCol, CForm, CFormInput, CFormSelect, CFormTextarea, CInputGroup, CInputGroupText, CModal, CModalBody, CModalFooter, CModalHeader, CModalTitle, CSpinner } from '@coreui/react-pro'
 import useLibroRegister, { UseLibroRegisterProps } from '@/hooks/rco-libros/useLibroRegister'
+import { usePermissions } from '@/context/PermissionsContext'
 
 interface RegisterBkProps extends UseLibroRegisterProps {}
 
 const Registro_bk: React.FC<RegisterBkProps> = (props) => {
+  const { canDoAction } = usePermissions()
   const {
     isVisible,
     formData,
@@ -440,25 +442,27 @@ const Registro_bk: React.FC<RegisterBkProps> = (props) => {
           <CIcon icon={cilExitToApp} className="me-1" />
           Cerrar
         </CButton>
-        <CButton
-          color='success'
-          variant='outline'
-          className='hover:text-white'
-          onClick={handleSubmit}
-          disabled={loading}
-        >
-          {loading ? (
-            <>
-              <CSpinner size="sm" className="me-1" />
-              <span>Guardando...</span>
-            </>
-          ) : (
-            <>
-              <CIcon icon={cilSave} className="me-1" />
-              <span>Guardar Libro</span>
-            </>
-          )}
-        </CButton>
+        {canDoAction('btn_crear_libro') && (
+          <CButton
+            color='success'
+            variant='outline'
+            className='hover:text-white'
+            onClick={handleSubmit}
+            disabled={loading}
+          >
+            {loading ? (
+              <>
+                <CSpinner size="sm" className="me-1" />
+                <span>Guardando...</span>
+              </>
+            ) : (
+              <>
+                <CIcon icon={cilSave} className="me-1" />
+                <span>Guardar Libro</span>
+              </>
+            )}
+          </CButton>
+        )}
       </CModalFooter>
     </CModal>
   )

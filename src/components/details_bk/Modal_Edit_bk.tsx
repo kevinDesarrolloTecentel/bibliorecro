@@ -34,10 +34,12 @@ import {
   CSpinner,
 } from '@coreui/react-pro'
 import useLibroEdit, { UseLibroEditProps } from '@/hooks/rco-libros/useLibroEdit'
+import { usePermissions } from '@/context/PermissionsContext'
 
 interface ModalEditBkProps extends UseLibroEditProps {}
 
 const Modal_Edit_bk: React.FC<ModalEditBkProps> = (props) => {
+  const { canDoAction } = usePermissions()
   const {
     isVisible,
     formData,
@@ -470,25 +472,27 @@ const Modal_Edit_bk: React.FC<ModalEditBkProps> = (props) => {
           <CIcon icon={cilExitToApp} className="me-1" />
           Cerrar
         </CButton>
-        <CButton
-         color='success'
-         variant='outline'
-          className="hover:text-white d-flex align-items-center gap-1 shadow-sm"
-          onClick={handleSubmit}
-          disabled={loading}
-        >
-          {loading ? (
-            <>
-              <CSpinner size="sm" className="me-1" />
-              <span>Guardando cambios...</span>
-            </>
-          ) : (
-            <>
-              <CIcon icon={cilColorBorder} className="me-1" />
-              <span>Actualizar Libro</span>
-            </>
-          )}
-        </CButton>
+        {canDoAction('btn_editar_libro') && (
+          <CButton
+            color='success'
+            variant='outline'
+            className="hover:text-white d-flex align-items-center gap-1 shadow-sm"
+            onClick={handleSubmit}
+            disabled={loading}
+          >
+            {loading ? (
+              <>
+                <CSpinner size="sm" className="me-1" />
+                <span>Guardando cambios...</span>
+              </>
+            ) : (
+              <>
+                <CIcon icon={cilColorBorder} className="me-1" />
+                <span>Actualizar Libro</span>
+              </>
+            )}
+          </CButton>
+        )}
       </CModalFooter>
     </CModal>
   )

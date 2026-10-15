@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import Swal from 'sweetalert2'
 import { PersonasNuevasReport } from '@/Service/tab/Persona'
-import { STORAGE_BASE_URL } from '@/.env'
+import { STORAGE_BASE_URL } from '@/utils/imageUtils'
 
 export { STORAGE_BASE_URL }
 
@@ -28,6 +28,7 @@ export const useReporteNuevosUsuarios = () => {
   const [usuarios, setUsuarios] = useState<PersonaReporteItem[]>([])
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [excelLink, setExcelLink] = useState<string | null>(null)
+  const [haBuscado, setHaBuscado] = useState<boolean>(false)
 
   const handleGetNuevosUsuarios = useCallback(async () => {
     if (!mesRegistro || !anoRegistro) {
@@ -38,13 +39,17 @@ export const useReporteNuevosUsuarios = () => {
         timerProgressBar: false,
         showConfirmButton: false,
       }).fire({
-        icon: 'error',
-        title: 'Por favor, ingrese el día, mes y año.',
+        icon: 'warning',
+        title: 'Por favor, ingrese el mes y año.',
       })
       return
     }
 
     setIsLoading(true)
+    setHaBuscado(true)
+    setUsuarios([])
+    setExcelLink(null)
+
     try {
       const params: Record<string, any> = {
         mesRegistro,
@@ -61,8 +66,9 @@ export const useReporteNuevosUsuarios = () => {
       if (data?.error) {
         Swal.fire({
           icon: 'info',
-          title: 'Información',
+          title: 'Sin nuevos usuarios',
           text: data.error,
+          confirmButtonColor: '#0d6efd',
         })
         setUsuarios([])
       } else {
@@ -72,19 +78,48 @@ export const useReporteNuevosUsuarios = () => {
         )
         setUsuarios(ordenados)
         setExcelLink(data?.excel_path || null)
+
+        if (ordenados.length === 0) {
+          Swal.fire({
+            icon: 'info',
+            title: 'Sin nuevos usuarios',
+            text: 'No se encontraron nuevos usuarios registrados en la fecha seleccionada.',
+            confirmButtonColor: '#0d6efd',
+          })
+        }
       }
     } catch (error: any) {
       console.error('Error al obtener nuevos usuarios', error)
-      Swal.mixin({
-        toast: true,
-        position: 'top-end',
-        timer: 2500,
-        timerProgressBar: false,
-        showConfirmButton: false,
-      }).fire({
-        icon: 'warning',
-        title: 'Hubo un problema al obtener los nuevos usuarios.',
-      })
+      const respData = error?.response?.data
+      const errStr = typeof respData === 'string' ? respData : JSON.stringify(respData || '')
+
+      const isZeroResultsError =
+        error?.response?.status === 404 ||
+        (error?.response?.status === 500 &&
+          (errStr.includes('PersonasExport') || errStr.includes('toArray() on null')))
+
+      if (isZeroResultsError) {
+        setUsuarios([])
+        setExcelLink(null)
+        Swal.fire({
+          icon: 'info',
+          title: 'Sin nuevos usuarios',
+          text: 'No se encontraron nuevos usuarios registrados en la fecha seleccionada.',
+          confirmButtonColor: '#0d6efd',
+        })
+      } else {
+        Swal.mixin({
+          toast: true,
+          position: 'top-end',
+          timer: 2500,
+          timerProgressBar: false,
+          showConfirmButton: false,
+        }).fire({
+          icon: 'warning',
+          title: 'Error!',
+          text: 'Hubo un problema al obtener los nuevos usuarios.',
+        })
+      }
     } finally {
       setIsLoading(false)
     }
@@ -102,6 +137,7 @@ export const useReporteNuevosUsuarios = () => {
     setAnoRegistro('')
     setUsuarios([])
     setExcelLink(null)
+    setHaBuscado(false)
   }, [])
 
   return {
@@ -114,6 +150,7 @@ export const useReporteNuevosUsuarios = () => {
     usuarios,
     isLoading,
     excelLink,
+    haBuscado,
     handleGetNuevosUsuarios,
     handleDescargarExcel,
     handleReset,
