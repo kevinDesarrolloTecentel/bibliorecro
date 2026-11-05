@@ -1,23 +1,53 @@
 import { useEffect } from 'react'
-import { clearAuthSession } from '@/utils/auth'
+import { useSearchParams } from 'react-router-dom'
+import Swal from 'sweetalert2'
 import { AuthFormSplitScreen } from '@/components/ui/login'
 import { useAuth } from '@/hooks/auth/useAuth'
 import busImg from '@/assets/images/bus-1.jpg'
 import logoImg from '@/assets/images/logo-recreo.png'
 
 const Login = () => {
-  const userState = useAuth()
+  const { handleLoginSubmit, clearAuthSession } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   useEffect(() => {
-    const hashParts = window.location.hash.split('?')
-    const searchParams = new URLSearchParams(hashParts[1] || window.location.search)
-    if (searchParams.get('session_expired') === 'true') {
-      clearAuthSession()
+    const isInactive =
+      searchParams.get('user_inactive') === 'true' ||
+      window.location.hash.includes('user_inactive')
+
+    const isExpired =
+      searchParams.get('session_expired') === 'true' ||
+      window.location.hash.includes('session_expired')
+
+    if (isInactive) {
+      searchParams.delete('user_inactive')
+      setSearchParams(searchParams, { replace: true })
+      if (window.location.hash.includes('user_inactive')) {
+        window.history.replaceState(null, '', '#/login')
+      }
+      Swal.fire({
+        icon: 'error',
+        title: 'Usuario inactivo',
+        text: 'Tu usuario se encuentra inactivo.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+    } else if (isExpired) {
+      searchParams.delete('session_expired')
+      setSearchParams(searchParams, { replace: true })
       if (window.location.hash.includes('session_expired')) {
         window.history.replaceState(null, '', '#/login')
       }
+      Swal.fire({
+        icon: 'warning',
+        title: 'Sesión expirada',
+        text: 'Tu sesión ha expirado por inactividad. Por favor inicia sesión nuevamente.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
     }
-  }, [])
+    clearAuthSession()
+  }, [searchParams, setSearchParams, clearAuthSession])
 
   return (
     <AuthFormSplitScreen
@@ -26,7 +56,7 @@ const Login = () => {
           <img
             src={logoImg}
             alt="BiblioRecreo Logo"
-            className="h-12 sm:h-14 w-auto object-contain drop-shadow-sm"
+            className="h-14 sm:h-16 md:h-18 lg:h-20 w-auto object-contain drop-shadow-sm"
             onError={(e) => {
               (e.currentTarget as HTMLImageElement).src = '/logo-recreo.png'
             }}
@@ -37,7 +67,7 @@ const Login = () => {
       description=""
       imageSrc={busImg}
       imageAlt="BiblioRecreo Bus"
-      onSubmit={userState.handleLoginSubmit}
+      onSubmit={handleLoginSubmit}
     />
   )
 }

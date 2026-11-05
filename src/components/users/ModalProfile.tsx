@@ -1,77 +1,89 @@
-import useUsers from "@/hooks/adm-user/useUsers"
+import useProfile from "@/hooks/adm-user/useProfile"
 import { cilExitToApp, cilLockLocked, cilLockUnlocked, cilUser } from "@coreui/icons"
 import CIcon from "@coreui/icons-react"
 import { CButton, CCol, CForm, CFormInput, CInputGroup, CModal, CModalBody, CModalFooter, CModalHeader, CModalTitle, CSpinner } from "@coreui/react-pro"
 
-const ModalProfile = ({ userState }: { userState: ReturnType<typeof useUsers> }) => {
+interface ModalProfileProps {
+    profileState?: ReturnType<typeof useProfile>
+    userState?: any
+}
+
+const ModalProfile = ({ profileState, userState }: ModalProfileProps) => {
+    const state = profileState || userState
+    if (!state) return null
+
+    const usuarioNick = state.formData?.usuario || state.currentUser?.NICK_USUARIO || (state.user || state.getStoredUser?.())?.NICK_USUARIO || ''
+    const isSaving = Boolean(state.guardando || state.loading)
+
     return (
-        <>
-            <CModal
-                visible={userState.modalVisible}
-                onClose={() => userState.setModalVisible(false)}
-            >
-                <CModalHeader>
-                    <CModalTitle className="w-100 text-center">Actualización de Datos</CModalTitle>
-                </CModalHeader>
-                <CModalBody>
-                    <CForm className="row g-3">
-                        <CCol md={6}>
+        <CModal
+            visible={state.modalVisible}
+            onClose={() => state.setModalVisible(false)}
+        >
+            <CModalHeader>
+                <CModalTitle className="w-100 text-center">Actualización de Datos</CModalTitle>
+            </CModalHeader>
+            <CModalBody>
+                <CForm className="row g-3">
+                    <CCol md={6}>
+                        <CFormInput
+                            type="text"
+                            label="Usuario"
+                            disabled
+                            value={usuarioNick}
+                        />
+                    </CCol>
+                    <CCol md={6}>
+                        <label className="form-label">Contraseña</label>
+                        <CInputGroup>
                             <CFormInput
-                                type="text"
-                                label="Usuario"
-                                disabled
-                                value={(userState.user || userState.getStoredUser())?.NICK_USUARIO || ''}
+                                type={state.showPassword ? 'text' : 'password'}
+                                placeholder="••••••••"
+                                value={state.formData.password}
+                                onChange={(e) => state.setFormData({ ...state.formData, password: e.target.value })}
                             />
-                        </CCol>
-                        <CCol md={6}>
-                            <label className="form-label">Contraseña</label>
-                            <CInputGroup>
-                                <CFormInput
-                                    type={userState.showPassword ? 'text' : 'password'}
-                                    placeholder="••••••••"
-                                    value={userState.formData.password}
-                                    onChange={(e) => userState.setFormData({ ...userState.formData, password: e.target.value })}
-                                />
-                                <CButton
-                                    type="button"
-                                    color="secondary"
-                                    variant="outline"
-                                    onClick={() => userState.setShowPassword(!userState.showPassword)}
-                                    title={userState.showPassword ? "Ocultar contraseña" : "Ver contraseña"}
-                                >
-                                    <CIcon icon={userState.showPassword ? cilLockUnlocked : cilLockLocked} />
-                                </CButton>
-                            </CInputGroup>
-                        </CCol>
-                        <CCol xs={12}>
-                            <CFormInput
-                                label="Nombre Completo"
-                                value={userState.formData.nombres}
-                                onChange={(e) => userState.setFormData({ ...userState.formData, nombres: e.target.value })}
-                            />
-                        </CCol>
-                    </CForm>
-                </CModalBody>
-                <CModalFooter>
-                    <CButton
-                        color="danger"
-                        variant="outline"
-                        className="hover:text-white"
-                        disabled={userState.loading}
-                        onClick={() => userState.setModalVisible(false)}
-                    >
-                        <CIcon icon={cilExitToApp} className="me-1"/>
-                        Cerrar
-                    </CButton>
+                            <CButton
+                                type="button"
+                                color="secondary"
+                                variant="outline"
+                                onClick={() => state.setShowPassword(!state.showPassword)}
+                                title={state.showPassword ? "Ocultar contraseña" : "Ver contraseña"}
+                            >
+                                <CIcon icon={state.showPassword ? cilLockUnlocked : cilLockLocked} />
+                            </CButton>
+                        </CInputGroup>
+                    </CCol>
+                    <CCol xs={12}>
+                        <CFormInput
+                            label="Nombre Completo"
+                            value={state.formData.nombres}
+                            onChange={(e) => state.setFormData({ ...state.formData, nombres: e.target.value })}
+                        />
+                    </CCol>
+                </CForm>
+            </CModalBody>
+            <CModalFooter>
+                <CButton
+                    color="danger"
+                    variant="outline"
+                    size="sm"
+                    className="hover:text-white shadow-sm" disabled={isSaving}
+                    onClick={() => state.setModalVisible(false)}
+                >
+                    <CIcon icon={cilExitToApp} className="me-1" />
+                    Cerrar
+                </CButton>
+
+                {state.canGuardarPerfil && (
                     <CButton
                         color="success"
                         variant="outline"
-                        className="hover:text-white"
-                        disabled={userState.loading}
-                        onClick={userState.handleGuardar}
+                        size="sm"
+                        className="hover:text-white shadow-sm" disabled={isSaving}
+                        onClick={state.handleGuardar}
                     >
-                        <CIcon icon={cilUser} className="me-1"/>
-                        {userState.loading ? (
+                        <CIcon icon={cilUser} className="me-1" />
+                        {isSaving ? (
                             <>
                                 <CSpinner size="sm" className="me-2" />
                                 Guardando...
@@ -80,9 +92,10 @@ const ModalProfile = ({ userState }: { userState: ReturnType<typeof useUsers> })
                             'Guardar Usuario'
                         )}
                     </CButton>
-                </CModalFooter>
-            </CModal>
-        </>
+                )}
+            </CModalFooter>
+        </CModal>
     )
 }
+
 export default ModalProfile

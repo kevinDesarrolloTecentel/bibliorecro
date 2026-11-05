@@ -1,37 +1,123 @@
-import React, { Suspense, useEffect } from 'react'
-import { HashRouter, Route, Routes } from 'react-router-dom'
-import { useSelector } from 'react-redux'
 
+import React, {
+  Suspense,
+  useEffect,
+} from 'react'
+
+import {
+  HashRouter,
+  Route,
+  Routes,
+  useLocation,
+} from 'react-router-dom'
+
+import { useSelector } from 'react-redux'
 import { CSpinner, useColorModes } from '@coreui/react-pro'
 
 import './scss/style.scss'
 import './scss/tailwind.scss'
 
 import type { RootState } from './store'
+
 import PublicRoute from './components/guards/PublicRoute'
 import ProtectedRoute from './components/guards/ProtectedRoute'
-import { PermissionsProvider } from './context/PermissionsContext'
+
+import {
+  PermissionsProvider,
+  usePermissions,
+} from './context/PermissionsContext'
 
 // Containers
-const DefaultLayout = React.lazy(() => import('./layout/DefaultLayout'))
+const DefaultLayout = React.lazy(
+  () => import('./layout/DefaultLayout'),
+)
 
-const Login = React.lazy(() => import('./views/pages/login/Login'))
-const Page403 = React.lazy(() => import('./views/pages/Errors/Page403'))
-const Page404 = React.lazy(() => import('./views/pages/Errors/Page404'))
-const Page405 = React.lazy(() => import('./views/pages/Errors/Page405'))
-const Page500 = React.lazy(() => import('./views/pages/Errors/Page500'))
+const NotFoundRedirect = React.lazy(
+  () => import('./components/guards/NotFoundRedirect'),
+)
+
+const Login = React.lazy(
+  () => import('./views/pages/login/Login'),
+)
+
+const Page405 = React.lazy(
+  () => import('./views/pages/Errors/Page405'),
+)
+
+const Page500 = React.lazy(
+  () => import('./views/pages/Errors/Page500'),
+)
+
+// Limpiar URL
+const UrlSanitizer = () => {
+  const location = useLocation()
+
+  useEffect(() => {
+    if (
+      typeof window !== 'undefined' &&
+      window.location.pathname &&
+      window.location.pathname !== '/' &&
+      window.location.pathname !== '/index.html'
+    ) {
+      window.history.replaceState(
+        null,
+        '',
+        `/${window.location.hash || '#/'}`,
+      )
+    }
+  }, [location])
+
+  return null
+}
+
+// ============================================
+// SINCRONIZADOR AUTOMÁTICO DE PERMISOS
+// ============================================
+
+const SincronizadorPermisos = () => {
+  const location = useLocation()
+
+  const isAuthenticated = useSelector(
+    (state: RootState) => state.auth.isAuthenticated,
+  )
+
+  const { recargarPermisos } = usePermissions()
+
+  // Al navegar a cualquier ruta, consultar mis-permisos de inmediato sin intervalos
+  useEffect(() => {
+    if (!isAuthenticated) return
+    if (location.pathname === '/login') return
+
+    void recargarPermisos(true)
+  }, [location.pathname, isAuthenticated, recargarPermisos])
+
+  return null
+}
+
+// ============================================
+// COMPONENTE PRINCIPAL
+// ============================================
 
 const App = () => {
   const { isColorModeSet, setColorMode } = useColorModes(
     'coreui-pro-react-admin-template-theme-default',
   )
-  const storedTheme = useSelector((state: RootState) => state.ui.theme)
+
+  const storedTheme = useSelector(
+    (state: RootState) => state.ui.theme,
+  )
 
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.href.split('?')[1])
+    const urlParams = new URLSearchParams(
+      window.location.href.split('?')[1],
+    )
+
     let theme = urlParams.get('theme')
 
-    if (theme !== null && theme.match(/^[A-Za-z0-9\s]+/)) {
+    if (
+      theme !== null &&
+      theme.match(/^[A-Za-z0-9\s]+/)
+    ) {
       theme = theme.match(/^[A-Za-z0-9\s]+/)![0]
     }
 
@@ -48,42 +134,65 @@ const App = () => {
 
   return (
     <HashRouter>
-    <PermissionsProvider>
-      <Suspense
-        fallback={
-          <div className="pt-3 text-center">
-            <CSpinner color="primary" variant="grow" />
-          </div>
-        }
-      >
-        <Routes>
-          {/* Public routes wrapped with PublicRoute (redirects to dashboard if logged in) */}
-          <Route
-            path="/login"
-            element={
-              <PublicRoute>
-                <Login />
-              </PublicRoute>
-            }
-          />
+      <UrlSanitizer />
 
-          {/* Status & Error Pages (Sin DefaultLayout) */}
-          <Route path="/403" element={<Page403 />} />
-          <Route path="/404" element={<Page404 />} />
-          <Route path="/405" element={<Page405 />} />
-          <Route path="/500" element={<Page500 />} />
+      <PermissionsProvider>
+        {/* Actualización automática de permisos */}
+        <SincronizadorPermisos />
 
-          {/* Main Protected Layout */}
-          <Route
-            path="/*"
-            element={
-              <ProtectedRoute>
-                <DefaultLayout />
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
-      </Suspense>
+        <Suspense
+          fallback={
+            <div className="pt-3 text-center">
+              <CSpinner
+                color="primary"
+                variant="grow"
+              />
+            </div>
+          }
+        >
+          <Routes>
+            {/* Login */}
+            <Route
+              path="/login"
+              element={
+                <PublicRoute>
+                  <Login />
+                </PublicRoute>
+              }
+            />
+
+            {/* Status & Error Pages */}
+            <Route
+              path="/403"
+              element={<NotFoundRedirect />}
+            />
+
+            <Route
+              path="/404"
+              element={<NotFoundRedirect />}
+            />
+
+            <Route
+              path="/405"
+              element={<Page405 />}
+            />
+
+            <Route
+              path="/500"
+              element={<Page500 />}
+            />
+
+            {/* Main Protected Layout */}
+            <Route
+              path="/*"
+              element={
+                <ProtectedRoute>
+                  <DefaultLayout />
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+        </Suspense>
       </PermissionsProvider>
     </HashRouter>
   )

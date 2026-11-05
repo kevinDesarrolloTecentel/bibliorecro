@@ -51,8 +51,8 @@ const _nav: NavItem[] = [
       },
       {
         component: CNavItem,
-        name: 'Roles y Permisos',
-        to: '/administracion/roles',
+        name: 'Permisos y Roles',
+        to: '/administracion/permisosyroles',
       },
     ],
   },
@@ -90,18 +90,18 @@ const _nav: NavItem[] = [
     items: [
       {
         component: CNavItem,
-        name: 'Libros Inventario',
+        name: 'Inventario',
         to: '/biblioteca/inventario',
       },
       {
         component: CNavItem,
-        name: 'Libros en Prestamos',
+        name: 'Préstamos y Devolucion',
         to: '/biblioteca/prestamos',
       },
       {
         component: CNavItem,
-        name: 'Libros por Devolver',
-        to: '/biblioteca/devoluciones',
+        name: 'Sancionados',
+        to: '/biblioteca/sancionados',
       },
       {
         component: CNavGroup,
@@ -111,28 +111,28 @@ const _nav: NavItem[] = [
         items: [
           {
             component: CNavItem,
-            name: 'Libro Categoría',
-            to: '/libro/categoria',
+            name: 'Categorías',
+            to: '/libro/categorias',
           },
           {
             component: CNavItem,
-            name: 'Libro Editorial',
-            to: '/libro/editorial',
+            name: 'Editoriales',
+            to: '/libro/editoriales',
           },
           {
             component: CNavItem,
-            name: 'Libro Proveedor',
-            to: '/libro/proveedor',
+            name: 'Proveedores',
+            to: '/libro/proveedores',
           },
           {
             component: CNavItem,
-            name: 'Libro Autor',
-            to: '/libro/autor',
+            name: 'Autores',
+            to: '/libro/autores',
           },
           {
             component: CNavItem,
-            name: 'Libro Género',
-            to: '/libro/genero',
+            name: 'Géneros',
+            to: '/libro/generos',
           },
         ],
       },
@@ -150,8 +150,8 @@ const _nav: NavItem[] = [
     items: [
       {
         component: CNavItem,
-        name: 'Reporte de Usuario',
-        to: '/reportes/usuario',
+        name: 'Reporte de Usuarios',
+        to: '/reportes/usuarios',
       },
       {
         component: CNavItem,
@@ -166,7 +166,7 @@ const _nav: NavItem[] = [
       {
         component: CNavItem,
         name: 'Reporte de Tejuelos',
-        to: '/reportes/tejuelo',
+        to: '/reportes/tejuelos',
       },
     ],
   },

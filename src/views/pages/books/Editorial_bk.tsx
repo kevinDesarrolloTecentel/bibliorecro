@@ -1,6 +1,5 @@
 import ModalEditorial from '@/components/details_bk/editorial'
 import { useEditorial } from '@/hooks/rco-libros/useEditorial'
-import { usePermissions } from '@/context/PermissionsContext'
 import {
   cilDescription,
   cilFile,
@@ -9,6 +8,7 @@ import {
   cilPenNib,
   cilPlus,
   cilSearch,
+  cilSync,
   cilTrash,
   cilX,
 } from '@coreui/icons'
@@ -32,6 +32,7 @@ const Editorial = () => {
   const editoHook = useEditorial()
   const {
     handleOpen,
+    handleRecargar,
     busquedaEditorial,
     setBusquedaEditorial,
     loadingEditorial,
@@ -45,11 +46,15 @@ const Editorial = () => {
     totalEditoriales,
     totalFiltrados,
     handlePageChange,
+    canCrearEditorial,
+    canEditarEditorial,
+    canEliminarEditorial,
+    canVerInfoEditorial,
   } = editoHook
 
-  const { canDoAction } = usePermissions()
-
   const handleToggleSelect = (edi: any) => {
+    if (!canVerInfoEditorial) return
+
     const currentId = String(editorialSeleccionado?.ID_EDITORIAL ?? editorialSeleccionado?.id ?? '')
 
     const targetId = String(edi?.ID_EDITORIAL ?? edi?.id ?? '')
@@ -71,17 +76,30 @@ const Editorial = () => {
           </h4>
           <p className="text-muted small mb-0">Gestiona el Catálogo de las Editoriales</p>
         </div>
-        <div>
-          {canDoAction('btn_crear_editorial') && (
+        <div className="d-flex align-items-center gap-2">
           <CButton
-            color="success"
+            color="secondary"
             variant="outline"
-            className="d-flex align-items-center gap-2 shadow-sm hover:text-white"
-            onClick={() => handleOpen()}
+            size="sm"
+            disabled={loadingEditorial}
+            className="d-flex align-items-center gap-1 shadow-sm"
+            onClick={() => handleRecargar()}
+            title="Refrescar lista y reiniciar filtros"
           >
-            <CIcon icon={cilPlus} />
-            <span>Nueva Editorial</span>
+            <CIcon icon={cilSync} className={`me-1 ${loadingEditorial ? 'rotate-animation' : ''}`} />
+            <span>{loadingEditorial ? 'Refrescando...' : 'Refrescar'}</span>
           </CButton>
+          {canCrearEditorial && (
+            <CButton
+              color="success"
+              variant="outline"
+              size="sm"
+              className="d-flex align-items-center gap-2 shadow-sm hover:text-white"
+              onClick={() => handleOpen()}
+            >
+              <CIcon icon={cilPlus} />
+              <span>Nueva Editorial</span>
+            </CButton>
           )}
         </div>
       </div>
@@ -158,15 +176,15 @@ const Editorial = () => {
                               : 'bg-body'
                             }`}
                           style={{
-                            cursor: 'pointer',
+                            cursor: canVerInfoEditorial ? 'pointer' : 'default',
                             borderColor: isSelected ? '#0d6efd' : '#dee2e6',
                             transition: 'all 0.2s ease',
                           }}
                           onMouseEnter={(e) => {
-                            if (!isSelected) e.currentTarget.style.borderColor = '#0d6efd'
+                            if (canVerInfoEditorial && !isSelected) e.currentTarget.style.borderColor = '#0d6efd'
                           }}
                           onMouseLeave={(e) => {
-                            if (!isSelected) e.currentTarget.style.borderColor = '#dee2e6'
+                            if (canVerInfoEditorial && !isSelected) e.currentTarget.style.borderColor = '#dee2e6'
                           }}
                         >
                           <div className="d-flex align-items-center gap-3">
@@ -217,21 +235,47 @@ const Editorial = () => {
                 <CIcon icon={cilInfo} size="lg" style={{ color: '#36BBA7' }} />
                 <span>Detalle de la Editorial</span>
               </div>
-              {editorialSeleccionado && (
+              <div className="d-flex align-items-center gap-1">
                 <CButton
                   color="secondary"
                   variant="ghost"
                   size="sm"
-                  className="py-0 px-2 text-muted"
-                  onClick={() => setEditorialSeleccionado(null)}
-                  title="Deseleccionar editorial"
+                  disabled={loadingEditorial}
+                  className="p-1 text-muted"
+                  onClick={() => handleRecargar()}
+                  title="Refrescar y limpiar selección"
                 >
-                  <span className="small">Deseleccionar ✕</span>
+                  <CIcon icon={cilSync} className={loadingEditorial ? 'rotate-animation' : ''} />
                 </CButton>
-              )}
+                {editorialSeleccionado && (
+                  <CButton
+                    color="secondary"
+                    variant="ghost"
+                    size="sm"
+                    className="p-1 text-muted"
+                    onClick={() => setEditorialSeleccionado(null)}
+                    title="Cerrar detalle"
+                  >
+                    <CIcon icon={cilX} />
+                  </CButton>
+                )}
+              </div>
             </CCardHeader>
             <CCardBody className="p-4 d-flex flex-column justify-content-between">
-              {editorialSeleccionado ? (
+              {!canVerInfoEditorial ? (
+                <div className="text-center py-5 my-auto text-muted">
+                  <div
+                    className="bg-body rounded-circle p-4 d-inline-flex align-items-center justify-content-center mb-3"
+                    style={{ width: '80px', height: '80px' }}
+                  >
+                    <CIcon icon={cilDescription} size="xxl" className="text-danger opacity-50" />
+                  </div>
+                  <h6 className="fw-bold text-body mb-1">Información no disponible</h6>
+                  <p className="small text-muted mb-0 px-3">
+                    No cuentas con los permisos necesarios para visualizar la información y las acciones de esta editorial.
+                  </p>
+                </div>
+              ) : editorialSeleccionado ? (
                 <div>
                   <div className="d-flex align-items-center gap-2 mb-3 text-success">
                     <CIcon icon={cilPenNib} size="lg" />
@@ -261,27 +305,29 @@ const Editorial = () => {
                     </div>
                   </div>
                   <div className="d-flex gap-2 justify-content-end">
-                    {canDoAction('btn_eliminar_editorial') && (
-                    <CButton
-                      color="danger"
-                      variant="outline"
-                      className="hover:text-white d-flex align-items-center gap-2 shadow-sm"
-                      onClick={() => handleEliminarEditorial(editorialSeleccionado)}
-                    >
-                      <CIcon icon={cilTrash} />
-                      <span>Eliminar</span>
-                    </CButton>
+                    {canEliminarEditorial && (
+                      <CButton
+                        color="danger"
+                        size="sm"
+                        variant="outline"
+                        className="hover:text-white d-flex align-items-center gap-2 shadow-sm"
+                        onClick={() => handleEliminarEditorial(editorialSeleccionado)}
+                      >
+                        <CIcon icon={cilTrash} />
+                        <span>Eliminar</span>
+                      </CButton>
                     )}
-                    {canDoAction('btn_editar_editorial') && (
-                    <CButton
-                      color="success"
-                      variant='outline'
-                      className="d-flex align-items-center gap-2 shadow-sm hover:text-white"
-                      onClick={() => handleOpen(editorialSeleccionado)}
-                    >
-                      <CIcon icon={cilPen} />
-                      <span>Editar Editorial</span>
-                    </CButton>
+                    {canEditarEditorial && (
+                      <CButton
+                        color="success"
+                        variant="outline"
+                        size="sm"
+                        className="d-flex align-items-center gap-2 shadow-sm hover:text-white"
+                        onClick={() => handleOpen(editorialSeleccionado)}
+                      >
+                        <CIcon icon={cilPen} />
+                        <span>Editar Editorial</span>
+                      </CButton>
                     )}
                   </div>
                 </div>
@@ -295,18 +341,20 @@ const Editorial = () => {
                   </div>
                   <h6 className="fw-bold text-body mb-1">Ninguna Editorial Seleccionada</h6>
                   <p className="small text-muted mb-4 px-3">
-                    Selecciona una editorial de la lista izquierda para consultar sus detalles o modificarla.
+                    Selecciona una editorial de la lista para consultar sus detalles o modificarla.
                   </p>
-                  <CButton
-                    color="primary"
-                    variant="outline"
-                    size="sm"
-                    className="d-inline-flex align-items-center gap-1"
-                    onClick={() => handleOpen()}
-                  >
-                    <CIcon icon={cilPlus} />
-                    <span>Crear Nueva Editorial</span>
-                  </CButton>
+                  {canCrearEditorial && (
+                    <CButton
+                      color="primary"
+                      variant="outline"
+                      size="sm"
+                      className="d-inline-flex align-items-center gap-1"
+                      onClick={() => handleOpen()}
+                    >
+                      <CIcon icon={cilPlus} />
+                      <span>Crear Nueva Editorial</span>
+                    </CButton>
+                  )}
                 </div>
               )}
             </CCardBody>

@@ -3,13 +3,16 @@ import Swal from 'sweetalert2'
 import { LibroFormData, Libros, initialLibroFormData } from '@/models/rco/libros'
 
 import { useCatalogosLibros } from './useCatalogosLibros'
-import { ActualizarLibro } from '@/Service/rco/libros'
+import { ActualizarLibro, VerLibros } from '@/Service/rco/Libros'
+import { parseDatePickerValue } from '@/utils/dateUtils'
+import { usePermissions } from '@/context/PermissionsContext'
 
 export interface UseLibroEditProps {
   libro: Libros | null
   visible?: boolean
   setVisible?: (visible: boolean) => void
   onSuccess?: () => void
+  canActualizarLibro?: boolean
 }
 
 export const useLibroEdit = ({
@@ -17,7 +20,10 @@ export const useLibroEdit = ({
   visible,
   setVisible,
   onSuccess,
+  canActualizarLibro = true,
 }: UseLibroEditProps) => {
+  const { verificarAccionEnServidor } = usePermissions()
+
   const [internalVisible, setInternalVisible] = useState(false)
   const isVisible = visible !== undefined ? visible : internalVisible
 
@@ -25,32 +31,42 @@ export const useLibroEdit = ({
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<{ [key: string]: string }>({})
 
-  const catalogos = useCatalogosLibros(isVisible)
+  const catalogos = useCatalogosLibros(true)
+
+  const lastFetchedIdRef = React.useRef<string | number | null>(null)
 
   useEffect(() => {
-    if (libro) {
-      let fechaEdicion = ''
-      if (libro.FECHAEDICION_LIBROS) {
-        try {
-          const d = new Date(libro.FECHAEDICION_LIBROS)
-          if (!isNaN(d.getTime())) {
-            fechaEdicion = d.toISOString().split('T')[0]
-          } else {
-            fechaEdicion = String(libro.FECHAEDICION_LIBROS).split('T')[0]
-          }
-        } catch {
-          fechaEdicion = String(libro.FECHAEDICION_LIBROS).split('T')[0]
-        }
-      }
+    if (!isVisible) {
+      lastFetchedIdRef.current = null
+      return
+    }
+
+    if (libro && isVisible) {
+      const fechaOrigen =
+        libro.FECHAEDICION_LIBROS_RAW ||
+        libro.FECHAEDICION_LIBROS ||
+        libro.FechaEdicion ||
+        libro.FECHA_EDICION_FORMAT ||
+        ''
+      const fechaEdicion = parseDatePickerValue(fechaOrigen as any)
+
+      const catId = libro.ID_CATEGORIA || catalogos.categorias.find((c) => c.label === libro.NOMBRE_CATEGORIA)?.value || ''
+      const editId = libro.ID_EDITORIAL || catalogos.editoriales.find((c) => c.label === libro.NOMBRE_EDITORIAL)?.value || ''
+      const provId = libro.ID_PROVEEDOR || catalogos.proveedores.find((c) => c.label === libro.NOMBRE_PROVEEDOR)?.value || ''
+      const genId = libro.ID_RCOGENERO || catalogos.generos.find((c) => c.label === libro.NOMBRE_RCOGENERO)?.value || ''
+      const formId = libro.ID_FORMATOS || catalogos.formatos.find((c) => c.label === libro.NOMBRE_FORMATOS)?.value || ''
+      const tipoId = libro.ID_TIPO || catalogos.tipos.find((c) => c.label === libro.NOMBRE_TIPO)?.value || ''
+      const autorId = libro.ID_AUTOR || catalogos.autores.find((c) => c.label === libro.NOMBRE_AUTOR)?.value || ''
+      const estadoVal = String(libro.ESTADO_LIBROS ?? (String(libro.ESTADO).toLowerCase() === 'inactivo' ? '0' : '1'))
 
       setFormData({
-        ID_CATEGORIA: libro.ID_CATEGORIA ?? '',
-        ID_EDITORIAL: libro.ID_EDITORIAL ?? '',
-        ID_PROVEEDOR: libro.ID_PROVEEDOR ?? '',
-        ID_RCOGENERO: libro.ID_RCOGENERO ?? '',
-        ID_FORMATOS: libro.ID_FORMATOS ?? '',
-        ID_TIPO: libro.ID_TIPO ?? '',
-        ID_AUTOR: libro.ID_AUTOR ?? '',
+        ID_CATEGORIA: catId,
+        ID_EDITORIAL: editId,
+        ID_PROVEEDOR: provId,
+        ID_RCOGENERO: genId,
+        ID_FORMATOS: formId,
+        ID_TIPO: tipoId,
+        ID_AUTOR: autorId,
         ISBN_LIBROS: String(libro.ISBN_LIBROS ?? ''),
         TITULO_LIBROS: String(libro.TITULO_LIBROS ?? ''),
         PRECIO_LIBROS: String(libro.PRECIO_LIBROS ?? ''),
@@ -61,19 +77,73 @@ export const useLibroEdit = ({
         DESCRIPCION_LIBROS: String(libro.DESCRIPCION_LIBROS ?? ''),
         TITULOTEJUELO_LIBROS: String(libro.TITULOTEJUELO_LIBROS ?? ''),
         AUTORTEJUELO_LIBROS: String(libro.AUTORTEJUELO_LIBROS ?? ''),
-        ESTADO_LIBROS: String(libro.ESTADO_LIBROS ?? '1'),
+        ESTADO_LIBROS: estadoVal,
       })
       setErrors({})
+
+      const id = libro.ID_LIBROS ?? libro.id
+      if (id && lastFetchedIdRef.current !== id) {
+        lastFetchedIdRef.current = id
+        VerLibros(id)
+          .then((res: any) => {
+            const data = res?.data || res?.libro || res
+            if (data && typeof data === 'object') {
+              const rawFecha = data.FECHAEDICION_LIBROS || data.fecha_edicion || data.FECHA_EDICION
+              const parsedFecha = rawFecha ? parseDatePickerValue(rawFecha) : null
+              setFormData((prev) => ({
+                ...prev,
+                ID_CATEGORIA: data.ID_CATEGORIA ?? prev.ID_CATEGORIA,
+                ID_EDITORIAL: data.ID_EDITORIAL ?? prev.ID_EDITORIAL,
+                ID_PROVEEDOR: data.ID_PROVEEDOR ?? prev.ID_PROVEEDOR,
+                ID_RCOGENERO: data.ID_RCOGENERO ?? prev.ID_RCOGENERO,
+                ID_FORMATOS: data.ID_FORMATOS ?? prev.ID_FORMATOS,
+                ID_TIPO: data.ID_TIPO ?? prev.ID_TIPO,
+                ID_AUTOR: data.ID_AUTOR ?? prev.ID_AUTOR,
+                ISBN_LIBROS: String(data.ISBN_LIBROS ?? prev.ISBN_LIBROS),
+                TITULO_LIBROS: String(data.TITULO_LIBROS ?? prev.TITULO_LIBROS),
+                PRECIO_LIBROS: String(data.PRECIO_LIBROS ?? prev.PRECIO_LIBROS),
+                CODIGODEBARRAS_LIBROS: String(data.CODIGODEBARRAS_LIBROS ?? prev.CODIGODEBARRAS_LIBROS),
+                VOLUMEN_LIBROS: String(data.VOLUMEN_LIBROS ?? prev.VOLUMEN_LIBROS),
+                FECHAEDICION_LIBROS: parsedFecha || prev.FECHAEDICION_LIBROS,
+                PAIS_LIBROS: String(data.PAIS_LIBROS ?? prev.PAIS_LIBROS),
+                DESCRIPCION_LIBROS: String(data.DESCRIPCION_LIBROS ?? prev.DESCRIPCION_LIBROS),
+                TITULOTEJUELO_LIBROS: String(data.TITULOTEJUELO_LIBROS ?? prev.TITULOTEJUELO_LIBROS),
+                AUTORTEJUELO_LIBROS: String(data.AUTORTEJUELO_LIBROS ?? prev.AUTORTEJUELO_LIBROS),
+                ESTADO_LIBROS: String(data.ESTADO_LIBROS ?? prev.ESTADO_LIBROS),
+              }))
+            }
+          })
+          .catch((err) => {
+            console.warn('VerLibros falló al precargar datos exactos del libro:', err)
+          })
+      }
     }
-  }, [libro])
+  }, [libro, isVisible])
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
   ) => {
     const { name, value } = e.target
+    let sanitizedValue = value
+
+    if (name === 'TITULOTEJUELO_LIBROS') {
+      sanitizedValue = value.slice(0, 10)
+    } else if (name === 'AUTORTEJUELO_LIBROS') {
+      sanitizedValue = value.slice(0, 3).toUpperCase()
+    } else if (name === 'PRECIO_LIBROS') {
+      sanitizedValue = value.replace(/[^0-9.]/g, '')
+      const parts = sanitizedValue.split('.')
+      if (parts.length > 2) {
+        sanitizedValue = `${parts[0]}.${parts.slice(1).join('')}`
+      }
+      if (parts.length === 2 && parts[1].length > 2) {
+        sanitizedValue = `${parts[0]}.${parts[1].slice(0, 2)}`
+      }
+    }
+
     setFormData((prev) => ({
       ...prev,
-      [name]: value,
+      [name]: sanitizedValue,
     }))
 
     if (errors[name]) {
@@ -121,10 +191,6 @@ export const useLibroEdit = ({
       newErrors.FECHAEDICION_LIBROS = 'La fecha de edición es obligatoria'
       camposFaltantes.push('Fecha de Edición')
     }
-    if (formData.ESTADO_LIBROS === '' || formData.ESTADO_LIBROS === undefined) {
-      newErrors.ESTADO_LIBROS = 'Seleccione el estado'
-      camposFaltantes.push('Estado')
-    }
     if (!formData.ID_CATEGORIA) {
       newErrors.ID_CATEGORIA = 'Seleccione una categoría'
       camposFaltantes.push('Categoría')
@@ -153,15 +219,53 @@ export const useLibroEdit = ({
       newErrors.ID_TIPO = 'Seleccione un tipo'
       camposFaltantes.push('Tipo')
     }
+    if (!formData.ISBN_LIBROS || !formData.ISBN_LIBROS.trim()) {
+      newErrors.ISBN_LIBROS = 'El ISBN es obligatorio (o marque S/N)'
+      camposFaltantes.push('ISBN')
+    }
+    if (!formData.VOLUMEN_LIBROS || !formData.VOLUMEN_LIBROS.trim()) {
+      newErrors.VOLUMEN_LIBROS = 'El volumen es obligatorio'
+      camposFaltantes.push('Volumen')
+    }
+    if (!formData.PAIS_LIBROS || !formData.PAIS_LIBROS.trim()) {
+      newErrors.PAIS_LIBROS = 'Seleccione o ingrese un país'
+      camposFaltantes.push('País')
+    }
+    if (!formData.CODIGODEBARRAS_LIBROS || !formData.CODIGODEBARRAS_LIBROS.trim()) {
+      newErrors.CODIGODEBARRAS_LIBROS = 'El código de barras es obligatorio (o marque S/N)'
+      camposFaltantes.push('Código de Barras')
+    }
+    if (!formData.PRECIO_LIBROS || !String(formData.PRECIO_LIBROS).trim()) {
+      newErrors.PRECIO_LIBROS = 'El precio es obligatorio'
+      camposFaltantes.push('Precio')
+    } else if (!/^\d+(\.\d{1,2})?$/.test(String(formData.PRECIO_LIBROS))) {
+      newErrors.PRECIO_LIBROS = 'El precio debe contener solo números y hasta 2 decimales'
+      camposFaltantes.push('Precio válido')
+    }
+    if (!formData.TITULOTEJUELO_LIBROS || !formData.TITULOTEJUELO_LIBROS.trim()) {
+      newErrors.TITULOTEJUELO_LIBROS = 'El título tejuelo es obligatorio'
+      camposFaltantes.push('Título tejuelo')
+    } else if (formData.TITULOTEJUELO_LIBROS.length > 10) {
+      newErrors.TITULOTEJUELO_LIBROS = 'El título tejuelo no debe superar 10 caracteres'
+      camposFaltantes.push('Título tejuelo (máx 10)')
+    }
+    if (!formData.AUTORTEJUELO_LIBROS || !formData.AUTORTEJUELO_LIBROS.trim()) {
+      newErrors.AUTORTEJUELO_LIBROS = 'El autor tejuelo es obligatorio'
+      camposFaltantes.push('Autor tejuelo')
+    } else if (formData.AUTORTEJUELO_LIBROS.length > 3) {
+      newErrors.AUTORTEJUELO_LIBROS = 'El autor tejuelo no debe superar 3 caracteres'
+      camposFaltantes.push('Autor tejuelo (máx 3)')
+    }
 
     setErrors(newErrors)
 
     if (camposFaltantes.length > 0) {
       Swal.fire({
-        icon: 'error',
-        title: 'Campos requeridos',
-        text: `Por favor, completa los siguientes campos: ${camposFaltantes.join(', ')}.`,
-        confirmButtonColor: '#044c8c',
+        icon: 'warning',
+        title: 'Campos requeridos o inválidos',
+        text: `Por favor, revisa los siguientes campos: ${camposFaltantes.join(', ')}.`,
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
       })
       return false
     }
@@ -171,6 +275,30 @@ export const useLibroEdit = ({
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
+
+    if (!canActualizarLibro) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Acceso Denegado',
+        text: 'No tienes permisos para actualizar libros.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return
+    }
+
+    const tienePermiso = await verificarAccionEnServidor('btn_actualizar_libro')
+    if (!tienePermiso) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Acceso Denegado',
+        text: 'No tienes permisos para actualizar libros.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return
+    }
+
     if (!libro) return
     const id = libro.ID_LIBROS ?? libro.id
     if (!id) return
@@ -187,12 +315,13 @@ export const useLibroEdit = ({
       payload.append('ID_FORMATOS', String(formData.ID_FORMATOS))
       payload.append('ID_TIPO', String(formData.ID_TIPO))
       payload.append('ID_AUTOR', String(formData.ID_AUTOR))
-      payload.append('ISBN_LIBROS', formData.ISBN_LIBROS || 'S/C')
+      payload.append('ISBN_LIBROS', formData.ISBN_LIBROS || 'S/N')
       payload.append('TITULO_LIBROS', formData.TITULO_LIBROS.trim())
       payload.append('PRECIO_LIBROS', String(formData.PRECIO_LIBROS || '0'))
-      payload.append('CODIGODEBARRAS_LIBROS', formData.CODIGODEBARRAS_LIBROS || 'S/C')
+      payload.append('CODIGODEBARRAS_LIBROS', formData.CODIGODEBARRAS_LIBROS || 'S/N')
       payload.append('VOLUMEN_LIBROS', formData.VOLUMEN_LIBROS || '')
-      payload.append('FECHAEDICION_LIBROS', formData.FECHAEDICION_LIBROS)
+      const fechaNormalizada = parseDatePickerValue(formData.FECHAEDICION_LIBROS)
+      payload.append('FECHAEDICION_LIBROS', fechaNormalizada || formData.FECHAEDICION_LIBROS)
       payload.append('PAIS_LIBROS', formData.PAIS_LIBROS || '')
       payload.append('DESCRIPCION_LIBROS', formData.DESCRIPCION_LIBROS || '')
       payload.append('TITULOTEJUELO_LIBROS', formData.TITULOTEJUELO_LIBROS || '')
@@ -204,9 +333,10 @@ export const useLibroEdit = ({
 
       Swal.fire({
         icon: 'success',
-        title: '¡Éxito!',
-        text: 'Libro actualizado exitosamente.',
-        confirmButtonColor: '#044c8c',
+        title: '¡Libro actualizado!',
+        text: 'El libro fue actualizado exitosamente.',
+        timer: 1800,
+        showConfirmButton: false,
       })
 
       handleClose()
@@ -220,9 +350,10 @@ export const useLibroEdit = ({
         'Ocurrió un error al actualizar el libro. Por favor intenta de nuevo.'
       Swal.fire({
         icon: 'error',
-        title: 'Error',
+        title: 'Error al actualizar',
         text: errorMsg,
-        confirmButtonColor: '#d33',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
       })
     } finally {
       setLoading(false)
@@ -239,6 +370,8 @@ export const useLibroEdit = ({
     handleSelectChange,
     handleClose,
     handleSubmit,
+    canActualizarLibro,
+    verificarAccionEnServidor,
   }
 }
 

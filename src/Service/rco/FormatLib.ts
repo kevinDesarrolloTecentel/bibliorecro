@@ -1,4 +1,4 @@
-import apiClient, { BACKEND_API_BASE } from "@/Service/apiClient";
+import apiClient, { BACKEND_API_BASE } from "@/Service/ApiClient";
 
 const API_BASE_URL_FORMATLIB = `${BACKEND_API_BASE}/v1/formatoLib`;
 

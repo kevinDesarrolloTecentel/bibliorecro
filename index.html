@@ -18,6 +18,14 @@
     <title>BiblioRecreo</title>
     <link rel="manifest" href="/manifest.json">
     <link rel="icon" type="image/png" href="/recreo_logo.png">
+    <script>
+      (function() {
+        if (window.location.pathname && window.location.pathname !== '/' && window.location.pathname !== '/index.html') {
+          var hash = window.location.hash || '#/';
+          window.history.replaceState(null, '', '/' + hash);
+        }
+      })();
+    </script>
   </head>
   <body>
     <noscript>

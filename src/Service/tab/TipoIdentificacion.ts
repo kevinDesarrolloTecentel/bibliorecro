@@ -1,4 +1,4 @@
-import apiClient, { BACKEND_API_BASE } from "../apiClient";
+import apiClient, { BACKEND_API_BASE } from "../ApiClient";
 
 const API_BASE_URL_TIPOIDENTIFICACION = `${BACKEND_API_BASE}/tab-tipoidentificacion`;
 

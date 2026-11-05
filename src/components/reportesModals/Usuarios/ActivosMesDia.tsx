@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useMemo } from 'react'
 import {
   useReporteUsuariosActivosMesDia,
   PersonaReporteItem,
@@ -16,10 +16,8 @@ import {
   CCardBody,
   CCardHeader,
   CCol,
-  CFormInput,
+  CDatePicker,
   CFormLabel,
-  CInputGroup,
-  CInputGroupText,
   CModal,
   CModalBody,
   CModalFooter,
@@ -36,6 +34,8 @@ export interface UsuMDModalProps {
 }
 
 const MesDiaModal: React.FC<UsuMDModalProps> = ({ visible, setVisible }) => {
+  const [tableKey, setTableKey] = useState<number>(0)
+
   const {
     diaRegistro,
     setDiaRegistro,
@@ -50,35 +50,60 @@ const MesDiaModal: React.FC<UsuMDModalProps> = ({ visible, setVisible }) => {
     handleGetActivasMes,
     handleDescargarExcel,
     handleReset,
+    canGenerarUsuariosActivosMesDia,
+    canDescargarUsuariosActivosMesDia,
   } = useReporteUsuariosActivosMesDia()
 
-  const handleClose = () => {
+  const handleFullReset = () => {
     handleReset()
+    setTableKey((prev: number) => prev + 1)
+  }
+
+  const handleClose = () => {
+    handleFullReset()
     setVisible(false)
   }
 
-  const bloquearCaracteresNoNumericos = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (['-', '+', 'e', 'E', '.', ','].includes(e.key)) {
-      e.preventDefault()
+  const currentDate = useMemo(() => {
+    if (anoRegistro && mesRegistro && diaRegistro) {
+      const y = Number(anoRegistro)
+      const m = Number(mesRegistro) - 1
+      const d = Number(diaRegistro)
+      if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+        return new Date(y, m, d, 12, 0, 0)
+      }
     }
-  }
-    
+    return null
+  }, [anoRegistro, mesRegistro, diaRegistro])
+
+  const tableItems = useMemo(() => {
+    return usuarios.map((item: PersonaReporteItem) => ({
+      ...item,
+      cedula: item.IDENTIFICACION_PERSONA || '',
+      nombre: item.NOMBRE_PERSONA || '',
+      apellido: item.APELLIDO_PERSONA || '',
+      fechaNacimiento: item.FECHA_PERSONA
+        ? new Date(item.FECHA_PERSONA).toLocaleDateString()
+        : '-',
+      correo: item.CORREO_PERSONA || '',
+    }))
+  }, [usuarios])
 
   const columns = [
     {
       key: 'cedula',
       label: 'Cédula',
-      _style: { width: '10%' },
+      _style: { width: '18%' },
     },
     {
       key: 'nombre',
       label: 'Nombre',
-      _style: { width: '18%' },
+      _style: { width: '22%' },
     },
     {
       key: 'apellido',
       label: 'Apellido',
-      _style: { width: '18%' },
+      _style: { width: '22%' },
     },
     {
       key: 'fechaNacimiento',
@@ -87,7 +112,7 @@ const MesDiaModal: React.FC<UsuMDModalProps> = ({ visible, setVisible }) => {
     },
     {
       key: 'correo',
-      label: 'Correo',
+      label: 'Correo Electrónico',
       _style: { width: '20%' },
     },
   ]
@@ -108,93 +133,109 @@ const MesDiaModal: React.FC<UsuMDModalProps> = ({ visible, setVisible }) => {
       <CModalBody>
         <CCard className="mb-3 border-0 bg-body shadow-sm">
           <CCardBody className="p-3">
-            <div className="fw-semibold text-body mb-2">
-              Seleccione la Fecha Requerida
+            <div className="fw-semibold text-body mb-2 small text-uppercase">
+              Filtros de Búsqueda
             </div>
             <CRow className="g-3 align-items-end">
-              <CCol xs={12} sm={4} md={3}>
-                <CFormLabel className="fw-semibold mb-1">Día</CFormLabel>
-                <CInputGroup size="sm">
-                  <CInputGroupText>Día</CInputGroupText>
-                  <CFormInput
-                    type="number"
-                    min={1}
-                    max={31}
-                    placeholder="1-31"
-                    value={diaRegistro}
-                    onKeyDown={bloquearCaracteresNoNumericos}
-                    onChange={(e) => setDiaRegistro(e.target.value.replace(/\D/g, '').slice(0,2))}
-                    onBlur={() => {
-                      if (diaRegistro && Number(diaRegistro) > 31) 
-                        setDiaRegistro('31')
-                      if (diaRegistro && Number(diaRegistro)< 1)
-                        setDiaRegistro('1')
-                    }}
-                  />
-                </CInputGroup>
-              </CCol>
-
-              <CCol xs={12} sm={4} md={3}>
-                <CFormLabel className="fw-semibold mb-1">Mes</CFormLabel>
-                <CInputGroup size="sm">
-                  <CInputGroupText>Mes</CInputGroupText>
-                  <CFormInput
-                    type="number"
-                    min={1}
-                    max={12}
-                    placeholder="1-12"
-                    value={mesRegistro}
-                    onKeyDown={bloquearCaracteresNoNumericos}
-                    onChange={(e) => setMesRegistro(e.target.value.replace(/\D/g, '').slice(0, 2))}
-                    onBlur={() => {
-                      if (mesRegistro && Number(mesRegistro) > 12) setMesRegistro('12')
-                      if (mesRegistro && Number(mesRegistro) < 1) setMesRegistro('1')
-                    }}
-                  />
-                </CInputGroup>
-              </CCol>
-
-              <CCol xs={12} sm={4} md={3}>
-                <CFormLabel className="fw-semibold mb-1">Año</CFormLabel>
-                <CInputGroup size="sm">
-                  <CInputGroupText>Año</CInputGroupText>
-                  <CFormInput
-                    type="number"
-                    placeholder="Ej. 2024"
-                    value={anoRegistro}
-                    onKeyDown={bloquearCaracteresNoNumericos}
-                    onChange={(e) => setAnoRegistro(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                  />
-                </CInputGroup>
-              </CCol>
-
-              <CCol xs={12} sm={12} md={3} className="d-flex gap-2">
-                <CButton
-                  color="primary"
-                  variant='outline'
+              <CCol xs={12} sm={8} md={6}>
+                <CFormLabel className="small fw-semibold mb-1">Fecha Requerida</CFormLabel>
+                <CDatePicker
+                  key={tableKey}
                   size="sm"
-                  className="w-100 d-flex align-items-center justify-content-center"
-                  onClick={handleGetActivasMes}
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <>
-                      <CSpinner size="sm" className="me-1" />
-                      <span>Cargando...</span>
-                    </>
-                  ) : (
-                    <>
-                      <CIcon icon={cilSave} className="me-1" />
-                      <span>Generar</span>
-                    </>
-                  )}
-                </CButton>
+                  locale="es-ES"
+                  placeholder="Seleccione la fecha"
+                  cleaner
+                  inputReadOnly
+                  inputDateFormat={(date: Date) => {
+                    if (!date || isNaN(date.getTime())) return ''
+                    const d = date.getHours() >= 18 ? new Date(date.getTime() + 6 * 3600 * 1000) : date
+                    const day = String(d.getDate()).padStart(2, '0')
+                    const month = String(d.getMonth() + 1).padStart(2, '0')
+                    const year = d.getFullYear()
+                    return `${day}/${month}/${year}`
+                  }}
+                  inputDateParse={(val: string | Date) => {
+                    if (val instanceof Date) return val
+                    if (typeof val === 'string') {
+                      const match = val.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})/)
+                      if (match) {
+                        return new Date(Number(match[3]), Number(match[2]) - 1, Number(match[1]), 12, 0, 0)
+                      }
+                    }
+                    return new Date(val)
+                  }}
+                  date={currentDate}
+                  onDateChange={(val: any, formatted?: string) => {
+                    if (!val) {
+                      setDiaRegistro('')
+                      setMesRegistro('')
+                      setAnoRegistro('')
+                      return
+                    }
+                    if (typeof val === 'string') {
+                      const match = val.match(/^(\d{4})-(\d{2})-(\d{2})/)
+                      if (match) {
+                        setAnoRegistro(String(Number(match[1])))
+                        setMesRegistro(String(Number(match[2])))
+                        setDiaRegistro(String(Number(match[3])))
+                        return
+                      }
+                    }
+                    if (val instanceof Date && !isNaN(val.getTime())) {
+                      const d = val.getHours() >= 18 ? new Date(val.getTime() + 6 * 3600 * 1000) : val
+                      setAnoRegistro(String(d.getFullYear()))
+                      setMesRegistro(String(d.getMonth() + 1))
+                      setDiaRegistro(String(d.getDate()))
+                      return
+                    }
+                    if (formatted) {
+                      const match = formatted.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})/)
+                      if (match) {
+                        setDiaRegistro(String(Number(match[1])))
+                        setMesRegistro(String(Number(match[2])))
+                        setAnoRegistro(match[3])
+                      }
+                    }
+                  }}
+                />
+              </CCol>
+
+              <CCol xs={12} sm={4} md={6} className="d-flex gap-2">
+                {canGenerarUsuariosActivosMesDia && (
+                  <CButton
+                    color="primary"
+                    variant="outline"
+                    size="sm"
+                    className="w-100 d-flex align-items-center justify-content-center"
+                    onClick={() => {
+                      setTableKey((prev) => prev + 1)
+                      handleGetActivasMes()
+                    }}
+                    disabled={
+                      isLoading ||
+                      !diaRegistro ||
+                      !mesRegistro ||
+                      !anoRegistro
+                    }                  >
+                    {isLoading ? (
+                      <>
+                        <CSpinner size="sm" className="me-1" />
+                        <span>Cargando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CIcon icon={cilSave} className="me-1" />
+                        <span>Generar</span>
+                      </>
+                    )}
+                  </CButton>
+                )}
                 <CButton
                   color="secondary"
                   variant="outline"
                   size="sm"
                   title="Limpiar filtros"
-                  onClick={handleReset}
+                  onClick={handleFullReset}
                   disabled={isLoading}
                 >
                   <CIcon icon={cilSync} />
@@ -215,49 +256,51 @@ const MesDiaModal: React.FC<UsuMDModalProps> = ({ visible, setVisible }) => {
           </CCardHeader>
           <CCardBody className="p-0">
             <CSmartTable
+              key={tableKey}
               activePage={1}
               columns={columns}
               columnSorter
-              items={usuarios}
+              tableFilter={haBuscado && !isLoading && usuarios.length > 0}
+              tableFilterLabel="Buscar:"
+              tableFilterPlaceholder="Buscar en la tabla..."
+              cleaner
+              items={tableItems}
               itemsPerPage={60}
+              pagination
               noItemsLabel={
-              haBuscado
-              ? 'No se encontraron usuarios activos para la fecha seleccionada'
-              :'Inserte un día, mes y año para generar el reporte'
-            }
+                haBuscado
+                  ? 'No se encontraron usuarios activos para la fecha seleccionada'
+                  : 'Seleccione una fecha y haga clic en Generar para ver el reporte'
+              }
               scopedColumns={{
-                cedula: (item: PersonaReporteItem) => (
+                cedula: (item: any) => (
                   <td>
                     <span className="font-monospace small text-muted badge bg-body border">
-                      {item.IDENTIFICACION_PERSONA}
+                      {item.cedula}
                     </span>
                   </td>
                 ),
-                nombre: (item: PersonaReporteItem) => (
+                nombre: (item: any) => (
                   <td>
-                    <span className='font-monospace small'>
-                      {item.NOMBRE_PERSONA}
+                    <span className="font-monospace small">{item.nombre}</span>
+                  </td>
+                ),
+                apellido: (item: any) => (
+                  <td>
+                    <span className="font-monospace small">{item.apellido}</span>
+                  </td>
+                ),
+                fechaNacimiento: (item: any) => (
+                  <td>
+                    <span className="font-monospace text-primary small badge bg-body border">
+                      {item.fechaNacimiento}
                     </span>
                   </td>
                 ),
-                apellido: (item: PersonaReporteItem) => (
+                correo: (item: any) => (
                   <td>
-                    <span className='font-monospace small'>{item.APELLIDO_PERSONA}</span>
-                  </td>
-                ),
-                fechaNacimiento: (item: PersonaReporteItem) => (
-                  <td>
-                    <span className='font-monospace text-primary small badge bg-body border'>
-                      {item.FECHA_PERSONA
-                        ? new Date(item.FECHA_PERSONA).toLocaleDateString()
-                        : '-'}
-                    </span>
-                  </td>
-                ),
-                correo: (item: PersonaReporteItem) => (
-                  <td>
-                    <span className='font-monospace small bagde bg-body border rounded-pill py-1 px-2 '>
-                      {item.CORREO_PERSONA}
+                    <span className="font-monospace small badge bg-body border text-muted rounded-pill py-1 px-2">
+                      {item.correo || item.CORREO_PERSONA || '-'}
                     </span>
                   </td>
                 ),
@@ -280,21 +323,30 @@ const MesDiaModal: React.FC<UsuMDModalProps> = ({ visible, setVisible }) => {
           Mostrando <strong>{usuarios.length}</strong> registro(s)
         </div>
         <div className="d-flex gap-2">
-          <CButton color="danger" variant="outline" className='hover:text-white' onClick={handleClose}>
+          <CButton size="sm" color="danger" variant="outline" className="hover:text-white shadow-sm" onClick={handleClose}>
             <CIcon icon={cilExitToApp} className="me-1" />
             Cerrar
           </CButton>
-          {excelLink && (
+
+          {canDescargarUsuariosActivosMesDia && (
             <CButton
               color="success"
+              size="sm"
               variant="outline"
-              className='hover:text-white'
+              className="hover:text-white shadow-sm"
               onClick={handleDescargarExcel}
+              disabled={
+                isLoading ||
+                !haBuscado ||
+                usuarios.length === 0 ||
+                !excelLink
+              }
             >
               <CIcon icon={cilCloudDownload} className="me-1" />
               Descargar Excel
             </CButton>
           )}
+
         </div>
       </CModalFooter>
     </CModal>

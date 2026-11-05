@@ -2,36 +2,24 @@ import { useState, useCallback, useEffect } from 'react'
 import Swal from 'sweetalert2'
 import { ListarPersonaReport } from '@/Service/tab/Persona'
 import { ListarGenero } from '@/Service/tab/Genero'
-import { STORAGE_BASE_URL } from '@/utils/imageUtils'
+import { STORAGE_BASE_URL, descargarArchivo } from '@/utils/imageUtils'
+import { usePermissions } from '@/context/PermissionsContext'
 
-export { STORAGE_BASE_URL }
+export { STORAGE_BASE_URL, descargarArchivo }
 
-export interface PersonaReporteItem {
-  ID_PERSONA?: number | string
-  IDENTIFICACION_PERSONA?: string
-  NOMBRE_PERSONA?: string
-  APELLIDO_PERSONA?: string
-  FECHA_PERSONA?: string
-  EDAD_PERSONA?: number
-  CORREO_PERSONA?: string
-  ESTADOINSCRIPCION_PERSONA?: number
-  TELEFONO_PERSONA?: string
-  TIPO_PERSONA?: string
-  ESTADO_RENOVACIONES?: number
-  cantidad_prestamos?: number
-  [key: string]: any
-}
+import { PersonaReporteItem, GeneroOption } from '@/models/reportes/usuarios'
 
-export interface GeneroOption {
-  label: string
-  value: number | string
-}
+export type { PersonaReporteItem, GeneroOption }
 
 export const useReporteUsuariosEdadGenero = () => {
+  const { canDoAction, verificarAccionEnServidor } = usePermissions()
+  const canGenerarUsuariosInscritos = canDoAction('btn_generar_usuarios_inscritos')
+  const canDescargarUsuariosInscritos = canDoAction('btn_descargar_usuarios_inscritos')
+
   const [generos, setGeneros] = useState<GeneroOption[]>([])
   const [generoId, setGeneroId] = useState<string>('')
-  const [edadDesde, setEdadDesde] = useState<string>('')
-  const [edadHasta, setEdadHasta] = useState<string>('')
+  const [edadDesde, setEdadDesde] = useState<string>('1')
+  const [edadHasta, setEdadHasta] = useState<string>('100')
   const [usuarios, setUsuarios] = useState<PersonaReporteItem[]>([])
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [excelLink, setExcelLink] = useState<string | null>(null)
@@ -55,35 +43,54 @@ export const useReporteUsuariosEdadGenero = () => {
   }, [])
 
   const handleGet = useCallback(async () => {
-    if (!edadDesde || !edadHasta) {
-      Swal.mixin({
-        toast: true,
-        position: 'top-end',
-        timer: 2500,
-        timerProgressBar: false,
-        showConfirmButton: false,
-      }).fire({
+    if (!canGenerarUsuariosInscritos) {
+      Swal.fire({
         icon: 'error',
-        title: 'Por favor, ingrese todos los valores requeridos.',
+        title: 'Acceso Denegado',
+        text: 'No tienes permisos para generar este reporte.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
       })
       return
     }
 
-    if (Number(edadDesde) > Number(edadHasta)){
-      Swal.mixin({
-        toast: true,
-        position: 'top-end',
-        timer: 3000,
-        timerProgressBar: false,
-        showConfirmButton: false,
-      }).fire({
+    if (edadDesde === '' || edadHasta === '' || edadDesde === undefined || edadHasta === undefined) {
+      Swal.fire({
         icon: 'warning',
-        title: 'La edad mínima no puede ser mayor que la edad máxima'
+        title: 'Campos requeridos',
+        text: 'Por favor, ingrese el rango de edad para consultar el reporte.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
       })
       return
     }
 
     setIsLoading(true)
+
+    const tienePermiso = await verificarAccionEnServidor('btn_generar_usuarios_inscritos')
+    if (!tienePermiso) {
+      setIsLoading(false)
+      Swal.fire({
+        icon: 'error',
+        title: 'Acceso Denegado',
+        text: 'No tienes permisos para generar este reporte.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return
+    }
+
+    if (Number(edadDesde) > Number(edadHasta)){
+      Swal.fire({
+        icon: 'warning',
+        title: 'Rango de edad inválido',
+        text: 'La edad mínima no puede ser mayor que la edad máxima.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return
+    }
+
     setHaBuscado(true)
     setUsuarios([])
     setExcelLink(null)
@@ -103,8 +110,10 @@ export const useReporteUsuariosEdadGenero = () => {
         .filter((item: PersonaReporteItem) => item.ESTADOINSCRIPCION_PERSONA !== 1)
         .sort((a: PersonaReporteItem, b: PersonaReporteItem) => (a.EDAD_PERSONA || 0) - (b.EDAD_PERSONA || 0))
 
+      let rutaExcel: string | null = data?.excel?.nombre || data?.excel_path || null
+
       setUsuarios(personasFiltradas)
-      setExcelLink(data?.excel_path || null)
+      setExcelLink(rutaExcel)
 
       if (personasFiltradas.length === 0) {
         const generoSeleccionado = generos.find((g) => String(g.value) === String(generoId))?.label
@@ -116,16 +125,26 @@ export const useReporteUsuariosEdadGenero = () => {
           icon: 'info',
           title: 'Sin usuarios encontrados',
           text: `No se encontraron usuarios registrados ${detalleFiltro}`,
-          confirmButtonColor: '#0d6efd',
+          confirmButtonColor: '#044c8c',
+          confirmButtonText: 'Entendido',
         })
       }
     } catch (error: any) {
       console.error('Error al obtener las personas por edad y género:', error)
       const respData = error?.response?.data
+      const errStr = typeof respData === 'string' ? respData : JSON.stringify(respData || '')
+      const errorMsg = error?.response?.data?.message || error?.message || ''
+
       const isZeroResultsError =
-        error?.response?.status === 500 &&
-        ((typeof respData === 'string' && (respData.includes('PersonasExport') || respData.includes('toArray() on null'))) ||
-          (error?.response?.data?.message && error.response.data.message.includes('toArray() on null')))
+        error?.response?.status === 404 ||
+        (error?.response?.status === 500 &&
+          ((typeof respData === 'string' && (respData.includes('PersonasExport') || respData.includes('toArray() on null'))) ||
+            (errorMsg && errorMsg.includes('toArray() on null')))) ||
+        errorMsg.toLowerCase().includes('no existe') ||
+        errorMsg.toLowerCase().includes('no se encontr') ||
+        errorMsg.toLowerCase().includes('sin registros') ||
+        errStr.toLowerCase().includes('no existe') ||
+        errStr.toLowerCase().includes('no se encontr')
 
       if (isZeroResultsError) {
         setUsuarios([])
@@ -139,35 +158,55 @@ export const useReporteUsuariosEdadGenero = () => {
           icon: 'info',
           title: 'Sin usuarios encontrados',
           text: `No se encontraron usuarios registrados ${detalleFiltro}`,
-          confirmButtonColor: '#0d6efd',
+          confirmButtonColor: '#044c8c',
+          confirmButtonText: 'Entendido',
         })
       } else {
-        Swal.mixin({
-          toast: true,
-          position: 'top-end',
-          timer: 2500,
-          timerProgressBar: false,
-          showConfirmButton: false,
-        }).fire({
+        Swal.fire({
           icon: 'error',
-          title: 'Error!',
-          text: error?.response?.data?.message || 'Hubo un problema al obtener los usuarios. Por favor, inténtelo de nuevo más tarde.',
+          title: 'Error al consultar',
+          text: error?.response?.data?.message || 'Hubo un problema al obtener los usuarios.',
+          confirmButtonColor: '#dc3545',
+          confirmButtonText: 'Entendido',
         })
       }
     } finally {
       setIsLoading(false)
     }
-  }, [edadDesde, edadHasta, generoId, generos])
+  }, [edadDesde, edadHasta, generoId, generos, canGenerarUsuariosInscritos])
 
-  const handleDescargarExcel = useCallback(() => {
-    if (excelLink) {
-      window.open(`${STORAGE_BASE_URL}/${excelLink}`, '_blank')
+  const handleDescargarExcel = useCallback(async () => {
+    if (!canDescargarUsuariosInscritos) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Acceso Denegado',
+        text: 'No tienes permisos para descargar este reporte.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return
     }
-  }, [excelLink])
+
+    const tienePermiso = await verificarAccionEnServidor('btn_descargar_usuarios_inscritos')
+    if (!tienePermiso) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Acceso Denegado',
+        text: 'No tienes permisos para descargar este reporte.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return
+    }
+
+    if (excelLink) {
+      await descargarArchivo(`${STORAGE_BASE_URL}/reportes/personas/${excelLink}`)
+    }
+  }, [canDescargarUsuariosInscritos, excelLink, verificarAccionEnServidor])
 
   const handleReset = useCallback(() => {
-    setEdadDesde('')
-    setEdadHasta('')
+    setEdadDesde('1')
+    setEdadHasta('100')
     setGeneroId('')
     setUsuarios([])
     setExcelLink(null)
@@ -189,6 +228,9 @@ export const useReporteUsuariosEdadGenero = () => {
     handleGet,
     handleDescargarExcel,
     handleReset,
+    canGenerarUsuariosInscritos,
+    canDescargarUsuariosInscritos,
+    verificarAccionEnServidor,
   }
 }
 

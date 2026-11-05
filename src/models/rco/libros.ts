@@ -1,4 +1,5 @@
 export interface Libro {
+  [key: string]: any
   id?: number | string
   ID_LIBROS?: number | string
   ID_CATEGORIA?: number | string | null
@@ -20,6 +21,8 @@ export interface Libro {
   TITULOTEJUELO_LIBROS?: string | null
   AUTORTEJUELO_LIBROS?: string | null
   ESTADO_LIBROS?: number | string | null
+  MOTIVO_BAJA_LIBRO?: string | null
+  motivo_baja_libro?: string | null
 
   NOMBRE_AUTOR?: string | null
   NOMBRE_CATEGORIA?: string | null
@@ -84,6 +87,39 @@ export interface CatalogoOption {
   value: number | string
   label: string
 }
+
+export const PAISES_LIBROS_OPTIONS: CatalogoOption[] = [
+  { value: 'Ecuador', label: 'Ecuador' },
+  { value: 'España', label: 'España' },
+  { value: 'México', label: 'México' },
+  { value: 'Colombia', label: 'Colombia' },
+  { value: 'Argentina', label: 'Argentina' },
+  { value: 'Perú', label: 'Perú' },
+  { value: 'Chile', label: 'Chile' },
+  { value: 'Estados Unidos', label: 'Estados Unidos' },
+  { value: 'Reino Unido', label: 'Reino Unido' },
+  { value: 'Francia', label: 'Francia' },
+  { value: 'Alemania', label: 'Alemania' },
+  { value: 'Italia', label: 'Italia' },
+  { value: 'Brasil', label: 'Brasil' },
+  { value: 'Bolivia', label: 'Bolivia' },
+  { value: 'Uruguay', label: 'Uruguay' },
+  { value: 'Paraguay', label: 'Paraguay' },
+  { value: 'Venezuela', label: 'Venezuela' },
+  { value: 'Costa Rica', label: 'Costa Rica' },
+  { value: 'Cuba', label: 'Cuba' },
+  { value: 'Guatemala', label: 'Guatemala' },
+  { value: 'Honduras', label: 'Honduras' },
+  { value: 'Nicaragua', label: 'Nicaragua' },
+  { value: 'Panamá', label: 'Panamá' },
+  { value: 'Puerto Rico', label: 'Puerto Rico' },
+  { value: 'República Dominicana', label: 'República Dominicana' },
+  { value: 'Canadá', label: 'Canadá' },
+  { value: 'Portugal', label: 'Portugal' },
+  { value: 'Japón', label: 'Japón' },
+  { value: 'China', label: 'China' },
+  { value: 'Rusia', label: 'Rusia' },
+]
 
 export interface LibrosPaginadosResponse {
   data: Libros[]

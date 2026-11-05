@@ -6,10 +6,6 @@ import {
   USER_STORAGE_KEY,
   encryptData,
   decryptData,
-  encryptToken,
-  decryptToken,
-  saveTokenStorage,
-  getTokenStorage,
   saveAuthCookie,
   getAuthCookie,
   removeAuthCookie,
@@ -24,10 +20,6 @@ export {
   USER_STORAGE_KEY,
   encryptData,
   decryptData,
-  encryptToken,
-  decryptToken,
-  saveTokenStorage,
-  getTokenStorage,
   saveAuthCookie,
   getAuthCookie,
   removeAuthCookie,
@@ -77,90 +69,33 @@ export const getStoredToken = (): string | null => {
   return getAuthCookie()
 }
 
-export const getStoredUser = (): UserData | null => {
-  try {
-    let parsed: any = getUserStorage()
+export const isUserActive = (user?: UserData | null): boolean => {
+  const targetUser: any = user || getUserStorage()
+  if (!targetUser) return true
 
-    if (!parsed) {
-      const token = getStoredToken()
-      if (token) {
-        parsed = decodeJWT<any>(token)
-      }
-    }
-
-    if (!parsed) return null
-
-    const {
-      iss: _iss,
-      iat: _iat,
-      exp: _jwtExp,
-      nbf: _nbf,
-      jti: _jti,
-      sub: _sub,
-      prv: _prv,
-      token: _storedToken,
-      PASSWORD_USUARIO: _pass1,
-      password: _pass2,
-      contrasena: _pass3,
-      ...cleanPayload
-    } = parsed
-
-    const id = parsed.id_usuario ?? parsed.ID_USUARIO ?? parsed.id ?? parsed.sub
-    let rol = parsed.rol ?? parsed.ID_ROL ?? parsed.rol_id
-    if (typeof rol === 'object' && rol !== null) {
-      rol = rol.ID_ROL ?? rol.id ?? rol.id_rol ?? rol.NOMBRE_ROL ?? rol.nombre
-    }
-    const nick = parsed.nick_usuario ?? parsed.NICK_USUARIO ?? parsed.usuario ?? parsed.name ?? parsed.email
-    const exp = parsed.tiempo_expiracion ?? parsed.expires_in ?? 3600
-
-    const normalizedUser: UserData = {
-      ...cleanPayload,
-      ID_USUARIO: id,
-      ID_ROL: rol,
-      NICK_USUARIO: nick,
-      NOMBRES_USUARIO: parsed.nombres_usuario ?? parsed.NOMBRES_USUARIO ?? parsed.nombres ?? parsed.name,
-      tiempo_expiracion: exp,
-      expires_in: exp,
-      timestamp: parsed.timestamp || Date.now(),
-    }
-
-    if (isSessionValid(normalizedUser)) {
-      return normalizedUser
-    }
-    clearAuthSession()
-    return null
-  } catch (e) {
-    console.error('Error recuperando usuario almacenado:', e)
+  const rawEstado = targetUser.ESTADO_USUARIO ?? targetUser.estado ?? targetUser.Estado
+  if (
+    rawEstado !== undefined &&
+    rawEstado !== null &&
+    (String(rawEstado) === '0' || String(rawEstado).toLowerCase() === 'inactivo' || rawEstado === false)
+  ) {
+    return false
   }
-  return null
+  return true
 }
 
 export const isSessionValid = (user?: UserData | null): boolean => {
   const token = getStoredToken()
-  if (!token) {
+  if (!token) return false
+
+  const targetUser: any = user || getUserStorage()
+  if (!targetUser) return true
+
+  if (!isUserActive(targetUser)) {
     return false
   }
 
-  let targetUser: any = user
-  if (!targetUser) {
-    try {
-      const saved = getUserStorage()
-      if (saved) {
-        targetUser = saved
-      } else {
-        targetUser = decodeJWT<any>(token)
-      }
-    } catch {
-      return false
-    }
-  }
-
-  if (!targetUser) {
-    return false
-  }
-
-  // Validar por timestamp de inicio de sesión + tiempo de expiración del backend (3600 segundos)
-  const expSeconds = Number(targetUser.expires_in || targetUser.tiempo_expiracion || 3600)
+  const expSeconds = Number(targetUser.expires_in || 3600)
   const loginTime = Number(targetUser.timestamp || 0)
   if (loginTime > 0 && Date.now() >= loginTime + expSeconds * 1000) {
     return false
@@ -169,56 +104,68 @@ export const isSessionValid = (user?: UserData | null): boolean => {
   return true
 }
 
+export const getStoredUser = (): UserData | null => {
+  try {
+    const parsed = getUserStorage()
+    const token = getStoredToken()
+    const tokenData = token ? decodeJWT<any>(token) : null
+
+    if (!parsed && !tokenData) return null
+
+    const user: UserData = {
+      ID_USUARIO: tokenData?.ID_USUARIO,
+      NICK_USUARIO: parsed?.NICK_USUARIO || '',
+      NOMBRES_USUARIO: parsed?.NOMBRES_USUARIO || '',
+      expires_in: Number(parsed?.expires_in || 3600),
+    }
+
+    if (isSessionValid(user)) {
+      return user
+    }
+
+    clearAuthSession()
+    return null
+  } catch (e) {
+    console.error('[auth] Error recuperando usuario almacenado:', e)
+    return null
+  }
+}
+
 export const setAuthSession = (
   user: UserData,
   rawToken?: string,
   rememberMe: boolean = false,
-  expSeconds?: number,
+  expSeconds: number = 3600,
 ): void => {
-  const existingToken = getStoredToken()
-  const tokenToUse = rawToken || user.token || existingToken || encodeJWT(user, ENCRYPTION_KEY)
-  const effectiveExp = expSeconds || user.expires_in || user.tiempo_expiracion || 3600
+  const tokenToUse = rawToken || user.token || getStoredToken()
 
   if (tokenToUse) {
-    saveAuthCookie(tokenToUse, rememberMe, effectiveExp)
+    saveAuthCookie(tokenToUse, rememberMe, expSeconds)
   }
 
   if (user) {
-    const userToSave = {
-      ...user,
-      expires_in: effectiveExp,
-      timestamp: user.timestamp || Date.now(),
-    }
-    saveUserStorage(userToSave, rememberMe)
+    saveUserStorage(
+      {
+        NICK_USUARIO: user.NICK_USUARIO,
+        NOMBRES_USUARIO: user.NOMBRES_USUARIO,
+        expires_in: expSeconds,
+      },
+      rememberMe,
+    )
   }
-}
-
-export const renovarTokenSilencioso = async (): Promise<string | null> => {
-  // Renovación deshabilitada para respetar estrictamente los 3600 segundos del backend
-  return null
 }
 
 export const clearAuthSession = (): void => {
   clearAllAuthStorage()
 }
 
-export type RoleIdentifier = string | number
-
-export const hasRequiredRole = (
-  userRole: any,
-  requiredRoles: RoleIdentifier[],
-): boolean => {
-  if (userRole === null || userRole === undefined || userRole === '') return false
-
-  let effectiveRole = userRole
-  if (typeof userRole === 'object' && userRole !== null) {
-    effectiveRole = userRole.ID_ROL ?? userRole.id ?? userRole.rol ?? userRole.NOMBRE_ROL ?? userRole.nombre
-  }
-
-  const raw = String(effectiveRole).toLowerCase().trim()
-
-  return requiredRoles.some((role) => {
-    const target = String(role).toLowerCase().trim()
-    return raw === target
-  })
+export default {
+  base64url,
+  encodeJWT,
+  decodeJWT,
+  getStoredToken,
+  getStoredUser,
+  isSessionValid,
+  setAuthSession,
+  clearAuthSession,
 }

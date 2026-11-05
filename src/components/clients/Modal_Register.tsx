@@ -1,6 +1,5 @@
 import usePersonaRegister, { UsePersonaRegisterProps } from "@/hooks/tab-persona/usePersonaRegister"
 import {
-    cilCalendar,
     cilContact,
     cilEnvelopeClosed,
     cilExitToApp,
@@ -19,6 +18,7 @@ import CIcon from "@coreui/icons-react"
 import {
     CButton,
     CCol,
+    CDatePicker,
     CForm,
     CFormInput,
     CFormSelect,
@@ -32,13 +32,11 @@ import {
     CModalTitle,
     CSpinner
 } from "@coreui/react-pro"
-
-import { usePermissions } from "@/context/PermissionsContext"
+import { aFechaLocal } from "@/utils/dateUtils"
 
 interface ModalRegisterProps extends UsePersonaRegisterProps { }
 
 const Modal_Register = (props: ModalRegisterProps) => {
-    const { canDoAction } = usePermissions()
     const {
         isVisible,
         formData,
@@ -49,11 +47,13 @@ const Modal_Register = (props: ModalRegisterProps) => {
         generos,
         estadosCiviles,
         handleChange,
+        handleDateChange,
         handleBlur,
         handleClose,
         handleSubmit,
         previewFoto,
-        handleFotoChange
+        handleFotoChange,
+        canGuardar,
     } = usePersonaRegister(props)
 
     return (
@@ -134,20 +134,16 @@ const Modal_Register = (props: ModalRegisterProps) => {
 
                     <CCol xs={12} sm={6} md={4}>
                         <label className="form-label small fw-semibold text-muted">Fecha de Nacimiento <span className="text-danger">*</span></label>
-                        <CInputGroup>
-                            <CInputGroupText>
-                                <CIcon icon={cilCalendar} />
-                            </CInputGroupText>
-                            <CFormInput
-                                type="date"
-                                name="FECHA_PERSONA"
-                                max={new Date().toISOString().split('T')[0]}
-                                value={formData.FECHA_PERSONA || ''}
-                                onChange={handleChange}
-                                onBlur={() => handleBlur('FECHA_PERSONA')}
-                                invalid={!!errors.FECHA_PERSONA}
-                            />
-                        </CInputGroup>
+                        <CDatePicker
+                            locale="es-ES"
+                            inputReadOnly
+                            placeholder="Seleccione fecha"
+                            date={aFechaLocal(formData.FECHA_PERSONA)}
+                            maxDate={new Date()}
+                            onDateChange={(val) => handleDateChange(val)}
+                            cleaner
+                            invalid={!!errors.FECHA_PERSONA}
+                        />
                         {errors.FECHA_PERSONA && (
                             <div className="text-danger small mt-1">{errors.FECHA_PERSONA}</div>
                         )}
@@ -418,20 +414,6 @@ const Modal_Register = (props: ModalRegisterProps) => {
                             <div className="text-danger small mt-1">{errors.DIRECCION_PERSONA}</div>
                         )}
                     </CCol>
-
-                    <CCol xs={12} className="mt-3">
-                        <hr style={{ borderTop: '1px dashed #ced4da' }} className="my-2" />
-                        <h6 className="fw-bold text-secondary mb-2">INSCRIPCIÓN:</h6>
-                        <label className="form-label small fw-semibold text-muted">Detalle:</label>
-                        <CFormTextarea
-                            name="DETALLE_INSCRIPCION"
-                            placeholder="Ingrese información o detalle de la inscripción..."
-                            rows={3}
-                            value={formData.DETALLE_INSCRIPCION || ''}
-                            onChange={handleChange}
-                        />
-                        <hr style={{ borderTop: '1px dashed #ced4da' }} className="mt-3 mb-1" />
-                    </CCol>
                 </CForm>
             </CModalBody>
 
@@ -439,22 +421,22 @@ const Modal_Register = (props: ModalRegisterProps) => {
                 <CButton
                     color="danger"
                     variant="outline"
-                    className="hover:text-white"
-                    disabled={loading}
+                    size="sm"
+                    className="hover:text-white shadow-sm" disabled={loading}
                     onClick={handleClose}
                 >
                     <CIcon icon={cilExitToApp} className="me-1" />
                     Cancelar
                 </CButton>
-                {canDoAction('btn_crear_usuario_gestion_usuario') && (
+                {canGuardar && (
                     <CButton
                         color="success"
                         variant="outline"
                         type="submit"
+                        size="sm"
                         form="formRegistroUsuario"
                         disabled={loading}
-                        className="hover:text-white d-flex align-items-center gap-1 shadow-sm"
-                    >
+                        className="hover:text-white shadow-sm"                    >
                         {loading ? (
                             <>
                                 <CSpinner size="sm" className="me-1" />

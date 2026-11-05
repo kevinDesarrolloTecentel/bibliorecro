@@ -1,15 +1,14 @@
 import ModalGen from "@/components/details_bk/genero"
 import { useGenero } from "@/hooks/rco-libros/useGenero"
-import { cilLibraryBuilding, cilNewspaper, cilNoteAdd, cilNotes, cilPenNib, cilPlus, cilSearch, cilTrash, cilX } from "@coreui/icons"
+import { cilLibraryBuilding, cilNewspaper, cilNoteAdd, cilNotes, cilPenNib, cilPlus, cilSearch, cilSync, cilTrash, cilX } from "@coreui/icons"
 import CIcon from "@coreui/icons-react"
 import { CBadge, CButton, CCard, CCardBody, CCardHeader, CCol, CFormInput, CInputGroup, CInputGroupText, CRow, CSpinner, CSmartPagination } from "@coreui/react-pro"
-import { usePermissions } from "@/context/PermissionsContext"
 
 const Genre = () => {
   const generoHook = useGenero()
-  const { canDoAction } = usePermissions()
   const {
     handleOpen,
+    handleRecargar,
     busquedagenero,
     setBusquedaGenero,
     loadingGeneros,
@@ -22,10 +21,16 @@ const Genre = () => {
     totalPaginas,
     totalGeneros,
     totalFiltrados,
-    handlePageChange
+    handlePageChange,
+    canCrearGenero,
+    canEditarGenero,
+    canEliminarGenero,
+    canVerInfoGenero,
   } = generoHook
 
   const handleToggleSelect = (genero: any) => {
+    if (!canVerInfoGenero) return
+
     const currentId = String(generoSeleccionado?.ID_RCOGENERO ?? generoSeleccionado?.id ?? '')
     const targetId = String(genero?.ID_RCOGENERO ?? genero?.id ?? '')
     if (currentId && currentId === targetId) {
@@ -46,17 +51,30 @@ const Genre = () => {
           </h4>
           <p className="text-muted small mb-0">Gestiona el catálogo de los Géneros</p>
         </div>
-        <div>
-          {canDoAction('btn_crear_genero') && (
+        <div className="d-flex align-items-center gap-2">
           <CButton
-            color="success"
+            color="secondary"
             variant="outline"
-            className="d-flex align-items-center gap-2 shadow-sm hover:text-white"
-            onClick={() => handleOpen()}
+            size="sm"
+            disabled={loadingGeneros}
+            className="d-flex align-items-center gap-1 shadow-sm"
+            onClick={() => handleRecargar()}
+            title="Refrescar lista y reiniciar filtros"
           >
-            <CIcon icon={cilPlus} />
-            <span>Nuevo Género</span>
+            <CIcon icon={cilSync} className={`me-1 ${loadingGeneros ? 'rotate-animation' : ''}`} />
+            <span>{loadingGeneros ? 'Refrescando...' : 'Refrescar'}</span>
           </CButton>
+          {canCrearGenero && (
+            <CButton
+              color="success"
+              variant="outline"
+              size="sm"
+              className="d-flex align-items-center gap-2 shadow-sm hover:text-white"
+              onClick={() => handleOpen()}
+            >
+              <CIcon icon={cilPlus} />
+              <span>Nuevo Género</span>
+            </CButton>
           )}
         </div>
       </div>
@@ -129,22 +147,31 @@ const Genre = () => {
                           key={id}
                           onClick={() => handleToggleSelect(genero)}
                           className={`p-3 rounded border d-flex align-items-center justify-content-between transition-all
-                        ${isSelected ? 'border-primary bg-body bg-opacity-10 shadow-sm' : 'bg-body'}`}
-                          style={{ cursor: 'pointer', borderBlock: isSelected ? '#0d6efd' : '#dee2e6', transition: 'all 0.2 ease' }}
-                          onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.borderColor = '#0d6efd' }}
-                          onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.borderColor = '#dee2e6' }}>
+                        ${isSelected ? 'border-primary bg-primary bg-opacity-10 shadow-sm' : 'bg-body'}`}
+                          style={{
+                            cursor: canVerInfoGenero ? 'pointer' : 'default',
+                            borderColor: isSelected ? '#0d6efd' : '#dee2e6',
+                            transition: 'all 0.2s ease',
+                          }}
+                          onMouseEnter={(e) => {
+                            if (canVerInfoGenero && !isSelected) e.currentTarget.style.borderColor = '#0d6efd'
+                          }}
+                          onMouseLeave={(e) => {
+                            if (canVerInfoGenero && !isSelected) e.currentTarget.style.borderColor = '#dee2e6'
+                          }}
+                        >
                           <div className="d-flex align-items-center gap-3">
                             <div className={`rounded-circle p-2 d-flex align-items-center justify-content-center 
-                            ${isSelected ? 'bg-primary text-body' : ' bg-body bg-opacity-10 text-body'}`}
+                            ${isSelected ? 'bg-primary text-white' : ' bg-primary bg-opacity-10 text-primary'}`}
                               style={{ width: '40px', height: '40px' }}>
                               <CIcon icon={cilNotes} />
                             </div>
                             <div>
-                              <div className="font-monospace text-muted small">{genero.NOMBRE_RCOGENERO}</div>
+                              <div className="font-monospace text-body small fw-semibold">{genero.NOMBRE_RCOGENERO}</div>
                             </div>
                           </div>
                           {isSelected && (
-                            <CBadge className="px-3 py-2" color="primary" shape="rounded-pill">
+                            <CBadge className="px-3 py-2 shadow-sm text-white" color="primary" shape="rounded-pill">
                               Seleccionado ✕
                             </CBadge>
                           )}
@@ -170,84 +197,115 @@ const Genre = () => {
                 <CIcon icon={cilNotes} />
                 <span>Detalle del Género</span>
               </div>
-              {generoSeleccionado && (
+              <div className="d-flex align-items-center gap-1">
                 <CButton
                   color="secondary"
                   variant="ghost"
                   size="sm"
-                  className="py-0 px-2 text-muted"
-                  onClick={() => setGeneroSeleccionado(null)}
-                  title="Deseleccionar género">
-                  <span className="small">Deseleccionar ✕</span>
+                  disabled={loadingGeneros}
+                  className="p-1 text-muted"
+                  onClick={() => handleRecargar()}
+                  title="Refrescar y limpiar selección"
+                >
+                  <CIcon icon={cilSync} className={loadingGeneros ? 'rotate-animation' : ''} />
                 </CButton>
-              )}
+                {generoSeleccionado && (
+                  <CButton
+                    color="secondary"
+                    variant="ghost"
+                    size="sm"
+                    className="p-1 text-muted"
+                    onClick={() => setGeneroSeleccionado(null)}
+                    title="Cerrar detalle"
+                  >
+                    <CIcon icon={cilX} />
+                  </CButton>
+                )}
+              </div>
             </CCardHeader>
             <CCardBody className="p-4 d-flex flex-column justify-content-between">
-              {generoSeleccionado ?
-                (
-                  <div>
-                    <div className="d-flex align-items-center gap-2 mb-3 text-success">
-                      <CIcon icon={cilLibraryBuilding} />
-                      <span className="fw-bold small text-uppercase">Información del Género</span>
-                    </div>
-                    <div className="bg-body p-3 border mb-4">
-                      <div className="d-flex align-items-center gap-3 mb-3">
-                        <div className="bg-primary text-white rounded-circle p-3 d-flex align-items-center justify-content-center "
-                          style={{ width: '54px', height: '54px' }}>
-                          <CIcon icon={cilNotes} />
-                        </div>
-                        <div>
-                          <h5 className="fw-bold font-monospace text-body mb-1">{generoSeleccionado.NOMBRE_RCOGENERO}</h5>
-                        </div>
+              {!canVerInfoGenero ? (
+                <div className="text-center py-5 my-auto text-muted">
+                  <div
+                    className="bg-body rounded-circle p-4 d-inline-flex align-items-center justify-content-center mb-3"
+                    style={{ width: '80px', height: '80px' }}
+                  >
+                    <CIcon icon={cilNewspaper} size="xxl" className="text-danger opacity-50" />
+                  </div>
+                  <h6 className="fw-bold text-body mb-1">Información no disponible</h6>
+                  <p className="small text-muted mb-0 px-3">
+                    No cuentas con los permisos necesarios para visualizar la información y las acciones de este género.
+                  </p>
+                </div>
+              ) : generoSeleccionado ? (
+                <div>
+                  <div className="d-flex align-items-center gap-2 mb-3 text-success">
+                    <CIcon icon={cilLibraryBuilding} />
+                    <span className="fw-bold small text-uppercase">Información del Género</span>
+                  </div>
+                  <div className="bg-body p-3 border mb-4">
+                    <div className="d-flex align-items-center gap-3 mb-3">
+                      <div className="bg-primary text-white rounded-circle p-3 d-flex align-items-center justify-content-center "
+                        style={{ width: '54px', height: '54px' }}>
+                        <CIcon icon={cilNotes} />
                       </div>
-                      <div className="d-flex flex-column gap-2 border-top">
-                        <div className="d-flex justify-content-between py-1 border-bottom">
-                          <span className="badge bg-body rounded-pill border text-muted small"> Nombre del Género:</span>
-                          <span className="fw-semibold small text-body">{generoSeleccionado.NOMBRE_RCOGENERO}</span>
-                        </div>
+                      <div>
+                        <h5 className="fw-bold font-monospace text-body mb-1">{generoSeleccionado.NOMBRE_RCOGENERO}</h5>
                       </div>
                     </div>
-                    <div className=" d-flex justify-content-end gap-2">
-                      {canDoAction('btn_eliminar_genero') && (
+                    <div className="d-flex flex-column gap-2 border-top">
+                      <div className="d-flex justify-content-between py-1 border-bottom">
+                        <span className="badge bg-body rounded-pill border text-muted small"> Nombre del Género:</span>
+                        <span className="fw-semibold small text-body">{generoSeleccionado.NOMBRE_RCOGENERO}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className=" d-flex justify-content-end gap-2">
+                    {canEliminarGenero && (
                       <CButton
                         color="danger"
                         variant="outline"
+                        size="sm"
                         className="d-flex align-items-center gap-2 shadow-sm hover:text-white"
                         onClick={() => handleEliminarGnerol(generoSeleccionado)}>
                         <CIcon icon={cilTrash} />
                         <span>Eliminar Género</span>
                       </CButton>
-                      )}
-                      {canDoAction('btn_editar_genero') && (
+                    )}
+                    {canEditarGenero && (
                       <CButton
                         color="success"
                         variant="outline"
+                        size="sm"
                         className="d-flex align-items-center gap-2 shadow-sm hover:text-white"
                         onClick={() => handleOpen(generoSeleccionado)}>
                         <CIcon icon={cilPenNib} />
                         <span>Editar Género</span>
                       </CButton>
-                      )}
-                    </div>
+                    )}
                   </div>
-                ) : (
-                  <div className=" text-center py-5 my-auto text-muted">
-                    <div className="bg-light rounded-circle p-4 d-inline-flex align-items-center justify-content-center mb-3"
-                      style={{ width: '80px', height: '80px' }}>
-                      <CIcon icon={cilPenNib} size="xxl" className="text-secondary opacity-50" />
-                    </div>
-                    <h6 className="fw-bold text-body mb-1">Ningún Género Seleccionado</h6>
-                    <p className="small text-muted mb-4 px-3">Selecciona un género de la lista </p>
+                </div>
+              ) : (
+                <div className=" text-center py-5 my-auto text-muted">
+                  <div className="bg-light rounded-circle p-4 d-inline-flex align-items-center justify-content-center mb-3"
+                    style={{ width: '80px', height: '80px' }}>
+                    <CIcon icon={cilPenNib} size="xxl" className="text-secondary opacity-50" />
+                  </div>
+                  <h6 className="fw-bold text-body mb-1">Ningún Género Seleccionado</h6>
+                  <p className="small text-muted mb-4 px-3">Selecciona un género de la lista </p>
+                  {canCrearGenero && (
                     <CButton
                       color="primary"
                       variant="outline"
                       size="sm"
-                      className="d-inline-flex align-items-center gap-1"
+                      className="d-inline-flex align-items-center gap-1 shadow-sm hover:text-white"
                       onClick={() => handleOpen()}>
+                      <CIcon icon={cilPlus} />
                       <span>Crear nuevo Género</span>
                     </CButton>
-                  </div>
-                )}
+                  )}
+                </div>
+              )}
             </CCardBody>
           </CCard>
         </CCol>

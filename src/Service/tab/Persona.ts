@@ -1,4 +1,4 @@
-import apiClient, { BACKEND_API_BASE } from "../apiClient";
+import apiClient, { BACKEND_API_BASE } from "../ApiClient";
 
 const API_BASE_URL_PERSONA = `${BACKEND_API_BASE}/tab-persona`;
 
@@ -13,10 +13,7 @@ export const PersonaNueva = async (params?: any) => {
     return data;
 };
 
-export const PersonasNuevasDetalle = async (params?: any) => {
-    const { data } = await apiClient.get(`${BACKEND_API_BASE}/personasNuevas`, { params });
-    return data;
-};
+export const PersonasNuevasDetalle = PersonaNueva;
 
 export const AniosDisponibles = async () => {
     const { data } = await apiClient.get(`${API_BASE_URL_PERSONA}/aniosDisponibles`);
@@ -33,31 +30,33 @@ export const Personas = async (
     per_page?: number,
     search?: string,
     estado?: number | string,
-    sancion?: number | string
+    sancion?: number | string,
+    estado_veto?: number | string | null
 ) => {
-    const params: Record<string, any> = {};
-    if (page !== undefined) params.page = page;
-    if (per_page !== undefined) params.per_page = per_page;
-    if (estado !== undefined && estado !== '') params.estado = estado;
-    if (sancion !== undefined && sancion !== '') params.sancion = sancion;
-
-    const payload: Record<string, any> = {};
-    if (search !== undefined && search.trim() !== '') {
-        payload.nombre = search.trim();
-        params.nombre = search.trim();
-        params.search = search.trim();
+    let valorEstadoVeto: number | string | null = null;
+    if (estado_veto !== undefined && estado_veto !== '' && estado_veto !== null) {
+        valorEstadoVeto = Number(estado_veto);
     }
-    if (estado !== undefined && estado !== '') payload.estado = estado;
-    if (sancion !== undefined && sancion !== '') payload.sancion = sancion;
 
-    const { data } = await apiClient.post(`${API_BASE_URL_PERSONA}/personasRegistradas`, payload, { params });
+    const payload: Record<string, any> = {
+        nombre: search && search.trim() !== '' ? search.trim() : '',
+        estado: (estado !== undefined && estado !== '') ? String(estado) : null,
+        sancion: (sancion !== undefined && sancion !== '') ? String(sancion) : null,
+        estado_veto: valorEstadoVeto,
+        per_page: per_page || 10,
+        page: page || 1,
+    };
+
+    const options = page ? { params: { page } } : undefined;
+
+    const { data } = await apiClient.post(`${API_BASE_URL_PERSONA}/personasRegistradas`, payload, options);
     return data;
 };
 export const listarPersonas = Personas;
 export const PersonasRegistradas = Personas;
 
-export const PersonasE = async () => {
-    const { data } = await apiClient.get(`${API_BASE_URL_PERSONA}/personasE`);
+export const PersonasE = async (params?: any) => {
+    const { data } = await apiClient.get(`${API_BASE_URL_PERSONA}/personasE`, { params });
     return data;
 };
 
@@ -77,7 +76,7 @@ export const PersonasEdadGeneroReport = ListarPersonaReport;
 
 // 2. Reporte de Usuarios Activos
 export const PersonasActivasReport = async (params?: any) => {
-    const { data } = await apiClient.get(`${API_BASE_URL_PERSONA}/personasReportActivas`, {params});
+    const { data } = await apiClient.get(`${API_BASE_URL_PERSONA}/personasReportActivas`, { params });
     return data;
 };
 
@@ -151,8 +150,15 @@ export const PersonaUsuario = async (payload?: any) => {
     return data;
 };
 
-// PUT
+// PUT / Actualización
 export const ActualizarPersonaNueva = async (id: any, payload?: any) => {
+    if (payload instanceof FormData) {
+        if (!payload.has('_method')) {
+            payload.append('_method', 'PUT');
+        }
+        const { data } = await apiClient.post(`${API_BASE_URL_PERSONA}/personaNew/${id}`, payload);
+        return data;
+    }
     const { data } = await apiClient.put(`${API_BASE_URL_PERSONA}/personaNew/${id}`, payload);
     return data;
 }
@@ -172,5 +178,16 @@ export const PersonaEstado = async (id: any, payload?: any) => {
 // Eliminar
 export const EliminarPersona = async (id: any) => {
     const { data } = await apiClient.delete(`${API_BASE_URL_PERSONA}/persona/${id}`);
+    return data;
+};
+
+// Aceptación / Renovación de Inscripción
+export const AceptarInscripcion = async (payload?: any) => {
+    const { data } = await apiClient.post(`${API_BASE_URL_PERSONA}/aceoptar`, payload);
+    return data;
+};
+
+export const AceptarInscripcionNew = async (payload?: any) => {
+    const { data } = await apiClient.post(`${API_BASE_URL_PERSONA}/aceptarNew`, payload);
     return data;
 };

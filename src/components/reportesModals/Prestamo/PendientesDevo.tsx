@@ -1,13 +1,14 @@
-import React from 'react'
+import React, { useState, useMemo } from 'react'
 import {
   useReportePendientesDevolver,
   PrestamoReporteItem,
-} from '@/hooks/reportes/prestamos/Pendientes'
+} from '@/hooks/reportes/prestamos/usePendientes'
 import {
   cilCloudDownload,
   cilExitToApp,
   cilSave,
   cilSync,
+  cilWarning,
 } from '@coreui/icons'
 import CIcon from '@coreui/icons-react'
 import {
@@ -16,7 +17,7 @@ import {
   CCardBody,
   CCardHeader,
   CCol,
-  CDatePicker,
+  CDateRangePicker,
   CFormLabel,
   CModal,
   CModalBody,
@@ -27,6 +28,7 @@ import {
   CSmartTable,
   CSpinner,
 } from '@coreui/react-pro'
+import { aFechaLocal, parseDatePickerValue, formatFecha } from '@/utils/dateUtils'
 
 export interface LibPendientesProps {
   visible: boolean
@@ -34,6 +36,8 @@ export interface LibPendientesProps {
 }
 
 const PendientesModal: React.FC<LibPendientesProps> = ({ visible, setVisible }) => {
+  const [tableKey, setTableKey] = useState<number>(0)
+
   const {
     fechaDesde,
     setFechaDesde,
@@ -46,42 +50,62 @@ const PendientesModal: React.FC<LibPendientesProps> = ({ visible, setVisible }) 
     handleGetPendientes,
     handleDescargarExcel,
     handleReset,
+    canGenerarLibrosPendientes,
+    canDescargarLibrosPendientes,
   } = useReportePendientesDevolver()
 
-  const handleClose = () => {
+  const handleFullReset = () => {
     handleReset()
+    setTableKey((prev: number) => prev + 1)
+  }
+
+  const handleClose = () => {
+    handleFullReset()
     setVisible(false)
   }
 
-  const aFechaLocal = (str: string, finDelDia = false): Date | undefined => {
-    if (!str) return undefined
-    const [y, m, d] = str.split('-').map(Number)
-    if (!y || !m || !d) return undefined
-    return finDelDia ? new Date(y, m - 1, d, 23, 59, 59) : new Date(y, m - 1, d, 0, 0, 0)
-  }
+  const isRangoInvalido = Boolean(
+    fechaDesde && fechaHasta && new Date(fechaHasta) < new Date(fechaDesde)
+  )
 
-  const formatearFecha = (val: Date | string | null): string => {
-    if (!val) return ''
-    if (val instanceof Date) {
-      const y = val.getFullYear()
-      const m = String(val.getMonth() + 1).padStart(2, '0')
-      const d = String(val.getDate()).padStart(2, '0')
-      return `${y}-${m}-${d}`
-    }
-    if (typeof val === 'string') {
-      const match = val.match(/^(\d{4})-(\d{2})-(\d{2})/)
-      if (match) return match[0]
-      const ddmmyyyy = val.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})/)
-      if (ddmmyyyy) {
-        const d = ddmmyyyy[1].padStart(2, '0')
-        const m = ddmmyyyy[2].padStart(2, '0')
-        const y = ddmmyyyy[3]
-        return `${y}-${m}-${d}`
+  const diasDiferencia = useMemo(() => {
+    if (!fechaDesde || !fechaHasta || isRangoInvalido) return 0
+    const d1 = new Date(fechaDesde)
+    const d2 = new Date(fechaHasta)
+    const diffTime = d2.getTime() - d1.getTime()
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24))
+    return diffDays >= 0 ? diffDays : 0
+  }, [fechaDesde, fechaHasta, isRangoInvalido])
+
+  const tableItems = useMemo(() => {
+    return prestamos.map((item: PrestamoReporteItem) => {
+      const titulo = item.TITULO_LIBROS || ''
+      const fechaEntrega = item.FECHAFIN_PRESTAMO
+        ? new Date(item.FECHAFIN_PRESTAMO).toLocaleDateString()
+        : '-'
+      const cedula = item.IDENTIFICACION_PERSONA || ''
+      const nombre =
+        [item.NOMBRE_PERSONA, item.APELLIDO_PERSONA].filter(Boolean).join(' ') ||
+        item.NOMBRE_PERSONA ||
+        ''
+      const correo = item.CORREO_PERSONA || ''
+      const celular = item.CELULAR_PERSONA || ''
+      const telefono = item.TELEFONO_PERSONA || ''
+      const referencias = item.DETALLE_PERSONA || ''
+
+      return {
+        ...item,
+        titulo,
+        fechaEntrega,
+        cedula,
+        nombre,
+        correo,
+        celular,
+        telefono,
+        referencias,
       }
-      return val
-    }
-    return ''
-  }
+    })
+  }, [prestamos])
 
   const columns = [
     {
@@ -142,76 +166,111 @@ const PendientesModal: React.FC<LibPendientesProps> = ({ visible, setVisible }) 
       <CModalBody>
         <CCard className="mb-3 border-0 bg-body shadow-sm">
           <CCardBody className="p-3">
-            <div className="fw-semibold text-body mb-2">
+            <div className="fw-semibold text-body mb-2 small text-uppercase">
               Seleccione el Rango de Fechas Requerido
             </div>
-            <CRow className="g-3 align-items-end">
-              <CCol xs={12} sm={6} md={4}>
-                <CFormLabel className="fw-semibold mb-1">Desde</CFormLabel>
-                <CDatePicker
+            <CFormLabel className="small fw-semibold mb-1">
+              Rango de Fechas (Desde - Hasta)
+            </CFormLabel>
+            <CRow className="g-3 align-items-center">
+              <CCol xs={12} md={8}>
+                <CDateRangePicker
+                  key={`daterange-${tableKey}`}
                   size="sm"
                   locale="es-ES"
-                  placeholder="Seleccione fecha inicial"
-                  date={aFechaLocal(fechaDesde)}
-                  maxDate={aFechaLocal(fechaHasta, true)}
-                  onDateChange={(val) => {
-                    const str = formatearFecha(val)
-                    setFechaDesde(str)
-                    if (fechaHasta && str && str > fechaHasta) {
-                      setFechaHasta(str)
+                  cleaner
+                  inputReadOnly
+                  calendars={2}
+                  startDate={aFechaLocal(fechaDesde)}
+                  endDate={aFechaLocal(fechaHasta)}
+                  invalid={isRangoInvalido}
+                  feedbackInvalid="La Fecha (Hasta) no puede ser anterior a la Fecha (Desde)."
+                  placeholder={['Fecha desde', 'Fecha hasta']}
+                  cancelButton="Cancelar"
+                  confirmButton="Aceptar"
+                  onStartDateChange={(val) => {
+                    const parsed = parseDatePickerValue(val ?? null)
+                    setFechaDesde(parsed)
+                    if (parsed && fechaHasta && parsed > fechaHasta) {
+                      setFechaHasta(parsed)
+                    }
+                  }}
+                  onEndDateChange={(val) => {
+                    const parsed = parseDatePickerValue(val ?? null)
+                    if (parsed && fechaDesde && parsed < fechaDesde) {
+                      setFechaHasta(fechaDesde)
+                    } else {
+                      setFechaHasta(parsed)
                     }
                   }}
                 />
               </CCol>
 
-              <CCol xs={12} sm={6} md={4}>
-                <CFormLabel className="fw-semibold mb-1">Hasta</CFormLabel>
-                <CDatePicker
-                  size="sm"
-                  locale="es-ES"
-                  placeholder="Seleccione fecha final"
-                  date={aFechaLocal(fechaHasta)}
-                  minDate={aFechaLocal(fechaDesde)}
-                  onDateChange={(val) => {
-                    const str = formatearFecha(val)
-                    setFechaHasta(str)
-                  }}
-                />
-              </CCol>
-
-              <CCol xs={12} sm={12} md={4} className="d-flex gap-2">
-                <CButton
-                  color="primary"
-                  variant="outline"
-                  size="sm"
-                  className="w-100 d-flex align-items-center justify-content-center"
-                  onClick={handleGetPendientes}
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <>
-                      <CSpinner size="sm" className="me-1" />
-                      <span>Cargando...</span>
-                    </>
-                  ) : (
-                    <>
-                      <CIcon icon={cilSave} className="me-1" />
-                      <span>Generar</span>
-                    </>
-                  )}
-                </CButton>
+              <CCol xs={12} md={4} className="d-flex gap-2 align-items-center">
+                {canGenerarLibrosPendientes && (
+                  <CButton
+                    color="primary"
+                    variant="outline"
+                    size="sm"
+                    className="w-100 d-flex align-items-center justify-content-center"
+                    onClick={() => {
+                      setTableKey((prev) => prev + 1)
+                      handleGetPendientes()
+                    }}
+                    disabled={
+                      isLoading ||
+                      !fechaDesde ||
+                      !fechaHasta ||
+                      isRangoInvalido
+                    }                  >
+                    {isLoading ? (
+                      <>
+                        <CSpinner size="sm" className="me-1" />
+                        <span>Cargando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CIcon icon={cilSave} className="me-1" />
+                        <span>Generar</span>
+                      </>
+                    )}
+                  </CButton>
+                )}
                 <CButton
                   color="secondary"
                   variant="outline"
                   size="sm"
                   title="Limpiar filtros"
-                  onClick={handleReset}
+                  onClick={handleFullReset}
                   disabled={isLoading}
                 >
                   <CIcon icon={cilSync} />
                 </CButton>
               </CCol>
             </CRow>
+
+            {isRangoInvalido ? (
+              <div className="alert alert-danger py-2 px-3 mt-2 small d-flex align-items-center gap-2 mb-0">
+                <CIcon icon={cilWarning} className="text-danger flex-shrink-0" />
+                <span>
+                  <strong>Rango inválido:</strong> La Fecha (Desde) no puede ser posterior a la Fecha (Hasta).
+                </span>
+              </div>
+            ) : (
+              fechaDesde &&
+              fechaHasta && (
+                <div className="d-flex align-items-center gap-2 mt-2 text-muted small">
+                  <span>
+                    Periodo: <strong>{formatFecha(fechaDesde)}</strong> al <strong>{formatFecha(fechaHasta)}</strong>
+                  </span>
+                  {diasDiferencia >= 0 && (
+                    <span className="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1">
+                      {diasDiferencia} día{diasDiferencia !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                </div>
+              )
+            )}
           </CCardBody>
         </CCard>
 
@@ -226,67 +285,77 @@ const PendientesModal: React.FC<LibPendientesProps> = ({ visible, setVisible }) 
           </CCardHeader>
           <CCardBody className="p-0">
             <CSmartTable
+              key={tableKey}
               activePage={1}
               columns={columns}
               columnSorter
-              items={prestamos}
+              tableFilter={haBuscado && !isLoading && prestamos.length > 0}
+              tableFilterLabel="Buscar:"
+              tableFilterPlaceholder="Buscar en la tabla..."
+              cleaner
+              items={tableItems}
               itemsPerPage={60}
+              pagination
               noItemsLabel={
                 haBuscado
                   ? 'No se encontraron libros pendientes en el rango de fechas seleccionado'
                   : 'Seleccione un rango de fechas para generar el reporte'
               }
               scopedColumns={{
-                titulo: (item: PrestamoReporteItem) => (
+                titulo: (item: any) => (
                   <td>
                     <span className="font-monospace small fw-semibold">
-                      {item.TITULO_LIBROS}
+                      {item.titulo}
                     </span>
                   </td>
                 ),
-                fechaEntrega: (item: PrestamoReporteItem) => (
+                fechaEntrega: (item: any) => (
                   <td>
                     <span className="font-monospace small badge bg-body border text-primary">
-                      {item.FECHAFIN_PRESTAMO
-                        ? new Date(item.FECHAFIN_PRESTAMO).toLocaleDateString()
-                        : '-'}
+                      {item.fechaEntrega}
                     </span>
                   </td>
                 ),
-                cedula: (item: PrestamoReporteItem) => (
+                cedula: (item: any) => (
                   <td>
                     <span className="font-monospace small text-muted badge bg-body border">
-                      {item.IDENTIFICACION_PERSONA}
+                      {item.cedula}
                     </span>
                   </td>
                 ),
-                nombre: (item: PrestamoReporteItem) => (
+                nombre: (item: any) => (
                   <td>
                     <span className="font-monospace small">
-                      {item.NOMBRE_PERSONA}
+                      {item.nombre}
                     </span>
                   </td>
                 ),
-                correo: (item: PrestamoReporteItem) => (
+                correo: (item: any) => (
                   <td>
-                    <span className="font-monospace small rounded-pill border px-2 text-muted">
-                      {item.CORREO_PERSONA}
+                    <span className="font-monospace small badge bg-body border text-muted rounded-pill py-1 px-2">
+                      {item.correo || '-'}
                     </span>
                   </td>
                 ),
-                celular: (item: PrestamoReporteItem) => (
+                celular: (item: any) => (
                   <td>
-                    <span className="font-monospace small badge border rounded-pill text-primary">{item.CELULAR_PERSONA || '-'}</span>
+                    <span className="font-monospace small badge bg-body border rounded-pill text-primary">
+                      {item.celular || '-'}
+                    </span>
                   </td>
                 ),
-                telefono: (item: PrestamoReporteItem) => (
+                telefono: (item: any) => (
                   <td>
-                    <span className="font-monospace small badge border rounded-pill text-success">{item.TELEFONO_PERSONA || '-'}</span>
+                    <span className="font-monospace small badge bg-body border rounded-pill text-success">
+                      {item.telefono || '-'}
+                    </span>
                   </td>
                 ),
-                referencias: (item: PrestamoReporteItem) => (
+                referencias: (item: any) => (
                   <td>
-                    <span className="font-monospace small text-muted">{item.DETALLE_PERSONA || '-'}</span>
+                    <span className="font-monospace small text-muted" style={{ whiteSpace: 'pre-line' }}>
+                      {item.referencias || '-'}
+                    </span>
                   </td>
                 ),
               }}
@@ -308,20 +377,30 @@ const PendientesModal: React.FC<LibPendientesProps> = ({ visible, setVisible }) 
           Mostrando <strong>{prestamos.length}</strong> registro(s)
         </div>
         <div className="d-flex gap-2">
-          <CButton color="danger" variant="outline" onClick={handleClose}>
+          <CButton size="sm" color="danger" variant="outline" className="hover:text-white shadow-sm" onClick={handleClose}>
             <CIcon icon={cilExitToApp} className="me-1" />
             Cerrar
           </CButton>
-          {excelLink && (
+
+          {canDescargarLibrosPendientes && (
             <CButton
               color="success"
               variant="outline"
+              size="sm"
+              className="hover:text-white shadow-sm"
               onClick={handleDescargarExcel}
+              disabled={
+                isLoading ||
+                !haBuscado ||
+                prestamos.length === 0 ||
+                !excelLink
+              }
             >
               <CIcon icon={cilCloudDownload} className="me-1" />
-              Descargar
+              Descargar Excel
             </CButton>
           )}
+
         </div>
       </CModalFooter>
     </CModal>

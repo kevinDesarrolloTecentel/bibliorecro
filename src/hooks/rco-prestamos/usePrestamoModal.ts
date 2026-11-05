@@ -3,8 +3,12 @@ import Swal from 'sweetalert2'
 
 import { LibroOption, UsuarioOption } from '@/models/rco/prestamos'
 import { NuevoPrestamo } from '@/Service/rco/Prestamos'
-import { BuscarLibros } from '@/Service/rco/libros'
+import { BuscarLibros } from '@/Service/rco/Libros'
 import { Personas } from '@/Service/tab/Persona'
+import { formatFecha } from '@/utils/dateUtils'
+import { deduplicarPersonas } from '../tab-persona/usePersonas'
+import { sanitizarHistorialSanciones } from '@/utils/sancionUtils'
+import { usePermissions } from '@/context/PermissionsContext'
 
 const toArray = (val: any): any[] => {
   if (!val) return []
@@ -26,15 +30,34 @@ export const isUserActivoYDisponible = (u: any): boolean => {
   const estRaw = String(u.ESTADO_PERSONA ?? u.estado ?? '1').toLowerCase().trim()
   const isActivo = estRaw === '1' || estRaw === 'activo' || (!estRaw.includes('inactiv') && estRaw !== '0')
 
-  const estInscRaw = String(u.ESTADO_INSCRIPCION ?? u.ESTADOINSCRIPCION_PERSONA ?? '1').toLowerCase().trim()
-  const isInscrito = estInscRaw === '1' || estInscRaw === 'activo' || estInscRaw === 'true' || (!estInscRaw.includes('inactiv') && estInscRaw !== '0')
+  const estInscRaw = String(u.ESTADO_INSCRIPCION ?? '').toLowerCase().trim()
+  const hasInscripcionActiva =
+    estInscRaw === '1' ||
+    estInscRaw === 'activo' ||
+    (!estInscRaw.includes('inactiv') && estInscRaw !== '0' && Boolean(u.ID_INSCRIPCION))
+  const isInscrito = hasInscripcionActiva || Boolean(u.ID_INSCRIPCION)
 
   const isSancionado = Boolean(
     u.ESTADO_SANCION === 1 ||
     u.ESTADO_SANCION === '1' ||
+    u.ESTADO_SANCION === 2 ||
+    u.ESTADO_SANCION === '2' ||
     u.ESTADO_PERSONA === 2 ||
     u.ESTADO_PERSONA === '2' ||
-    (u.DETALLE_SANCION && !String(u.DETALLE_SANCION).toLowerCase().includes('sin sancion') && String(u.DETALLE_SANCION).trim() !== '')
+    u.TIENE_SANCION === 1 ||
+    u.TIENE_SANCION === '1' ||
+    (Array.isArray(u.historial_sanciones) &&
+      u.historial_sanciones.some(
+        (s: any) =>
+          s.estado === 1 ||
+          s.estado === '1' ||
+          s.estado === 2 ||
+          s.estado === '2' ||
+          s.ESTADO_SANCION === 1 ||
+          s.ESTADO_SANCION === '1'
+      )) ||
+    (String(u.ESTADO || '').toLowerCase().includes('sancion') &&
+      !String(u.ESTADO || '').toLowerCase().includes('sin sancion'))
   )
   return isActivo && isInscrito && !isSancionado
 }
@@ -60,7 +83,8 @@ const fetchInscripcionesData = async (busqueda: string = ''): Promise<any[]> => 
       list = toArray(fallbackRes)
     }
 
-    return list.filter(isUserActivoYDisponible)
+    const deduplicados = deduplicarPersonas(list)
+    return deduplicados.filter(isUserActivoYDisponible)
   } catch (err) {
     console.warn('Error al consultar usuarios inscritos activos:', err)
   }
@@ -71,13 +95,17 @@ export interface UsePrestamoModalProps {
   visible?: boolean
   setVisible?: (visible: boolean) => void
   onPrestamoCreado?: () => void
+  canGuardarPrestamo?: boolean
 }
 
 export const usePrestamoModal = ({
   visible,
   setVisible,
   onPrestamoCreado,
+  canGuardarPrestamo = true,
 }: UsePrestamoModalProps = {}) => {
+  const { verificarAccionEnServidor } = usePermissions()
+
   const [internalVisible, setInternalVisible] = useState(false)
   const isControlled = typeof visible === 'boolean'
   const isVisible = isControlled ? visible : internalVisible
@@ -142,6 +170,73 @@ export const usePrestamoModal = ({
           if (cedula) labelParts.push(cedula)
           if (fullName) labelParts.push(fullName)
 
+          const rawListSanciones = [
+            ...(Array.isArray(p.vetos) ? p.vetos : []),
+            ...(Array.isArray(p.raw?.vetos) ? p.raw.vetos : []),
+            ...(Array.isArray(p.historial_sanciones) ? p.historial_sanciones : []),
+            ...(Array.isArray(p.sanciones) ? p.sanciones : []),
+            ...(Array.isArray(p.raw?.sanciones) ? p.raw.sanciones : []),
+            ...(p.FECHAINICIO_SANCION || p.FECHAFIN_SANCION || p.DETALLE_SANCION || p.MOTIVO_VETO || p.FECHA_VETO ? [{
+              id: p.ID_SANCION ?? p.id_sancion ?? p.id,
+              inicio: p.FECHAINICIO_SANCION ?? p.FECHA_VETO,
+              fin: p.FECHAFIN_SANCION ?? ((p.ESTADO_VETO === 2 || p.ESTADO_VETO === '2' || p.TIENE_VETO_PERMANENTE === 1 || p.TIENE_VETO_PERMANENTE === '1') ? 'Indefinido' : ''),
+              detalle: p.DETALLE_SANCION ?? p.MOTIVO_VETO ?? p.detalle_sancion,
+              estado: p.ESTADO_VETO ?? p.ESTADO_SANCION,
+            }] : [])
+          ]
+
+          const historialSanitizado = sanitizarHistorialSanciones(rawListSanciones)
+          const sancionMasActual = historialSanitizado[0] || null
+
+          const rawSancion =
+            sancionMasActual ||
+            (p.sancion && typeof p.sancion === 'object' ? p.sancion : null) ||
+            null
+
+          const tieneSancion = Boolean(
+            rawSancion &&
+            (
+              rawSancion.inicio ||
+              rawSancion.fin ||
+              (rawSancion.detalle && !String(rawSancion.detalle).toLowerCase().includes('sin sancion')) ||
+              rawSancion.id ||
+              p.TIENE_SANCION === 1 ||
+              p.TIENE_SANCION === '1' ||
+              historialSanitizado.length > 0
+            )
+          )
+
+          const detalleFinal = String(
+            sancionMasActual?.detalle ||
+            p.DETALLE_SANCION ||
+            p.detalle_sancion ||
+            p.MOTIVO_SANCION ||
+            p.MOTIVO_VETO ||
+            rawSancion?.detalle ||
+            ''
+          ).trim()
+
+          const fechaInicioFinal =
+            sancionMasActual?.inicio ||
+            (p.FECHAINICIO_SANCION ? formatFecha(p.FECHAINICIO_SANCION) : '') ||
+            rawSancion?.inicio ||
+            ''
+
+          const fechaFinFinal =
+            sancionMasActual?.fin ||
+            (p.FECHAFIN_SANCION ? formatFecha(p.FECHAFIN_SANCION) : '') ||
+            rawSancion?.fin ||
+            ''
+
+          const sancionObj = tieneSancion
+            ? {
+              inicio: fechaInicioFinal,
+              fin: fechaFinFinal,
+              detalle: detalleFinal || 'Sanción registrada',
+              estado: sancionMasActual?.estado ?? rawSancion?.estado ?? p.ESTADO_SANCION ?? 0,
+            }
+            : null
+
           return {
             value: idInscripcion,
             label: labelParts.join(' - ') || `Usuario #${idInscripcion}`,
@@ -149,11 +244,24 @@ export const usePrestamoModal = ({
             nombre,
             apellido,
             estado: 'Activo',
+            tieneSancion,
+            sancion: sancionObj,
+            raw: p,
           }
         })
         .filter((u: UsuarioOption) => u.value !== undefined && u.value !== null && u.value !== '')
 
-      setUsuarios(mapped)
+      const deduplicadosPorValor: UsuarioOption[] = []
+      const vistos = new Set<string>()
+      for (const u of mapped) {
+        const k = String(u.value || u.cedula).trim()
+        if (k && !vistos.has(k)) {
+          vistos.add(k)
+          deduplicadosPorValor.push(u)
+        }
+      }
+
+      setUsuarios(deduplicadosPorValor)
     } catch (err) {
       console.error('Error al cargar inscripciones de usuarios:', err)
       setUsuarios([])
@@ -271,14 +379,77 @@ export const usePrestamoModal = ({
   const handleGuardarPrestamo = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
 
-    if (!selectedLibro || !selectedUsuario) {
+    if (!canGuardarPrestamo) {
       Swal.fire({
         icon: 'error',
-        title: 'Error',
-        text: 'Por favor, seleccione el libro y el usuario para el préstamo.',
-        confirmButtonColor: '#044c8c',
+        title: 'Acceso Denegado',
+        text: 'No cuenta con permisos para registrar nuevos préstamos.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
       })
       return
+    }
+
+    const tienePermiso = await verificarAccionEnServidor('btn_guardar_prestamo')
+    if (!tienePermiso) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Acceso Denegado',
+        text: 'No cuenta con permisos para registrar nuevos préstamos.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return
+    }
+
+    if (!selectedLibro || !selectedUsuario) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Campos requeridos',
+        text: 'Por favor, seleccione el libro y el usuario para el préstamo.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return
+    }
+
+    // Si el usuario tiene sanción registrada, pedir confirmacion
+    if (selectedUsuario.tieneSancion) {
+      const fechaInicio = formatFecha(selectedUsuario.sancion?.inicio)
+      const fechaFin = formatFecha(selectedUsuario.sancion?.fin)
+      const detalle =
+        selectedUsuario.sancion?.detalle ||
+        selectedUsuario.raw?.DETALLE_SANCION ||
+        'Sin detalle especificado'
+
+      const result = await Swal.fire({
+        title: '¿Está seguro de realizar el préstamo?',
+        html: `
+          <div style="text-align: left; font-size: 0.95rem;">
+            <p style="margin-bottom: 0.8rem; color: #495057;">
+              El usuario <strong>${selectedUsuario.nombre} ${selectedUsuario.apellido}</strong> cuenta con un registro de sanción:
+            </p>
+            <div style="background-color: #fff3cd; color: #664d03; border: 1px solid #ffe69c; border-radius: 8px; padding: 12px; margin-bottom: 0.8rem;">
+              <div style="font-weight: 700; margin-bottom: 6px; font-size: 0.95rem;">Información de la Sanción:</div>
+              <div style="font-size: 0.88rem; line-height: 1.6; background-color: rgba(255,255,255,0.7); padding: 8px; border-radius: 6px;">
+                <div><strong>Fecha Inicio Sanción:</strong> ${fechaInicio}</div>
+                <div><strong>Fecha Fin Sanción:</strong> ${fechaFin}</div>
+                <div><strong>Detalle de la Sanción:</strong> ${detalle}</div>
+              </div>
+            </div>
+          </div>
+        `,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#198754',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Sí, registrar préstamo',
+        cancelButtonText: 'Cancelar',
+      })
+
+      if (!result.isConfirmed) {
+        return
+      }
     }
 
     setGuardando(true)
@@ -292,9 +463,10 @@ export const usePrestamoModal = ({
 
       Swal.fire({
         icon: 'success',
-        title: '¡Éxito!',
-        text: 'Préstamo registrado con éxito.',
-        confirmButtonColor: '#044c8c',
+        title: '¡Préstamo registrado!',
+        text: 'El préstamo se registró exitosamente.',
+        timer: 1800,
+        showConfirmButton: false,
       })
 
       handleClose()
@@ -303,33 +475,59 @@ export const usePrestamoModal = ({
       }
     } catch (err: any) {
       console.error(err)
-      if (err?.response?.data?.error === 'El libro ya está en préstamo') {
+      const data = err?.response?.data
+      if (data?.error === 'El libro ya está en préstamo') {
         Swal.fire({
           icon: 'error',
-          title: 'Error',
-          text: 'El libro ya está en préstamo.',
-          confirmButtonColor: '#d33',
+          title: 'Libro no disponible',
+          text: 'El libro ya se encuentra en préstamo actualmente.',
+          confirmButtonColor: '#dc3545',
+          confirmButtonText: 'Entendido',
         })
-      } else if (err?.response?.data?.sancion) {
+      } else if (data?.alerta_sancion) {
+        const alerta = data.alerta_sancion
+        const fechaInicio = formatFecha(alerta.FECHAINICIO_SANCION)
+        const fechaFin = formatFecha(alerta.FECHAFIN_SANCION)
+        const detalle = alerta.DETALLE_SANCION || alerta.detalle || alerta.motivo || alerta.MOTIVO_SANCION || 'Sanción activa'
         Swal.fire({
-          icon: 'question',
+          icon: 'warning',
+          title: 'Usuario Sancionado',
+          html: `
+            <div style="text-align: left; font-size: 0.95rem;">
+              <p style="margin-bottom: 8px;">${alerta.mensaje || data.message || 'El usuario cuenta con una sanción activa.'}</p>
+              <div style="background-color: #fff3cd; color: #664d03; border: 1px solid #ffe69c; border-radius: 6px; padding: 10px;">
+                <div><strong>Fecha Inicio Sanción:</strong> ${fechaInicio}</div>
+                <div><strong>Fecha Fin Sanción:</strong> ${fechaFin}</div>
+                <div><strong>Detalle de la Sanción:</strong> ${detalle}</div>
+              </div>
+            </div>
+          `,
+          confirmButtonColor: '#dc3545',
+          confirmButtonText: 'Entendido',
+        })
+      } else if (data?.sancion) {
+        Swal.fire({
+          icon: 'warning',
           title: 'Atención',
-          text: err.response.data.sancion,
-          confirmButtonColor: '#044c8c',
+          text: data.sancion,
+          confirmButtonColor: '#dc3545',
+          confirmButtonText: 'Entendido',
         })
-      } else if (err?.response?.data?.message) {
+      } else if (data?.message) {
         Swal.fire({
           icon: 'error',
-          title: 'Error',
-          text: err.response.data.message,
-          confirmButtonColor: '#d33',
+          title: 'Error al registrar',
+          text: data.message,
+          confirmButtonColor: '#dc3545',
+          confirmButtonText: 'Entendido',
         })
       } else {
         Swal.fire({
           icon: 'error',
-          title: 'Error',
+          title: 'Error al registrar',
           text: 'Hubo un error al guardar los datos del préstamo.',
-          confirmButtonColor: '#d33',
+          confirmButtonColor: '#dc3545',
+          confirmButtonText: 'Entendido',
         })
       }
     } finally {
@@ -376,6 +574,8 @@ export const usePrestamoModal = ({
     setBusquedaUsuario,
     guardando,
     handleGuardarPrestamo,
+    canGuardarPrestamo,
+    verificarAccionEnServidor,
 
     libroSeleccionado: selectedLibro,
     setLibroSeleccionado: setSelectedLibro,

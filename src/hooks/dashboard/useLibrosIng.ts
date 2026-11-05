@@ -1,40 +1,10 @@
 import { useState, useCallback } from 'react'
 import Swal from 'sweetalert2'
-import { ReporteIngresos, listarLibros } from '@/Service/rco/libros'
+import { ReporteIngresos } from '@/Service/rco/Libros'
+import { LibroIngresoItem, UseLibrosIngReturn } from '@/models/dashboard/dashboard.model'
+import { usePermissions } from '@/context/PermissionsContext'
 
-export interface LibroIngresoItem {
-  id?: number | string
-  isbn: string
-  titulo: string
-  autor: string
-  editorial: string
-  proveedor: string
-  categoria: string
-  genero: string
-  formato: string
-  volumen: string
-  pais: string
-  fechaEdicion: string
-  fechaIngreso: string
-  estado: string
-  precio?: string | number
-  [key: string]: any
-}
-
-export interface UseLibrosIngReturn {
-  fechaDesde: string
-  fechaHasta: string
-  libros: LibroIngresoItem[]
-  loading: boolean
-  exportando: boolean
-  haBuscado: boolean
-  totalLibros: number
-  setFechaDesde: React.Dispatch<React.SetStateAction<string>>
-  setFechaHasta: React.Dispatch<React.SetStateAction<string>>
-  handleDateChange: (val: Date | string | null, field: 'desde' | 'hasta') => void
-  handleBuscarReporte: () => Promise<void>
-  handleExportarExcel: () => Promise<void>
-}
+export type { LibroIngresoItem, UseLibrosIngReturn }
 
 export const aFechaLocal = (str?: string | null): Date | undefined => {
   if (!str) return undefined
@@ -194,6 +164,10 @@ const normalizeLibro = (item: any): LibroIngresoItem => {
 }
 
 export const useLibrosIng = (): UseLibrosIngReturn => {
+  const { canDoAction, verificarAccionEnServidor } = usePermissions()
+  const canBuscar = canDoAction('btn_buscar_reporte_libros')
+  const canExportar = canDoAction('btn_exportar_excel_libros')
+
   const [fechaDesde, setFechaDesde] = useState<string>('')
   const [fechaHasta, setFechaHasta] = useState<string>('')
   const [libros, setLibros] = useState<LibroIngresoItem[]>([])
@@ -202,23 +176,59 @@ export const useLibrosIng = (): UseLibrosIngReturn => {
   const [haBuscado, setHaBuscado] = useState<boolean>(false)
 
   const handleBuscarReporte = useCallback(async () => {
+    if (!canBuscar) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Acceso Denegado',
+        text: 'No tienes permisos para consultar el reporte de libros ingresados.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return
+    }
+
     if (!fechaDesde || !fechaHasta) {
       Swal.fire({
         icon: 'warning',
         title: 'Fechas requeridas',
         text: 'Por favor selecciona la fecha (Desde) y la fecha (Hasta) para consultar los libros ingresados.',
-        confirmButtonColor: '#321fdb',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return
+    }
+
+    if (fechaDesde > fechaHasta) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Rango de fechas inválido',
+        text: 'La Fecha (Desde) no puede ser posterior a la Fecha (Hasta).',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
       })
       return
     }
 
     setLoading(true)
+
+    const tienePermiso = await verificarAccionEnServidor('btn_buscar_reporte_libros')
+    if (!tienePermiso) {
+      setLoading(false)
+      Swal.fire({
+        icon: 'error',
+        title: 'Acceso Denegado',
+        text: 'No tienes permisos para consultar el reporte de libros ingresados.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return
+    }
+
     setHaBuscado(true)
     try {
       const params = {
         fechaDesde,
         fechaHasta,
-        anio: fechaDesde.split('-')[0],
       }
 
       let list: any[] = []
@@ -226,25 +236,48 @@ export const useLibrosIng = (): UseLibrosIngReturn => {
         const res = await ReporteIngresos(params)
         list = extractBooksList(res)
       } catch (apiErr) {
-        console.warn('Endpoint ReporteIngresos falló, consultando libros mediante listarLibros:', apiErr)
+        console.warn('[useLibrosIng] Error al consultar ReporteIngresos:', apiErr)
       }
 
-      if (list.length === 0) {
-        try {
-          const resFallback = await listarLibros()
-          list = extractBooksList(resFallback)
-        } catch (fallbackErr) {
-          console.warn('Error al obtener libros de respaldo:', fallbackErr)
-        }
+      // Si vienen datos del backend, asegurar filtrado estricto dentro del rango de fechas
+      if (list.length > 0 && fechaDesde && fechaHasta) {
+        const dInicio = fechaDesde.slice(0, 10)
+        const dFin = fechaHasta.slice(0, 10)
+        list = list.filter((item) => {
+          const rawFecha =
+            item.FECHAREGISTRO_LIBROS ||
+            item.FechaRegistro ||
+            item.fechaIngreso ||
+            item.created_at ||
+            item.FECHA_INGRESO ||
+            item.FECHAEDICION_LIBROS
+          if (!rawFecha) return true
+          const f = String(rawFecha).slice(0, 10)
+          if (/^\d{4}-\d{2}-\d{2}/.test(f)) {
+            return f >= dInicio && f <= dFin
+          }
+          return true
+        })
       }
 
       setLibros(list.map(normalizeLibro))
+
+      if (list.length === 0) {
+        Swal.fire({
+          icon: 'info',
+          title: 'Sin registros',
+          text: 'No se encontraron libros ingresados en el rango de fechas seleccionado.',
+          confirmButtonColor: '#044c8c',
+          confirmButtonText: 'Entendido',
+        })
+      }
     } catch (err) {
       console.error('Error al cargar reporte de libros:', err)
+      setLibros([])
     } finally {
       setLoading(false)
     }
-  }, [fechaDesde, fechaHasta])
+  }, [fechaDesde, fechaHasta, canBuscar, verificarAccionEnServidor])
 
   const handleDateChange = useCallback(
     (val: Date | string | null, field: 'desde' | 'hasta') => {
@@ -259,17 +292,43 @@ export const useLibrosIng = (): UseLibrosIngReturn => {
   )
 
   const handleExportarExcel = useCallback(async () => {
+    if (!canExportar) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Acceso Denegado',
+        text: 'No tienes permisos para exportar este reporte a Excel.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return
+    }
+
     if (!libros || libros.length === 0) {
       Swal.fire({
         icon: 'info',
         title: 'Sin datos',
         text: 'No hay libros disponibles para exportar en este período.',
-        confirmButtonColor: '#321fdb',
+        confirmButtonColor: '#044c8c',
+        confirmButtonText: 'Entendido',
       })
       return
     }
 
     setExportando(true)
+
+    const tienePermiso = await verificarAccionEnServidor('btn_exportar_excel_libros')
+    if (!tienePermiso) {
+      setExportando(false)
+      Swal.fire({
+        icon: 'error',
+        title: 'Acceso Denegado',
+        text: 'No tienes permisos para exportar este reporte a Excel.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return
+    }
+
     try {
       const headers = [
         '#',
@@ -290,7 +349,7 @@ export const useLibrosIng = (): UseLibrosIngReturn => {
 
       const rows = libros.map((l, idx) => [
         idx + 1,
-        `"${l.isbn || ''}"`,
+        l.isbn ? `="${(l.isbn || '').replace(/"/g, '""')}"` : '""',
         `"${(l.titulo || '').replace(/"/g, '""')}"`,
         `"${(l.autor || '').replace(/"/g, '""')}"`,
         `"${(l.editorial || '').replace(/"/g, '""')}"`,
@@ -298,11 +357,11 @@ export const useLibrosIng = (): UseLibrosIngReturn => {
         `"${(l.categoria || '').replace(/"/g, '""')}"`,
         `"${(l.genero || '').replace(/"/g, '""')}"`,
         `"${(l.formato || '').replace(/"/g, '""')}"`,
-        `"${l.volumen || ''}"`,
-        `"${l.pais || ''}"`,
-        `"${l.fechaEdicion || ''}"`,
-        `"${l.fechaIngreso || ''}"`,
-        `"${l.estado || ''}"`,
+        `"${(l.volumen || '').replace(/"/g, '""')}"`,
+        `"${(l.pais || '').replace(/"/g, '""')}"`,
+        `"${(l.fechaEdicion || '').replace(/"/g, '""')}"`,
+        `"${(l.fechaIngreso || '').replace(/"/g, '""')}"`,
+        `"${(l.estado || '').replace(/"/g, '""')}"`,
       ])
 
       const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n')
@@ -321,7 +380,7 @@ export const useLibrosIng = (): UseLibrosIngReturn => {
         icon: 'success',
         title: 'Archivo exportado',
         text: `Se descargó exitosamente el reporte con ${libros.length} libros.`,
-        timer: 2000,
+        timer: 1800,
         showConfirmButton: false,
       })
     } catch (err) {
@@ -330,12 +389,13 @@ export const useLibrosIng = (): UseLibrosIngReturn => {
         icon: 'error',
         title: 'Error',
         text: 'No se pudo generar el archivo de libros.',
-        confirmButtonColor: '#321fdb',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
       })
     } finally {
       setExportando(false)
     }
-  }, [fechaDesde, fechaHasta, libros])
+  }, [canExportar, verificarAccionEnServidor, fechaDesde, fechaHasta, libros])
 
   return {
     fechaDesde,
@@ -345,6 +405,8 @@ export const useLibrosIng = (): UseLibrosIngReturn => {
     exportando,
     haBuscado,
     totalLibros: libros.length,
+    canBuscar,
+    canExportar,
     setFechaDesde,
     setFechaHasta,
     handleDateChange,

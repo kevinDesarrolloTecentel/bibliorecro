@@ -1,184 +1,330 @@
-import { useState } from 'react'
-import { CBadge, CButton, CCollapse, CSmartTable } from '@coreui/react-pro'
+import { useRef, useEffect } from 'react'
+import {
+  CBadge,
+  CButton,
+  CCard,
+  CCardBody,
+  CCardHeader,
+  CElementCover,
+  CFormCheck,
+  CSpinner,
+} from '@coreui/react-pro'
 import CIcon from '@coreui/icons-react'
-import { cilPencil, cilTrash } from '@coreui/icons'
+import { cilPlus, cilSync } from '@coreui/icons'
 
-import HeaderUser from '@/components/users/headerUser'
 import ModalEdit from '@/components/users/ModalEdit'
 import Newuser from '@/components/users/ModalNew_user'
 import useUsers from '@/hooks/adm-user/useUsers'
-import { usePermissions } from '@/context/PermissionsContext'
-
-const getBadge = (status: string) => {
-    switch (status) {
-        case 'Activo':
-            return 'success'
-        case 'Inactivo':
-            return 'secondary'
-        default:
-            return 'primary'
-    }
-}
+import useRoles from '@/hooks/admin-roles/useRoles'
+import useRolesUsuariosMatriz from '@/hooks/admin-roles/useRolesUsuariosMatriz'
 
 export const User = () => {
-    const userState = useUsers()
-    const { canDoAction } = usePermissions()
-    const [details, setDetails] = useState<(string | number)[]>([])
+  const userState = useUsers({ fetchAll: false })
+  const rolesState = useRoles()
+  const matriz = useRolesUsuariosMatriz(rolesState.roles, rolesState.fetchRoles)
 
-    const toggleDetails = (id: string | number) => {
-        setDetails((prev) => (prev.includes(id) ? [] : [id]))
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+
+  // Scroll horizontal suave con rueda del mouse idéntico a Roles.tsx
+  useEffect(() => {
+    const el = scrollContainerRef.current
+    if (!el) return
+
+    const handleWheel = (e: WheelEvent) => {
+      if (e.deltaY !== 0 && !e.shiftKey) {
+        if (el.scrollWidth > el.clientWidth) {
+          e.preventDefault()
+          el.scrollLeft += e.deltaY * 1.3
+        }
+      }
     }
 
-    const getBadgeRol = (rolName: string, item?: any) => {
-        const rawRol = item?.raw?.ID_ROL ?? item?.raw?.rol ?? rolName
-        const found = userState.rolesList.find((r: any) => {
-            const id = String(r.ID_ROL ?? r.id ?? '')
-            const nom = String(r.NOMBRE_ROL ?? r.nombre ?? '').toLowerCase().trim()
-            return id === String(rawRol) || nom === String(rolName || '').toLowerCase().trim()
-        })
-        const nivel = Number(found?.NIVEL_ROL ?? found?.nivel ?? 1)
-        if (nivel === 1) return 'danger'
-        if (nivel === 2) return 'info'
-        if (nivel === 3) return 'warning'
-        return 'primary'
+    el.addEventListener('wheel', handleWheel, { passive: false })
+    return () => {
+      el.removeEventListener('wheel', handleWheel)
     }
+  }, [matriz.loadingUsuarios, rolesState.roles])
 
-    const items = userState.usuarios
-        .filter((u: any) => {
-            if (userState.filtroRol === 'todos') return true
-            const rolVal = String(u.ID_ROL ?? u.rol ?? '').toLowerCase()
-            const target = userState.filtroRol.toLowerCase()
-            if (rolVal === target) return true
-            const nomRol = userState.getRolNombre(u.ID_ROL ?? u.rol, u).toLowerCase()
-            if (nomRol === target) return true
+  const isLoading = rolesState.loading || matriz.loadingUsuarios
 
-            const targetRole = userState.rolesList.find((r: any) => {
-                const id = String(r.ID_ROL ?? r.id ?? '').toLowerCase()
-                return id === target
-            })
-            if (targetRole) {
-                const targetNom = String(targetRole.NOMBRE_ROL ?? targetRole.nombre ?? '').toLowerCase()
-                if (targetNom && (targetNom === nomRol || targetNom === rolVal)) return true
-            }
-            return false
-        })
-        .map((u: any) => {
-            const rawPass = u.PASSWORD_USUARIO || u.password || u.contrasena || ''
-            return {
-                id: u.ID_USUARIO || u.id,
-                Usuario: u.NICK_USUARIO || u.usuario || u.email || '',
-                Contraseña: rawPass,
-                Nombres: u.NOMBRES_USUARIO || u.nombres || u.name || 'No disponible',
-                Fecha_registro: u.FECHA_REGISTRO || u.fecha_registro || '',
-                Rol: userState.getRolNombre(u.ID_ROL ?? u.rol, u),
-                Estado: (String(u.ESTADO_USUARIO ?? u.estado).toLowerCase() === '1' || String(u.ESTADO_USUARIO ?? u.estado).toLowerCase() === 'activo') ? 'Activo' : 'Inactivo',
-                raw: u
-            }
-        })
+  const handleRefrescarTodo = async () => {
+    try {
+      await Promise.all([
+        rolesState.fetchRoles(),
+        matriz.fetchUsuarios(),
+      ])
+    } catch (error) {
+      console.error('Error al refrescar:', error)
+    }
+  }
 
-    const columns = [
-        { key: 'Usuario', _style: { width: '18%' } },
-        { key: 'Contraseña', _style: { width: '16%' } },
-        { key: 'Nombres', _style: { width: '22%' } },
-        { key: 'Fecha_registro', label: 'Fecha Registro', _style: { width: '20%' } },
-        { key: 'Rol', _style: { width: '12%' } },
-        { key: 'Estado', _style: { width: '12%' } },
-    ]
-    return (
-        <>
-            <HeaderUser userState={userState} />
-            <Newuser userState={userState} />
-            <ModalEdit userState={userState} />
-            <CSmartTable
-                activePage={1}
-                clickableRows
-                columns={columns}
-                columnSorter
-                items={items}
-                itemsPerPageSelect
-                onRowClick={(item: any) => {
-                    const id = item?.id ?? item?.raw?.ID_USUARIO
-                    if (id) toggleDetails(id)
-                }}
-                scopedColumns={{
-                    Contraseña: () => (
-                        <td>
-                            <span className="font-monospace small">••••••••</span>
-                        </td>
-                    ),
+  return (
+    <div className="w-100 pb-4">
+      <Newuser
+        userState={userState}
+        onUserCreated={matriz.fetchUsuarios}
+      />
+      <ModalEdit
+        userState={userState}
+        onUserChanged={matriz.fetchUsuarios}
+      />
 
-                    Rol: (item: any) => (
-                        <td>
-                            <CBadge color={getBadgeRol(item.Rol, item)}>{item.Rol}</CBadge>
-                        </td>
-                    ),
-                    Estado: (item: any) => (
-                        <td>
-                            <CBadge color={getBadge(item.Estado)}>{item.Estado}</CBadge>
-                        </td>
-                    ),
-                    Fecha_registro: (item: any) => {
-                        if (!item.Fecha_registro) return <td>-</td>
-                        const date = new Date(item.Fecha_registro)
-                        const options: Intl.DateTimeFormatOptions = {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                        }
-                        return <td>{isNaN(date.getTime()) ? item.Fecha_registro : date.toLocaleDateString('es-ES', options)}</td>
-                    },
-                    details: (item: any) => {
-                        const id = item?.id ?? item?.raw?.ID_USUARIO
-                        const isVisible = details.includes(id)
-                        return (
-                            <CCollapse visible={isVisible} className="user-details-collapse">
-                                <div className="p-3 bg-body-tertiary border-top border-bottom d-flex flex-wrap gap-2 justify-content-end align-items-center">
-                                    {canDoAction('btn_editar_usuario') && (
-                                        <CButton
-                                            color="primary"
-                                            variant="outline"
-                                            size="sm"
-                                            className="d-flex align-items-center gap-1 shadow-sm"
-                                            onClick={(e) => {
-                                                e.stopPropagation()
-                                                userState.handleAbrirEditar(item)
-                                            }}
-                                        >
-                                            <CIcon icon={cilPencil} className="me-1" />
-                                            <span>Editar Usuario</span>
-                                        </CButton>
-                                    )}
-                                    {canDoAction('btn_eliminar_usuario') && (
-                                        <CButton
-                                            color="danger"
-                                            variant="outline"
-                                            size="sm"
-                                            className="hover:text-white d-flex align-items-center gap-1 shadow-sm"
-                                            onClick={(e) => {
-                                                e.stopPropagation()
-                                                userState.handleEliminarUsuario(item.id, item.Nombres || item.Usuario)
-                                            }}
-                                        >
-                                            <CIcon icon={cilTrash} className="me-1" />
-                                            <span>Eliminar Usuario</span>
-                                        </CButton>
-                                    )}
-                                </div>
-                            </CCollapse>
-                        )
-                    }
-                }}
-                tableFilterPlaceholder="Buscar usuarios..."
-                tableProps={{
-                    responsive: true,
-                    striped: true,
-                    hover: true,
-                }}
-                tableBodyProps={{
-                    className: 'align-middle',
-                }}
+      {/* Encabezado del módulo unificado */}
+      <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+        <div>
+          <h3 className="fw-bold mb-1">Usuarios del Sistema</h3>
+          <p className="text-body-secondary mb-0">
+            Administración de cuentas y asignación de roles por usuario.
+          </p>
+        </div>
+        <div className="d-flex align-items-center gap-2">
+          <CButton
+            color="secondary"
+            variant="outline"
+            size="sm"
+            onClick={handleRefrescarTodo}
+            disabled={isLoading}
+            className="d-flex align-items-center gap-1 shadow-sm"
+            title="Refrescar usuarios y roles"
+          >
+            <CIcon
+              icon={cilSync}
+              className={`me-1 ${isLoading ? 'rotate-animation' : ''}`}
             />
-        </>
-    )
+            <span>{isLoading ? 'Refrescando...' : 'Refrescar'}</span>
+          </CButton>
+          {userState.canCrearUsuario && (
+            <CButton
+              color="success"
+              variant="outline"
+              size="sm"
+              onClick={userState.handleAbrirCrear}
+              className="d-flex align-items-center gap-1 shadow-sm hover:text-white"
+            >
+              <CIcon icon={cilPlus} className="me-1" />
+              <span>Nuevo Usuario</span>
+            </CButton>
+          )}
+        </div>
+      </div>
+
+      <CCard className="shadow-sm border-0 mb-4">
+        <CCardHeader className="bg-transparent py-3 d-flex justify-content-between align-items-center">
+          <span className="fw-semibold text-uppercase small">
+            Matriz de Usuarios y Roles
+          </span>
+          <span className="text-body-secondary small">
+            Total usuarios registrados: <strong>{matriz.usuarios.length}</strong>
+          </span>
+        </CCardHeader>
+
+        <CCardBody className="p-0">
+          {isLoading ? (
+            <div className="position-relative py-5 px-3" style={{ minHeight: '160px' }}>
+              <div className="text-center text-body-secondary py-3">
+                Cargando usuarios y roles...
+              </div>
+              <CElementCover opacity={0.2} style={{ backgroundColor: 'transparent' }}>
+                <CSpinner variant="grow" color="primary" />
+              </CElementCover>
+            </div>
+          ) : matriz.usuarios.length === 0 ? (
+            <div className="text-center py-5 text-secondary">
+              <p className="mb-0">No se encontraron usuarios registrados en el sistema.</p>
+            </div>
+          ) : rolesState.roles.length === 0 ? (
+            <div className="text-center py-5 text-secondary">
+              <p className="mb-0">No se encontraron roles configurados.</p>
+            </div>
+          ) : (
+            <div
+              ref={scrollContainerRef}
+              style={{
+                overflowX: 'auto',
+                WebkitOverflowScrolling: 'touch',
+              }}
+            >
+              <table
+                className="table table-hover align-middle mb-0"
+                style={{ minWidth: 'max-content', borderCollapse: 'separate', borderSpacing: 0 }}
+              >
+                <thead>
+                  <tr style={{ backgroundColor: 'var(--cui-tertiary-bg)' }}>
+                    <th
+                      className="py-3 px-3 text-start align-middle"
+                      style={{
+                        backgroundColor: 'var(--cui-body-bg)',
+                        width: '260px',
+                        minWidth: '260px',
+                        borderRight: '2px solid var(--cui-border-color)',
+                        borderBottom: '2px solid var(--cui-border-color)',
+                      }}
+                    >
+                    </th>
+                    {rolesState.roles.map((rol: any) => {
+                      const rolId = Number(rol.ID_ROL ?? rol.id)
+                      const nombreRol = String(rol.NOMBRE_ROL ?? rol.nombre ?? `Rol ${rolId}`)
+                      const nivelRol = Number(rol.NIVEL_ROL ?? rol.nivel ?? 1)
+
+                      return (
+                        <th
+                          key={rolId}
+                          className="py-3 px-3 text-center align-top"
+                          style={{
+                            minWidth: '170px',
+                            maxWidth: '220px',
+                            backgroundColor: 'var(--cui-tertiary-bg)',
+                            borderRight: '1px solid var(--cui-border-color)',
+                            borderBottom: '2px solid var(--cui-border-color)',
+                          }}
+                        >
+                          <div className="d-flex flex-column align-items-center gap-1">
+                            <span
+                              className="fw-bold px-2 py-1 rounded text-truncate shadow-sm"
+                              style={{
+                                fontSize: '0.85rem',
+                                backgroundColor: '#ede9fe',
+                                color: '#5b21b6',
+                                maxWidth: '190px',
+                                border: '1px solid rgba(139, 92, 246, 0.25)',
+                                userSelect: 'none',
+                              }}
+                              title={nombreRol}
+                            >
+                              {nombreRol}
+                            </span>
+                            <span className="text-secondary small fw-medium" style={{ fontSize: '0.75rem' }}>
+                              Nivel {nivelRol}
+                            </span>
+                          </div>
+                        </th>
+                      )
+                    })}
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {matriz.usuarios.map((usuario: any) => {
+                    const usuarioId = Number(usuario.ID_USUARIO ?? usuario.id ?? 0)
+                    const nick = String(usuario.NICK_USUARIO ?? usuario.usuario ?? `ID ${usuarioId}`)
+                    const nombres = String(usuario.NOMBRES_USUARIO ?? usuario.nombres ?? '')
+                    const rawEstado = usuario.ESTADO_USUARIO ?? usuario.estado
+                    const isActivo =
+                      String(rawEstado).toLowerCase() === '1' ||
+                      String(rawEstado).toLowerCase() === 'activo'
+                    const isSavingThisUser = matriz.savingUserId === usuarioId
+
+                    return (
+                      <tr key={usuarioId}>
+                        {/* Celda del usuario: clic para editar o eliminar */}
+                        <td
+                          className="px-3 py-3 text-start align-middle"
+                          style={{
+                            backgroundColor: 'var(--cui-body-bg)',
+                            width: '260px',
+                            minWidth: '260px',
+                            borderRight: '2px solid var(--cui-border-color)',
+                            borderBottom: '1px solid var(--cui-border-color)',
+                            cursor: userState.canEditarUsuario ? 'pointer' : 'default',
+                            transition: 'background-color 0.15s ease',
+                          }}
+                          onClick={() => {
+                            if (userState.canEditarUsuario) {
+                              userState.handleAbrirEditar(usuario)
+                            }
+                          }}
+                          title={
+                            userState.canEditarUsuario
+                              ? 'Haz clic para editar o eliminar este usuario'
+                              : nick
+                          }
+                        >
+                          <div className="d-flex flex-column gap-1">
+                            <div className="d-flex align-items-center justify-content-between gap-2">
+                              <span className="fw-bold text-body fs-6 text-truncate" title={nick}>
+                                {nick}
+                              </span>
+                              <CBadge
+                                color={isActivo ? 'success' : 'secondary'}
+                                shape="rounded-pill"
+                                className="px-2 py-1"
+                                style={{ fontSize: '0.68rem' }}
+                              >
+                                {isActivo ? 'Activo' : 'Inactivo'}
+                              </CBadge>
+                            </div>
+
+                            {nombres && nombres !== 'No disponible' && (
+                              <span className="text-secondary small text-truncate" title={nombres}>
+                                {nombres}
+                              </span>
+                            )}
+
+                            {isSavingThisUser && (
+                              <div className="text-primary small d-flex align-items-center gap-1 mt-1">
+                                <CSpinner size="sm" style={{ width: '0.85rem', height: '0.85rem' }} />
+                                <span>Guardando roles...</span>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Celdas con Checkbox por cada Rol */}
+                        {rolesState.roles.map((rol: any) => {
+                          const rolId = Number(rol.ID_ROL ?? rol.id)
+                          const isChecked = matriz.isRolAsignado(usuarioId, rolId)
+                          const nombreRol = String(rol.NOMBRE_ROL ?? rol.nombre ?? `Rol ${rolId}`)
+
+                          return (
+                            <td
+                              key={rolId}
+                              className="text-center align-middle py-3 px-2"
+                              style={{
+                                borderRight: '1px solid var(--cui-border-color-translucent)',
+                                borderBottom: '1px solid var(--cui-border-color)',
+                                backgroundColor: isChecked ? 'rgba(99, 102, 241, 0.12)' : undefined,
+                                transition: 'background-color 0.15s ease',
+                              }}
+                            >
+                              <div className="d-flex justify-content-center align-items-center">
+                                <CFormCheck
+                                  id={`user-role-${usuarioId}-${rolId}`}
+                                  checked={isChecked}
+                                  disabled={!matriz.canCheckboxRoles || isSavingThisUser}
+                                  onChange={() => {
+                                    if (matriz.canCheckboxRoles) {
+                                      matriz.handleConfirmarCambioRol(usuario, rol)
+                                    }
+                                  }}
+                                  title={
+                                    !matriz.canCheckboxRoles
+                                      ? 'No tienes permiso para modificar la asignación de roles'
+                                      : `${isChecked ? 'Quitar' : 'Asignar'} rol "${nombreRol}" a ${nick}`
+                                  }
+                                  style={{
+                                    cursor: !matriz.canCheckboxRoles
+                                      ? 'not-allowed'
+                                      : isSavingThisUser
+                                        ? 'wait'
+                                        : 'pointer',
+                                    transform: 'scale(1.3)',
+                                  }}
+                                />
+                              </div>
+                            </td>
+                          )
+                        })}
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CCardBody>
+      </CCard>
+    </div>
+  )
 }
+
 export default User

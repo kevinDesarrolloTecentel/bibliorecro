@@ -18,7 +18,6 @@ const mesesLabels = [
   'Diciembre',
 ]
 
-// Datos de referencia por defecto (inicializados en 0 para mostrar solo datos reales)
 const DEFAULT_NUEVOS = Array(12).fill(0)
 const DEFAULT_RENOVACIONES = Array(12).fill(0)
 

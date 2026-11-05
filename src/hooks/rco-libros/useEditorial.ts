@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState, useEffect } from 'react'
 import Swal from 'sweetalert2'
 import { Editorial } from '@/models/rco/editorial'
 import { ActualizarEditLib, EliminarEditLib, ListarEditLib, NuevaEditLib } from '@/Service/rco/EditLib'
+import { usePermissions } from '@/context/PermissionsContext'
 
 
 export type EditorialItem = Editorial
@@ -15,18 +16,6 @@ export interface UseEditorialProps {
   onEditorialEliminado?: (id: number | string) => void
 }
 
-const Toast = Swal.mixin({
-  toast: true,
-  position: 'top-end',
-  showConfirmButton: false,
-  timer: 3000,
-  timerProgressBar: true,
-  didOpen: (toast) => {
-    toast.onmouseenter = Swal.stopTimer
-    toast.onmouseleave = Swal.resumeTimer
-  },
-})
-
 export const useEditorial = ({
   autoFetch = true,
   visible: visibleProp,
@@ -35,6 +24,15 @@ export const useEditorial = ({
   onEditorialActualizado,
   onEditorialEliminado,
 }: UseEditorialProps = {}) => {
+  const { canDoAction, verificarAccionEnServidor } = usePermissions()
+
+  const canCrearEditorial = canDoAction('btn_crear_editorial')
+  const canGuardarEditorial = canDoAction('btn_guardar_editorial')
+  const canEditarEditorial = canDoAction('btn_editar_editorial')
+  const canActualizarEditorial = canDoAction('btn_actualizar_editorial')
+  const canEliminarEditorial = canDoAction('btn_eliminar_editorial')
+  const canVerInfoEditorial =canDoAction('btn_ver_info_editorial')
+
   const [internalVisible, setInternalVisible] = useState(false)
   const isControlled = typeof visibleProp === 'boolean'
   const isVisible = isControlled ? visibleProp : internalVisible
@@ -47,7 +45,7 @@ export const useEditorial = ({
   const [editorialEnEdicion, setEditorialEnEdicion] = useState<Editorial | null>(null)
   const [guardando, setGuardando] = useState(false)
 
-  const fetchEditoriales = useCallback(async () => {
+  const fetchEditoriales = useCallback(async (preserveSelection = true) => {
     setLoadingEditorial(true)
     try {
       const response = await ListarEditLib()
@@ -72,20 +70,20 @@ export const useEditorial = ({
       }))
 
       setListaEditorial(parsedList)
-      setEditorialSeleccionado((prev) => {
-        if (!prev) return null
-        const prevId = String(prev.ID_EDITORIAL ?? prev.id)
-        const matched = parsedList.find(
-          (e) => String(e.ID_EDITORIAL ?? e.id) === prevId,
-        )
-        return matched || null
-      })
+      if (preserveSelection) {
+        setEditorialSeleccionado((prev) => {
+          if (!prev) return null
+          const prevId = String(prev.ID_EDITORIAL ?? prev.id)
+          const matched = parsedList.find(
+            (e) => String(e.ID_EDITORIAL ?? e.id) === prevId,
+          )
+          return matched || null
+        })
+      } else {
+        setEditorialSeleccionado(null)
+      }
     } catch (error: any) {
       console.error('Error al cargar editoriales desde la API:', error)
-      Toast.fire({
-        icon: 'error',
-        title: 'No se pudieron cargar las editoriales del servidor',
-      })
     } finally {
       setLoadingEditorial(false)
     }
@@ -97,12 +95,39 @@ export const useEditorial = ({
     }
   }, [autoFetch, fetchEditoriales])
 
+  const handleRecargar = useCallback(async () => {
+    setBusquedaEditorial('')
+    setPaginaActual(1)
+    setEditorialSeleccionado(null)
+    await fetchEditoriales(false)
+  }, [fetchEditoriales])
+
   const handleOpen = useCallback(
     (editorial?: Editorial) => {
       if (editorial) {
+        if (!canEditarEditorial) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Acceso Denegado',
+            text: 'No tienes permisos para editar editoriales.',
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Entendido',
+          })
+          return
+        }
         setEditorialEnEdicion(editorial)
         setNombreEditorial(editorial.NOMBRE_EDITORIAL || '')
       } else {
+        if (!canCrearEditorial) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Acceso Denegado',
+            text: 'No tienes permisos para crear editoriales.',
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Entendido',
+          })
+          return
+        }
         setEditorialEnEdicion(null)
         setNombreEditorial('')
       }
@@ -112,7 +137,7 @@ export const useEditorial = ({
         setInternalVisible(true)
       }
     },
-    [setVisibleProp],
+    [canCrearEditorial, canEditarEditorial, setVisibleProp],
   )
 
   const handleClose = useCallback(() => {
@@ -179,10 +204,57 @@ export const useEditorial = ({
         Swal.fire({
           icon: 'warning',
           title: 'Campo Requerido',
-          text: 'Ingrese el nombre de la Editorial',
-          confirmButtonColor: '#0d6efd',
+          text: 'Ingrese el nombre de la Editorial.',
+          confirmButtonColor: '#dc3545',
+          confirmButtonText: 'Entendido',
         })
         return
+      }
+
+      if (editorialEnEdicion) {
+        if (!canActualizarEditorial) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Acceso Denegado',
+            text: 'No tienes permisos para actualizar la editorial.',
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Entendido',
+          })
+          return
+        }
+        const tienePermiso = await verificarAccionEnServidor('btn_actualizar_editorial')
+        if (!tienePermiso) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Acceso Denegado',
+            text: 'No tienes permisos para actualizar la editorial.',
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Entendido',
+          })
+          return
+        }
+      } else {
+        if (!canGuardarEditorial) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Acceso Denegado',
+            text: 'No tienes permisos para guardar nuevas editoriales.',
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Entendido',
+          })
+          return
+        }
+        const tienePermiso = await verificarAccionEnServidor('btn_guardar_editorial')
+        if (!tienePermiso) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Acceso Denegado',
+            text: 'No tienes permisos para guardar nuevas editoriales.',
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Entendido',
+          })
+          return
+        }
       }
 
       setGuardando(true)
@@ -195,9 +267,12 @@ export const useEditorial = ({
           const id = editorialEnEdicion.ID_EDITORIAL ?? editorialEnEdicion.id
           await ActualizarEditLib(id, payload)
 
-          Toast.fire({
+          Swal.fire({
             icon: 'success',
-            title: 'Editorial actualizada con éxito',
+            title: '¡Editorial actualizada!',
+            text: 'La editorial fue actualizada con éxito.',
+            timer: 1800,
+            showConfirmButton: false,
           })
 
           await fetchEditoriales()
@@ -210,9 +285,12 @@ export const useEditorial = ({
         } else {
           const res = await NuevaEditLib(payload)
 
-          Toast.fire({
+          Swal.fire({
             icon: 'success',
-            title: 'Editorial creada con éxito',
+            title: '¡Editorial registrada!',
+            text: 'La editorial fue registrada con éxito.',
+            timer: 1800,
+            showConfirmButton: false,
           })
 
           await fetchEditoriales()
@@ -239,7 +317,8 @@ export const useEditorial = ({
           icon: 'error',
           title: 'Error al guardar',
           text: errorMsg,
-          confirmButtonColor: '#0d6efd',
+          confirmButtonColor: '#dc3545',
+          confirmButtonText: 'Entendido',
         })
       } finally {
         setGuardando(false)
@@ -248,6 +327,8 @@ export const useEditorial = ({
     [
       nombreEditorial,
       editorialEnEdicion,
+      canActualizarEditorial,
+      canGuardarEditorial,
       fetchEditoriales,
       handleClose,
       onEditorialActualizado,
@@ -257,6 +338,17 @@ export const useEditorial = ({
 
   const handleEliminarEditorial = useCallback(
     async (ediParam?: Editorial) => {
+      if (!canEliminarEditorial) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Acceso Denegado',
+          text: 'No tienes permisos para eliminar editoriales.',
+          confirmButtonColor: '#dc3545',
+          confirmButtonText: 'Entendido',
+        })
+        return
+      }
+
       const edi = ediParam || editorialSeleccionado
       if (!edi) return
 
@@ -275,11 +367,26 @@ export const useEditorial = ({
       })
 
       if (confirmResult.isConfirmed) {
+        const tienePermiso = await verificarAccionEnServidor('btn_eliminar_editorial')
+        if (!tienePermiso) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Acceso Denegado',
+            text: 'No tienes permisos para eliminar editoriales.',
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Entendido',
+          })
+          return
+        }
+
         try {
           await EliminarEditLib(id)
-          Toast.fire({
+          Swal.fire({
             icon: 'success',
-            title: 'Editorial eliminada con éxito',
+            title: '¡Editorial eliminada!',
+            text: 'La editorial fue eliminada con éxito.',
+            timer: 1800,
+            showConfirmButton: false,
           })
           if (
             editorialSeleccionado &&
@@ -301,12 +408,13 @@ export const useEditorial = ({
             icon: 'error',
             title: 'Error al eliminar',
             text: msg,
-            confirmButtonColor: '#0d6efd',
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Entendido',
           })
         }
       }
     },
-    [editorialSeleccionado, fetchEditoriales, onEditorialEliminado],
+    [canEliminarEditorial, editorialSeleccionado, fetchEditoriales, onEditorialEliminado],
   )
 
   return {
@@ -331,11 +439,19 @@ export const useEditorial = ({
     editorialSeleccionado,
     setEditorialSeleccionado,
     fetchEditoriales,
+    handleRecargar,
     paginaActual,
     totalPaginas,
     totalEditoriales: listaEditorial.length,
     totalFiltrados: editorialFiltrados.length,
     handlePageChange,
+    canCrearEditorial,
+    canGuardarEditorial,
+    canEditarEditorial,
+    canActualizarEditorial,
+    canEliminarEditorial,
+    canVerInfoEditorial,
+    verificarAccionEnServidor,
   }
 }
 

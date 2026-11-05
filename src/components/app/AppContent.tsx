@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { CContainer, CSpinner } from '@coreui/react-pro'
 import routes from '@/routes'
 import ProtectedRoute from '../guards/ProtectedRoute'
+import NotFoundRedirect from '../guards/NotFoundRedirect'
 
 
 
@@ -28,7 +29,7 @@ const AppContent = () => {
             )
           })}
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="*" element={<Navigate to="/404" replace />} />
+          <Route path="*" element={<NotFoundRedirect />} />
         </Routes>
       </Suspense>
     </CContainer>

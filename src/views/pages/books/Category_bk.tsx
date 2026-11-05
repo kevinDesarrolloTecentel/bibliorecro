@@ -20,19 +20,21 @@ import {
   cilPencil,
   cilPlus,
   cilSearch,
+  cilSync,
   cilTrash,
   cilX,
 } from '@coreui/icons'
 import ModalCate from '@/components/details_bk/category'
 import useCategoria from '@/hooks/rco-libros/useCategoria'
-import { usePermissions } from '@/context/PermissionsContext'
+import { Categoria } from '@/models/rco/categoria'
+import { formatFecha } from '@/utils/dateUtils'
 
 const Category = () => {
-  const { canDoAction } = usePermissions()
   const categoriaHook = useCategoria()
 
   const {
     handleOpen,
+    handleRecargar,
     categoriasFiltradas,
     categoriasPaginadas,
     loadingCategorias,
@@ -46,9 +48,15 @@ const Category = () => {
     totalCategorias,
     totalFiltradas,
     handlePageChange,
+    canCrearCategoria,
+    canEditarCategoria,
+    canEliminarCategoria,
+    canVerInfoCategoria,
   } = categoriaHook
 
-  const handleToggleSelect = (cat: any) => {
+  const handleToggleSelect = (cat: Categoria) => {
+    if (!canVerInfoCategoria) return
+
     const currentId = String(categoriaSeleccionada?.ID_CATEGORIA ?? categoriaSeleccionada?.id ?? '')
     const targetId = String(cat?.ID_CATEGORIA ?? cat?.id ?? '')
     if (currentId && currentId === targetId) {
@@ -63,25 +71,38 @@ const Category = () => {
       <ModalCate categoriaState={categoriaHook} />
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
         <div>
-          <h4 className="fw-bold mb-1 text-body d-flex align-items-center gap-2">
-            <CIcon icon={cilBookmark} size="lg" style={{ color: '#D97706' }} />
+          <h3 className="fw-bold mb-1 d-flex align-items-center gap-2">
+            <CIcon icon={cilBookmark} style={{ color: '#D97706' }} />
             <span>Gestión de Categorías</span>
-          </h4>
-          <p className="text-muted small mb-0">
+          </h3>
+          <p className="text-body-secondary mb-0">
             Administra el catálogo de categorías, clasifica y organiza los libros registrados.
           </p>
         </div>
-        <div className="d-flex gap-2">
-          {canDoAction('btn_crear_categoria') && (
+        <div className="d-flex align-items-center gap-2">
           <CButton
-            color="success"
-            variant='outline'
-            className="d-flex align-items-center gap-2 shadow-sm hover:text-white"
-            onClick={() => handleOpen()}
+            color="secondary"
+            variant="outline"
+            size="sm"
+            disabled={loadingCategorias}
+            className="d-flex align-items-center gap-1 shadow-sm"
+            onClick={() => handleRecargar()}
+            title="Refrescar lista y reiniciar filtros"
           >
-            <CIcon icon={cilPlus} />
-            <span>Nueva Categoría</span>
+            <CIcon icon={cilSync} className={`me-1 ${loadingCategorias ? 'rotate-animation' : ''}`} />
+            <span>{loadingCategorias ? 'Refrescando...' : 'Refrescar'}</span>
           </CButton>
+          {canCrearCategoria && (
+            <CButton
+              color="success"
+              variant="outline"
+              size="sm"
+              className="d-flex align-items-center gap-2 shadow-sm hover:text-white"
+              onClick={() => handleOpen()}
+            >
+              <CIcon icon={cilPlus} />
+              <span>Nueva Categoría</span>
+            </CButton>
           )}
         </div>
       </div>
@@ -158,37 +179,36 @@ const Category = () => {
                           key={id}
                           onClick={() => handleToggleSelect(cat)}
                           className={`p-3 rounded border d-flex align-items-center justify-content-between transition-all ${isSelected
-                              ? 'border-primary bg-primary bg-opacity-10 shadow-sm'
-                              : 'bg-body'
+                            ? 'border-primary bg-primary bg-opacity-10 shadow-sm'
+                            : 'bg-body'
                             }`}
                           style={{
-                            cursor: 'pointer',
+                            cursor: canVerInfoCategoria ? 'pointer' : 'default',
                             borderColor: isSelected ? '#0d6efd' : '#dee2e6',
                             transition: 'all 0.2s ease',
                           }}
                           onMouseEnter={(e) => {
-                            if (!isSelected) e.currentTarget.style.borderColor = '#0d6efd'
+                            if (canVerInfoCategoria && !isSelected) e.currentTarget.style.borderColor = '#0d6efd'
                           }}
                           onMouseLeave={(e) => {
-                            if (!isSelected) e.currentTarget.style.borderColor = '#dee2e6'
+                            if (canVerInfoCategoria && !isSelected) e.currentTarget.style.borderColor = '#dee2e6'
                           }}
                         >
                           <div className="d-flex align-items-center gap-3">
                             <div
                               className={`rounded-circle p-2 d-flex align-items-center justify-content-center ${isSelected
-                                  ? 'bg-primary text-white'
-                                  : 'bg-primary bg-opacity-10 text-primary'
+                                ? 'bg-primary text-white'
+                                : 'bg-primary bg-opacity-10 text-primary'
                                 }`}
                               style={{ width: '40px', height: '40px' }}
                             >
                               <CIcon icon={cilBookmark} />
                             </div>
                             <div>
-                              <div className="fw-bold text-body"></div>
-                              <h6 className="font-monospace small fw-bold text-body">{cat.NOMBRE_CATEGORIA}</h6>
+                              <h6 className="font-monospace small fw-bold text-body mb-0">{cat.NOMBRE_CATEGORIA}</h6>
                               <div className="d-flex align-items-center gap-2 mt-1">
                                 <span className="badge bg-body text-body border font-monospace">
-                                   {cat.CODIGO_CATEGORIA}
+                                  {cat.CODIGO_CATEGORIA}
                                 </span>
                               </div>
                             </div>
@@ -228,22 +248,46 @@ const Category = () => {
                 <CIcon icon={cilInfo} className="text-primary" />
                 <span>Detalle de la Categoría</span>
               </div>
-              {categoriaSeleccionada && (
+              <div className="d-flex align-items-center gap-1">
                 <CButton
                   color="secondary"
                   variant="ghost"
                   size="sm"
-                  className="py-0 px-2 text-muted"
-                  onClick={() => setCategoriaSeleccionada(null)}
-                  title="Deseleccionar categoría"
+                  disabled={loadingCategorias}
+                  className="p-1 text-muted"
+                  onClick={() => handleRecargar()}
+                  title="Refrescar información"
                 >
-                  <span className="small">Deseleccionar ✕</span>
+                  <CIcon icon={cilSync} className={loadingCategorias ? 'rotate-animation' : ''} />
                 </CButton>
-              )}
+                {categoriaSeleccionada && (
+                  <CButton
+                    color="secondary"
+                    variant="ghost"
+                    size="sm"
+                    className="p-1 text-muted"
+                    onClick={() => setCategoriaSeleccionada(null)}
+                    title="Cerrar detalle"
+                  >
+                    <CIcon icon={cilX} />
+                  </CButton>
+                )}
+              </div>
             </CCardHeader>
 
             <CCardBody className="p-4 d-flex flex-column justify-content-between">
-              {categoriaSeleccionada ? (
+              {!canVerInfoCategoria ? (
+                <div className="text-center py-5 my-auto text-muted">
+                  <div
+                    className="bg-body rounded-circle p-4 d-inline-flex align-items-center justify-content-center mb-3"
+                    style={{ width: '80px', height: '80px' }}
+                  >
+                    <CIcon icon={cilBookmark} size="xxl" className="text-danger opacity-50" />
+                  </div>
+                  <h6 className="fw-bold text-body mb-1">Información no disponible</h6>
+
+                </div>
+              ) : categoriaSeleccionada ? (
                 <div>
                   <div className="d-flex align-items-center gap-2 mb-3 text-success">
                     <CIcon icon={cilCheckCircle} size="lg" />
@@ -281,32 +325,42 @@ const Category = () => {
                           {categoriaSeleccionada.NOMBRE_CATEGORIA}
                         </span>
                       </div>
+                      {categoriaSeleccionada.FECHAINGRESO_CATEGORIA && (
+                        <div className="d-flex justify-content-between align-items-center py-1 border-top">
+                          <span className="text-muted small badge bg-body rounded-pill border d-inline-flex align-items-center justify-content-center">Fecha de Registro:</span>
+                          <span className="font-monospace fw-semibold small text-body">
+                            {formatFecha(categoriaSeleccionada.FECHAINGRESO_CATEGORIA)}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
                   <div className="d-flex gap-2 justify-content-end">
-                    {canDoAction ('btn_eliminar_categoria') && ( 
-                    <CButton
-                      color="danger"
-                      variant="outline"
-                      className="hover:text-white d-flex align-items-center gap-2 shadow-sm"
-                      onClick={() => handleEliminarCategoria(categoriaSeleccionada)}
-                    >
-                      <CIcon icon={cilTrash} />
-                      <span>Eliminar</span>
-                    </CButton>
-                     )}
+                    {canEliminarCategoria && (
+                      <CButton
+                        color="danger"
+                        variant="outline"
+                        size="sm"
+                        className="hover:text-white d-flex align-items-center gap-2 shadow-sm"
+                        onClick={() => handleEliminarCategoria(categoriaSeleccionada)}
+                      >
+                        <CIcon icon={cilTrash} />
+                        <span>Eliminar</span>
+                      </CButton>
+                    )}
 
-                    {canDoAction('btn_editar_categoria') && (
-                    <CButton
-                      color="success"
-                      variant='outline'
-                      className="d-flex align-items-center gap-2 shadow-sm hover:text-white"
-                      onClick={() => handleOpen(categoriaSeleccionada)}
-                    >
-                      <CIcon icon={cilPencil} />
-                      <span>Editar Categoría</span>
-                    </CButton>
+                    {canEditarCategoria && (
+                      <CButton
+                        color="success"
+                        size="sm"
+                        variant="outline"
+                        className="d-flex align-items-center gap-2 shadow-sm hover:text-white"
+                        onClick={() => handleOpen(categoriaSeleccionada)}
+                      >
+                        <CIcon icon={cilPencil} />
+                        <span>Editar Categoría</span>
+                      </CButton>
                     )}
                   </div>
                 </div>
@@ -320,18 +374,20 @@ const Category = () => {
                   </div>
                   <h6 className="fw-bold text-body mb-1">Ninguna categoría seleccionada</h6>
                   <p className="small text-muted mb-4 px-3">
-                    Selecciona una categoría de la lista izquierda para consultar sus detalles o modificarla.
+                    Selecciona una categoría de la lista para consultar sus detalles o modificarla.
                   </p>
-                  <CButton
-                    color="primary"
-                    variant="outline"
-                    size="sm"
-                    className="d-inline-flex align-items-center gap-1"
-                    onClick={() => handleOpen()}
-                  >
-                    <CIcon icon={cilPlus} />
-                    <span>Crear Nueva Categoría</span>
-                  </CButton>
+                  {canCrearCategoria && (
+                    <CButton
+                      color="primary"
+                      variant="outline"
+                      size="sm"
+                      className="d-inline-flex align-items-center gap-1"
+                      onClick={() => handleOpen()}
+                    >
+                      <CIcon icon={cilPlus} />
+                      <span>Crear Nueva Categoría</span>
+                    </CButton>
+                  )}
                 </div>
               )}
             </CCardBody>

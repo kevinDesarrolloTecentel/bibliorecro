@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
+import Swal from 'sweetalert2'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   CModal,
   CModalHeader,
@@ -10,10 +12,7 @@ import {
   CFormSwitch,
 } from '@coreui/react-pro'
 import CIcon from '@coreui/icons-react'
-import {
-  cilShieldAlt,
-  cilOptions,
-} from '@coreui/icons'
+import {  cilCheckCircle, cilLockLocked } from '@coreui/icons'
 import { Accion, Pantalla } from '@/models/adm/permiso.model'
 
 interface ModalAccionesPantallaProps {
@@ -24,17 +23,12 @@ interface ModalAccionesPantallaProps {
   allAcciones: Accion[]
   isPermisoAsignado?: (rolId: number, idPermiso: number) => boolean
   isAccionAsignada: (rolId: number, idAccion: number) => boolean
+  canModificarAcciones?: boolean
   onToggleAccion: (
     rolId: number,
     nombreRol: string,
     accion: Accion,
     pantalla: Pantalla,
-  ) => Promise<void>
-  onToggleTodasAcciones?: (
-    rolId: number,
-    nombreRol: string,
-    pantalla: Pantalla,
-    habilitarTodas: boolean,
   ) => Promise<void>
 }
 
@@ -46,6 +40,7 @@ export const ModalAccionesPantalla: React.FC<ModalAccionesPantallaProps> = ({
   allAcciones = [],
   isAccionAsignada,
   onToggleAccion,
+  canModificarAcciones = false,
 }) => {
   const [selectedRolId, setSelectedRolId] = useState<number | null>(null)
 
@@ -80,24 +75,26 @@ export const ModalAccionesPantalla: React.FC<ModalAccionesPantallaProps> = ({
 
   if (!pantalla) return null
 
-  const isRolAdmin = Boolean(currentRol?.ES_ADMINISTRADOR || currentRolId === 1)
-
   return (
     <CModal visible={visible} onClose={onClose} size="lg" alignment="center">
-      <CModalHeader className="border-bottom py-3 px-4 bg-light">
-        <CModalTitle className="d-flex align-items-center gap-2 text-dark fs-5 w-100">
-          <div
-            className="rounded-3 p-2 d-flex align-items-center justify-content-center text-white"
-            style={{ backgroundColor: '#321fdb', width: '38px', height: '38px' }}
+      <CModalHeader className="border-bottom py-3 px-4 bg-body-tertiary">
+        <CModalTitle className="d-flex align-items-center gap-2 text-body fs-5 w-100">
+          <motion.div
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.3 }}
+            className="d-flex align-items-center gap-3 flex-wrap"
           >
-            <CIcon icon={cilOptions} size="lg" />
-          </div>
-          <div className="d-flex align-items-center gap-2 flex-wrap">
-            <span className="fw-bold">{pantalla.NOMBRE_PERMISO}</span>
-            <CBadge color="primary" className="font-monospace px-2 py-1" style={{ fontSize: '0.75rem' }}>
-              {pantalla.PATH_PERMISO}
-            </CBadge>
-          </div>
+
+            <div>
+              <span className="fw-bold d-block text-body">{pantalla.NOMBRE_PERMISO}</span>
+              <div className="d-flex align-items-center gap-2 mt-1">
+                <CBadge color="primary" className="font-monospace px-2 py-0.5" style={{ fontSize: '0.75rem' }}>
+                  {pantalla.PATH_PERMISO}
+                </CBadge>
+              </div>
+            </div>
+          </motion.div>
         </CModalTitle>
       </CModalHeader>
 
@@ -112,23 +109,21 @@ export const ModalAccionesPantalla: React.FC<ModalAccionesPantallaProps> = ({
               const rNombre = String(rol.NOMBRE_ROL ?? rol.nombre ?? `Rol ${rId}`)
               const rNivel = Number(rol.NIVEL_ROL ?? rol.nivel ?? 1)
               const isSelected = rId === selectedRolId
-              const isPillAdmin = Boolean(rol?.ES_ADMINISTRADOR || rId === 1)
-
               // Conteo de acciones activas para este rol en esta pantalla
-              const rActiveCount = isPillAdmin
-                ? accionesPantalla.length
-                : accionesPantalla.filter((a) =>
-                    isAccionAsignada(rId, Number(a.ID_ACCION ?? (a as any).id)),
-                  ).length
+              const rActiveCount = accionesPantalla.filter((a) =>
+                isAccionAsignada(rId, Number(a.ID_ACCION ?? (a as any).id)),
+              ).length
 
               return (
-                <button
+                <motion.button
                   key={rId}
                   type="button"
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
                   className={`btn d-flex align-items-center gap-2 px-3 py-2 rounded-3 transition-all ${
                     isSelected
                       ? 'btn-primary text-white shadow-sm'
-                      : 'btn-outline-secondary bg-white text-dark'
+                      : 'btn-outline-secondary bg-body text-body'
                   }`}
                   style={{
                     fontSize: '0.88rem',
@@ -136,11 +131,10 @@ export const ModalAccionesPantalla: React.FC<ModalAccionesPantallaProps> = ({
                   }}
                   onClick={() => setSelectedRolId(rId)}
                 >
-                  <CIcon icon={cilShieldAlt} size="sm" />
                   <span>{rNombre}</span>
                   <span
                     className={`badge rounded-pill ${
-                      isSelected ? 'bg-white text-primary' : 'bg-light text-secondary border'
+                      isSelected ? 'bg-white text-primary' : 'bg-body-secondary text-body-secondary border'
                     }`}
                     style={{ fontSize: '0.7rem' }}
                   >
@@ -156,60 +150,134 @@ export const ModalAccionesPantalla: React.FC<ModalAccionesPantallaProps> = ({
                       {rActiveCount}/{accionesPantalla.length}
                     </span>
                   )}
-                </button>
+                </motion.button>
               )
             })}
           </div>
         </div>
 
         <div>
-          <h6 className="mb-3 fw-bold text-dark">Acciones disponibles</h6>
+          <div className="d-flex align-items-center justify-content-between mb-3">
+            <h6 className="mb-0 fw-bold text-body">
+              Acciones
+            </h6>
+          </div>
 
-          {accionesPantalla.length === 0 ? (
-            <div className="text-center py-4 text-muted fw-semibold">
-              Sin acciones registradas
-            </div>
-          ) : (
-            <div className="d-flex flex-column gap-2">
-              {accionesPantalla.map((accion) => {
-                const accionId = Number(accion.ID_ACCION ?? (accion as any).id)
-                const isActiva = isRolAdmin || isAccionAsignada(currentRolId, accionId)
+          <AnimatePresence mode="wait">
+            {accionesPantalla.length === 0 ? (
+              <motion.div
+                key="empty"
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0 }}
+                className="text-center py-5 text-muted fw-semibold border rounded-3 bg-light-subtle"
+              >
+                <CIcon icon={cilLockLocked} size="xl" className="text-secondary opacity-50 mb-2 d-block mx-auto" />
+                Sin acciones registradas para esta pantalla
+              </motion.div>
+            ) : (
+              <motion.div
+                key={selectedRolId ?? 'roles-actions'}
+                initial="hidden"
+                animate="visible"
+                exit="hidden"
+                variants={{
+                  hidden: { opacity: 0 },
+                  visible: {
+                    opacity: 1,
+                    transition: {
+                      staggerChildren: 0.05,
+                    },
+                  },
+                }}
+                className="d-flex flex-column gap-2.5"
+              >
+                {accionesPantalla.map((accion) => {
+                  const accionId = Number(accion.ID_ACCION ?? (accion as any).id)
+                  const isActiva = isAccionAsignada(currentRolId, accionId)
 
-                return (
-                  <div
-                    key={accionId}
-                    className="p-3 rounded-3 border bg-white d-flex align-items-center justify-content-between gap-3 shadow-sm"
-                  >
-                    <span className="fw-semibold text-dark fs-6">
-                      {accion.NOMBRE_ACCION}
-                    </span>
+                  return (
+                    <motion.div
+                      key={accionId}
+                      variants={{
+                        hidden: { opacity: 0, y: 12 },
+                        visible: { opacity: 1, y: 0, transition: { duration: 0.25 } },
+                      }}
+                      whileHover={{ scale: 1.01, boxShadow: '0 6px 16px rgba(0,0,0,0.06)' }}
+                      className={`p-3 rounded-3 border bg-body d-flex align-items-center justify-content-between gap-3 shadow-sm transition-all ${
+                        isActiva ? 'border-primary-subtle' : ''
+                      }`}
+                      style={{
+                        borderLeft: isActiva ? '4px solid #10b981' : '4px solid #cbd5e1',
+                      }}
+                    >
+                      <div className="d-flex align-items-center gap-2.5">
+                        <div
+                          className={`rounded-circle d-flex align-items-center justify-content-center ${
+                            isActiva ? 'text-success bg-success-subtle' : 'text-secondary bg-body-secondary'
+                          }`}
+                          style={{ width: '32px', height: '32px' }}
+                        >
+                          <CIcon icon={isActiva ? cilCheckCircle : cilLockLocked} size="sm" />
+                        </div>
+                        <div>
+                          <span className="fw-semibold text-body fs-6 d-block">
+                            {accion.NOMBRE_ACCION}
+                          </span>
+                          <span className="small text-secondary" style={{ fontSize: '0.78rem' }}>
+                            {isActiva ? 'Acción habilitada para este rol' : 'Acción restringida'}
+                          </span>
+                        </div>
+                      </div>
 
-                    <CFormSwitch
-                      id={`switch-accion-${currentRolId}-${accionId}`}
-                      checked={isActiva}
-                      size="lg"
-                      onChange={() =>
-                        onToggleAccion(currentRolId, currentRolNombre, accion, pantalla)
-                      }
-                      style={{ cursor: 'pointer', transform: 'scale(1.15)' }}
-                      title={
-                        isRolAdmin
-                          ? 'El administrador principal tiene acceso completo'
-                          : isActiva
-                          ? `Deshabilitar ${accion.NOMBRE_ACCION}`
-                          : `Habilitar ${accion.NOMBRE_ACCION}`
-                      }
-                    />
-                  </div>
-                )
-              })}
-            </div>
-          )}
+                      <div
+                        onClick={() => {
+                          if (!canModificarAcciones) {
+                            Swal.fire({
+                              icon: 'error',
+                              title: 'Acceso Denegado',
+                              text: 'No tienes permisos para modificar acciones porque la acción "Modificar Acciones" está deshabilitada.',
+                              confirmButtonColor: '#dc3545',
+                              confirmButtonText: 'Entendido',
+                            })
+                          }
+                        }}
+                        style={{ cursor: canModificarAcciones ? 'pointer' : 'not-allowed' }}
+                      >
+                        <CFormSwitch
+                          id={`switch-accion-${currentRolId}-${accionId}`}
+                          checked={isActiva}
+                          size="lg"
+                          disabled={!canModificarAcciones}
+                          onChange={() => {
+                            if (canModificarAcciones) {
+                              onToggleAccion(currentRolId, currentRolNombre, accion, pantalla)
+                            }
+                          }}
+                          style={{
+                            cursor: canModificarAcciones ? 'pointer' : 'not-allowed',
+                            transform: 'scale(1.2)',
+                          }}
+                          title={
+                            !canModificarAcciones
+                              ? 'Solo lectura: no tienes permiso para modificar acciones'
+                              : isActiva
+                              ? `Deshabilitar ${accion.NOMBRE_ACCION}`
+                              : `Habilitar ${accion.NOMBRE_ACCION}`
+                          }
+                        />
+                      </div>
+                    </motion.div>
+                  )
+                })}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </CModalBody>
 
-      <CModalFooter className="border-top py-2 px-4 bg-light">
-        <CButton color="secondary" variant="ghost" onClick={onClose} className="px-4 fw-semibold">
+      <CModalFooter className="border-top py-2 px-4 bg-body-tertiary">
+        <CButton size="sm" color="secondary" className="hover:text-white shadow-sm" variant="ghost" onClick={onClose}>
           Cerrar
         </CButton>
       </CModalFooter>

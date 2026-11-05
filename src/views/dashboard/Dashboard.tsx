@@ -9,10 +9,8 @@ import { cilChartPie, cilGraph, cilPeople, cilBook, cilSync } from "@coreui/icon
 import UsuNRT from "@/components/Dashboard/UsuNRT"
 import LibIng from "@/components/Dashboard/LibrosIng"
 import useDashboard from "@/hooks/dashboard/useDashboard"
-import { usePermissions } from "@/context/PermissionsContext"
 
 const Dashboard = () => {
-  const { canDoAction } = usePermissions()
 
   const {
     resetKey,
@@ -36,6 +34,8 @@ const Dashboard = () => {
     usuariosNuevosList,
     usuariosRenovacionesList,
     todosUsuariosList,
+    canActualizar,
+    canExportarExcelUsuarios,
     handleExportarExcel,
     refetch,
   } = useDashboard()
@@ -73,7 +73,7 @@ const Dashboard = () => {
               ))}
             </CFormSelect>
           </div>
-          {canDoAction('btn_actualizar_info') && (
+          {canActualizar && (
             <div className="ms-auto">
               <CButton
                 color="primary"
@@ -107,8 +107,7 @@ const Dashboard = () => {
         </CCardBody>
       </CCard>
 
-      <hr />
-      <CCol>
+      <div className="mb-4">
         <Estadistics
           totalNuevos={calcTotalNuevos}
           totalRenovaciones={calcTotalRenovaciones}
@@ -118,8 +117,7 @@ const Dashboard = () => {
           totalPorMes={calcTotalPorMes}
           loading={loadingUsuarios}
         />
-      </CCol>
-      <hr />
+      </div>
 
       <CRow className="g-4">
         <CCol xs={12}>
@@ -135,6 +133,7 @@ const Dashboard = () => {
                 usuariosRenovaciones={usuariosRenovacionesList}
                 todosUsuarios={todosUsuariosList}
                 loading={loadingUsuarios}
+                canExportar={canExportarExcelUsuarios}
                 onExportarExcel={handleExportarExcel}
               />
             </CCardBody>
@@ -151,6 +150,8 @@ const Dashboard = () => {
               <ChartLineExample
                 data={prestamosData}
                 loading={loadingPrestamos}
+                selectedMonth={selectedMonth}
+                selectedYear={selectedYear}
               />
             </CCardBody>
           </CCard>

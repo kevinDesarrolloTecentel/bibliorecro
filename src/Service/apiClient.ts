@@ -22,6 +22,10 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   if (config.headers) {
     delete config.headers['Authorization']
     delete config.headers['authorization']
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type']
+      delete config.headers['content-type']
+    }
   }
   return config
 })
@@ -33,16 +37,31 @@ apiClient.interceptors.response.use(
     const url = originalRequest?.url || ''
     const isLoginEndpoint = url.includes('/login')
 
-    // Si recibimos 401 o 419 en una petición protegida normal (token vencido o no autorizado)
     if (
       error.response &&
-      (error.response.status === 401 || error.response.status === 419) &&
+      (error.response.status === 401 ||
+       error.response.status === 419 ||
+       error.response.status === 403) &&
       !isLoginEndpoint
     ) {
       clearAuthSession()
       store.dispatch(sessionExpired())
+
+      const errorData = error.response?.data as any
+      const errorMsg = String(
+        (typeof errorData === 'string' ? errorData : errorData?.message || errorData?.error) || ''
+      ).toLowerCase()
+
+      const isInactive =
+        error.response.status === 403 ||
+        errorMsg.includes('inactiv') ||
+        errorMsg.includes('bloquea') ||
+        errorMsg.includes('desactiv')
+
+      const redirectParam = isInactive ? 'user_inactive=true' : 'session_expired=true'
+
       if (typeof window !== 'undefined' && !window.location.hash.includes('#/login')) {
-        window.location.replace('/#/login?session_expired=true')
+        window.location.replace(`/#/login?${redirectParam}`)
       }
       return Promise.reject(error)
     }

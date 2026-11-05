@@ -1,15 +1,16 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { cilBarcode, cilBook,
-  cilBookmark, cilCalendar, cilCheckCircle, cilDescription, cilDollar, cilExitToApp, cilGlobeAlt, cilLayers, cilLibraryBuilding, cilSave, cilTag, cilTruck, cilUser } from '@coreui/icons'
+  cilBookmark, cilDescription, cilDollar, cilExitToApp, cilGlobeAlt, cilLayers, cilLibraryBuilding, cilSave, cilTag, cilTruck, cilUser } from '@coreui/icons'
 import CIcon from '@coreui/icons-react'
-import { CButton, CCol, CForm, CFormInput, CFormSelect, CFormTextarea, CInputGroup, CInputGroupText, CModal, CModalBody, CModalFooter, CModalHeader, CModalTitle, CSpinner } from '@coreui/react-pro'
+import { CButton, CCol, CDatePicker, CForm, CFormInput, CFormTextarea, CInputGroup, CInputGroupText, CModal, CModalBody, CModalFooter, CModalHeader, CModalTitle, CSpinner } from '@coreui/react-pro'
 import useLibroRegister, { UseLibroRegisterProps } from '@/hooks/rco-libros/useLibroRegister'
-import { usePermissions } from '@/context/PermissionsContext'
+import SearchableSelect from '@/components/details_bk/SearchableSelect'
+import PaisSelect from '@/components/details_bk/PaisSelect'
+import { aFechaLocal, parseDatePickerValue } from '@/utils/dateUtils'
 
 interface RegisterBkProps extends UseLibroRegisterProps {}
 
 const Registro_bk: React.FC<RegisterBkProps> = (props) => {
-  const { canDoAction } = usePermissions()
   const {
     isVisible,
     formData,
@@ -17,9 +18,59 @@ const Registro_bk: React.FC<RegisterBkProps> = (props) => {
     errors,
     catalogos,
     handleChange,
+    handleSelectChange,
     handleClose,
     handleSubmit,
+    canGuardarLibro,
   } = useLibroRegister(props)
+
+  // ISBN: control de "S/N" o número máx 13 dígitos
+  const [isbnSN, setIsbnSN] = useState(false)
+  // Código de barras: control de "S/N" o solo números
+  const [barcodeSN, setBarcodeSN] = useState(false)
+
+  const handleIsbnToggle = (checked: boolean) => {
+    setIsbnSN(checked)
+    if (checked) {
+      handleSelectChange('ISBN_LIBROS', 'S/N')
+    } else {
+      handleSelectChange('ISBN_LIBROS', '')
+    }
+  }
+
+  const handleBarcodeToggle = (checked: boolean) => {
+    setBarcodeSN(checked)
+    if (checked) {
+      handleSelectChange('CODIGODEBARRAS_LIBROS', 'S/N')
+    } else {
+      handleSelectChange('CODIGODEBARRAS_LIBROS', '')
+    }
+  }
+
+  const handleIsbnChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Solo dígitos, máximo 13
+    const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 13)
+    handleSelectChange('ISBN_LIBROS', val)
+  }
+
+  const handleBarcodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Solo dígitos
+    const val = e.target.value.replace(/[^0-9]/g, '')
+    handleSelectChange('CODIGODEBARRAS_LIBROS', val)
+  }
+
+  const handlePrecioChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Solo números y punto, máximo 2 decimales
+    let val = e.target.value.replace(/[^0-9.]/g, '')
+    const parts = val.split('.')
+    if (parts.length > 2) {
+      val = `${parts[0]}.${parts.slice(1).join('')}`
+    }
+    if (parts.length === 2 && parts[1].length > 2) {
+      val = `${parts[0]}.${parts[1].slice(0, 2)}`
+    }
+    handleSelectChange('PRECIO_LIBROS', val)
+  }
 
   return (
     <CModal
@@ -45,78 +96,66 @@ const Registro_bk: React.FC<RegisterBkProps> = (props) => {
             </div>
           </CCol>
 
+          {/* Categoría - SearchableSelect */}
           <CCol xs={12} sm={6} md={4}>
             <label className="form-label small fw-semibold text-muted">Categoría *</label>
             <CInputGroup>
               <CInputGroupText>
                 <CIcon icon={cilBookmark} />
               </CInputGroupText>
-              <CFormSelect
+              <SearchableSelect
                 name="ID_CATEGORIA"
                 value={formData.ID_CATEGORIA}
-                onChange={handleChange}
+                options={catalogos.categorias}
+                onChange={(val) => handleSelectChange('ID_CATEGORIA', val)}
                 invalid={!!errors.ID_CATEGORIA}
-                required
-              >
-                <option value="">Seleccionar...</option>
-                {catalogos.categorias.map((cat) => (
-                  <option key={cat.value} value={cat.value}>
-                    {cat.label}
-                  </option>
-                ))}
-              </CFormSelect>
+                loading={catalogos.loading && catalogos.categorias.length === 0}
+                placeholder="Seleccionar categoría o buscar..."
+              />
             </CInputGroup>
             {errors.ID_CATEGORIA && (
               <small className="text-danger d-block mt-1">{errors.ID_CATEGORIA}</small>
             )}
           </CCol>
 
+          {/* Género - SearchableSelect */}
           <CCol xs={12} sm={6} md={4}>
             <label className="form-label small fw-semibold text-muted">Género *</label>
             <CInputGroup>
               <CInputGroupText>
                 <CIcon icon={cilTag} />
               </CInputGroupText>
-              <CFormSelect
+              <SearchableSelect
                 name="ID_RCOGENERO"
                 value={formData.ID_RCOGENERO}
-                onChange={handleChange}
+                options={catalogos.generos}
+                onChange={(val) => handleSelectChange('ID_RCOGENERO', val)}
                 invalid={!!errors.ID_RCOGENERO}
-                required
-              >
-                <option value="">Seleccionar...</option>
-                {catalogos.generos.map((gen) => (
-                  <option key={gen.value} value={gen.value}>
-                    {gen.label}
-                  </option>
-                ))}
-              </CFormSelect>
+                loading={catalogos.loading && catalogos.generos.length === 0}
+                placeholder="Seleccionar género o buscar..."
+              />
             </CInputGroup>
             {errors.ID_RCOGENERO && (
               <small className="text-danger d-block mt-1">{errors.ID_RCOGENERO}</small>
             )}
           </CCol>
 
+          {/* Proveedor - SearchableSelect */}
           <CCol xs={12} sm={12} md={4}>
             <label className="form-label small fw-semibold text-muted">Proveedor *</label>
             <CInputGroup>
               <CInputGroupText>
                 <CIcon icon={cilTruck} />
               </CInputGroupText>
-              <CFormSelect
+              <SearchableSelect
                 name="ID_PROVEEDOR"
                 value={formData.ID_PROVEEDOR}
-                onChange={handleChange}
+                options={catalogos.proveedores}
+                onChange={(val) => handleSelectChange('ID_PROVEEDOR', val)}
                 invalid={!!errors.ID_PROVEEDOR}
-                required
-              >
-                <option value="">Seleccionar...</option>
-                {catalogos.proveedores.map((prov) => (
-                  <option key={prov.value} value={prov.value}>
-                    {prov.label}
-                  </option>
-                ))}
-              </CFormSelect>
+                loading={catalogos.loading && catalogos.proveedores.length === 0}
+                placeholder="Seleccionar proveedor o buscar..."
+              />
             </CInputGroup>
             {errors.ID_PROVEEDOR && (
               <small className="text-danger d-block mt-1">{errors.ID_PROVEEDOR}</small>
@@ -149,79 +188,91 @@ const Registro_bk: React.FC<RegisterBkProps> = (props) => {
             )}
           </CCol>
 
+          {/* Autor - SearchableSelect */}
           <CCol xs={12} md={6}>
             <label className="form-label small fw-semibold text-muted">Autor *</label>
             <CInputGroup>
               <CInputGroupText>
                 <CIcon icon={cilUser} />
               </CInputGroupText>
-              <CFormSelect
+              <SearchableSelect
                 name="ID_AUTOR"
                 value={formData.ID_AUTOR}
-                onChange={handleChange}
+                options={catalogos.autores}
+                onChange={(val) => handleSelectChange('ID_AUTOR', val)}
                 invalid={!!errors.ID_AUTOR}
-                required
-              >
-                <option value="">
-                  {catalogos.loading && catalogos.autores.length === 0
-                    ? 'Cargando autores...'
-                    : 'Seleccionar...'}
-                </option>
-                {catalogos.autores.map((aut) => (
-                  <option key={aut.value} value={aut.value}>
-                    {aut.label}
-                  </option>
-                ))}
-              </CFormSelect>
+                loading={catalogos.loading && catalogos.autores.length === 0}
+                placeholder="Seleccionar autor o buscar..."
+              />
             </CInputGroup>
             {errors.ID_AUTOR && (
               <small className="text-danger d-block mt-1">{errors.ID_AUTOR}</small>
             )}
           </CCol>
 
+          {/* Editorial - SearchableSelect */}
           <CCol xs={12} sm={6} md={4}>
             <label className="form-label small fw-semibold text-muted">Editorial *</label>
             <CInputGroup>
               <CInputGroupText>
                 <CIcon icon={cilLibraryBuilding} />
               </CInputGroupText>
-              <CFormSelect
+              <SearchableSelect
                 name="ID_EDITORIAL"
                 value={formData.ID_EDITORIAL}
-                onChange={handleChange}
+                options={catalogos.editoriales}
+                onChange={(val) => handleSelectChange('ID_EDITORIAL', val)}
                 invalid={!!errors.ID_EDITORIAL}
-                required
-              >
-                <option value="">Seleccionar...</option>
-                {catalogos.editoriales.map((edit) => (
-                  <option key={edit.value} value={edit.value}>
-                    {edit.label}
-                  </option>
-                ))}
-              </CFormSelect>
+                loading={catalogos.loading && catalogos.editoriales.length === 0}
+                placeholder="Seleccionar editorial o buscar..."
+              />
             </CInputGroup>
             {errors.ID_EDITORIAL && (
               <small className="text-danger d-block mt-1">{errors.ID_EDITORIAL}</small>
             )}
           </CCol>
 
+          {/* ISBN: máximo 13 dígitos o S/N */}
           <CCol xs={12} sm={6} md={4}>
-            <label className="form-label small fw-semibold text-muted">ISBN:</label>
+            <label className="form-label small fw-semibold text-muted">
+              ISBN *
+            </label>
             <CInputGroup>
               <CInputGroupText>
                 <CIcon icon={cilBarcode} />
               </CInputGroupText>
               <CFormInput
                 name="ISBN_LIBROS"
-                placeholder="978-X-XXXX-XXXX-X"
-                value={formData.ISBN_LIBROS}
-                onChange={handleChange}
+                placeholder={isbnSN ? 'S/N' : 'Ej: 9780000000000'}
+                value={isbnSN ? 'S/N' : (formData.ISBN_LIBROS || '')}
+                onChange={handleIsbnChange}
+                invalid={!!errors.ISBN_LIBROS}
+                disabled={isbnSN}
+                maxLength={13}
+                inputMode="numeric"
               />
+              <CInputGroupText
+                title="Marcar Sin ISBN"
+                style={{ cursor: 'pointer', userSelect: 'none' }}
+                onClick={() => handleIsbnToggle(!isbnSN)}
+              >
+                <input
+                  type="checkbox"
+                  checked={isbnSN}
+                  onChange={(e) => handleIsbnToggle(e.target.checked)}
+                  style={{ cursor: 'pointer' }}
+                  title="Sin ISBN (S/N)"
+                />
+                <span className="ms-1 small">S/N</span>
+              </CInputGroupText>
             </CInputGroup>
+            {errors.ISBN_LIBROS && (
+              <small className="text-danger d-block mt-1">{errors.ISBN_LIBROS}</small>
+            )}
           </CCol>
 
           <CCol xs={12} sm={6} md={4}>
-            <label className="form-label small fw-semibold text-muted">Volumen:</label>
+            <label className="form-label small fw-semibold text-muted">Volumen *</label>
             <CInputGroup>
               <CInputGroupText>
                 <CIcon icon={cilLayers} />
@@ -231,25 +282,28 @@ const Registro_bk: React.FC<RegisterBkProps> = (props) => {
                 placeholder="Ej: Vol. 1, Tomo 2"
                 value={formData.VOLUMEN_LIBROS}
                 onChange={handleChange}
+                invalid={!!errors.VOLUMEN_LIBROS}
               />
             </CInputGroup>
+            {errors.VOLUMEN_LIBROS && (
+              <small className="text-danger d-block mt-1">{errors.VOLUMEN_LIBROS}</small>
+            )}
           </CCol>
 
+          {/* Fecha de Edición - CDatePicker CoreUI Pro */}
           <CCol xs={12} sm={6} md={4}>
-            <label className="form-label small fw-semibold text-muted">Fecha de Edición: *</label>
-            <CInputGroup>
-              <CInputGroupText>
-                <CIcon icon={cilCalendar} />
-              </CInputGroupText>
-              <CFormInput
-                type="date"
-                name="FECHAEDICION_LIBROS"
-                value={formData.FECHAEDICION_LIBROS}
-                onChange={handleChange}
-                invalid={!!errors.FECHAEDICION_LIBROS}
-                required
-              />
-            </CInputGroup>
+            <label className="form-label small fw-semibold text-muted">Fecha de Edición *</label>
+            <CDatePicker
+              inputReadOnly
+              locale="es-ES"
+              placeholder="Seleccione fecha de edición"
+              date={aFechaLocal(formData.FECHAEDICION_LIBROS)}
+              onDateChange={(val) =>
+                handleSelectChange('FECHAEDICION_LIBROS', parseDatePickerValue(val ?? null))
+              }
+              cleaner
+              invalid={!!errors.FECHAEDICION_LIBROS}
+            />
             {errors.FECHAEDICION_LIBROS && (
               <small className="text-danger d-block mt-1">{errors.FECHAEDICION_LIBROS}</small>
             )}
@@ -261,126 +315,127 @@ const Registro_bk: React.FC<RegisterBkProps> = (props) => {
             </div>
           </CCol>
 
+          {/* País - listado completo con búsqueda */}
           <CCol xs={12} sm={6} md={4}>
-            <label className="form-label small fw-semibold text-muted">País:</label>
+            <label className="form-label small fw-semibold text-muted">País *</label>
             <CInputGroup>
               <CInputGroupText>
                 <CIcon icon={cilGlobeAlt} />
               </CInputGroupText>
-              <CFormInput
-                name="PAIS_LIBROS"
-                placeholder="Ej: Ecuador, México, España"
-                value={formData.PAIS_LIBROS}
-                onChange={handleChange}
+              <PaisSelect
+                value={formData.PAIS_LIBROS || ''}
+                onChange={(val) => handleSelectChange('PAIS_LIBROS', val)}
+                invalid={!!errors.PAIS_LIBROS}
               />
             </CInputGroup>
+            {errors.PAIS_LIBROS && (
+              <small className="text-danger d-block mt-1">{errors.PAIS_LIBROS}</small>
+            )}
           </CCol>
 
+          {/* Código de Barras: solo números o S/N */}
           <CCol xs={12} sm={6} md={4}>
-            <label className="form-label small fw-semibold text-muted">Código de Barras:</label>
+            <label className="form-label small fw-semibold text-muted">Código de Barras *</label>
             <CInputGroup>
               <CInputGroupText>
                 <CIcon icon={cilBarcode} />
               </CInputGroupText>
               <CFormInput
                 name="CODIGODEBARRAS_LIBROS"
-                placeholder="0 000000 000000"
-                value={formData.CODIGODEBARRAS_LIBROS}
-                onChange={handleChange}
+                placeholder={barcodeSN ? 'S/N' : '123456789'}
+                value={barcodeSN ? 'S/N' : (formData.CODIGODEBARRAS_LIBROS || '')}
+                onChange={handleBarcodeChange}
+                disabled={barcodeSN}
+                invalid={!!errors.CODIGODEBARRAS_LIBROS}
+                inputMode="numeric"
               />
+              <CInputGroupText
+                title="Marcar Sin código de barras"
+                style={{ cursor: 'pointer', userSelect: 'none' }}
+                onClick={() => handleBarcodeToggle(!barcodeSN)}
+              >
+                <input
+                  type="checkbox"
+                  checked={barcodeSN}
+                  onChange={(e) => handleBarcodeToggle(e.target.checked)}
+                  style={{ cursor: 'pointer' }}
+                  title="Sin código de barras (S/N)"
+                />
+                <span className="ms-1 small">S/N</span>
+              </CInputGroupText>
             </CInputGroup>
+            {errors.CODIGODEBARRAS_LIBROS && (
+              <small className="text-danger d-block mt-1">{errors.CODIGODEBARRAS_LIBROS}</small>
+            )}
           </CCol>
 
+          {/* Precio: solo números y hasta 2 decimales */}
           <CCol xs={12} sm={4}>
-            <label className="form-label small fw-semibold text-muted">Precio:</label>
+            <label className="form-label small fw-semibold text-muted">Precio *</label>
             <CInputGroup>
               <CInputGroupText>
                 <CIcon icon={cilDollar} />
               </CInputGroupText>
               <CFormInput
-                type="number"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 name="PRECIO_LIBROS"
                 placeholder="0.00"
                 value={formData.PRECIO_LIBROS}
-                onChange={handleChange}
+                onChange={handlePrecioChange}
+                invalid={!!errors.PRECIO_LIBROS}
               />
             </CInputGroup>
+            {errors.PRECIO_LIBROS && (
+              <small className="text-danger d-block mt-1">{errors.PRECIO_LIBROS}</small>
+            )}
           </CCol>
 
+          {/* Formato - SearchableSelect */}
           <CCol xs={12} sm={6} md={4}>
             <label className="form-label small fw-semibold text-muted">Formato *</label>
             <CInputGroup>
               <CInputGroupText>
                 <CIcon icon={cilDescription} />
               </CInputGroupText>
-              <CFormSelect
+              <SearchableSelect
                 name="ID_FORMATOS"
                 value={formData.ID_FORMATOS}
-                onChange={handleChange}
+                options={catalogos.formatos}
+                onChange={(val) => handleSelectChange('ID_FORMATOS', val)}
                 invalid={!!errors.ID_FORMATOS}
-                required
-              >
-                <option value="">Seleccionar...</option>
-                {catalogos.formatos.map((form) => (
-                  <option key={form.value} value={form.value}>
-                    {form.label}
-                  </option>
-                ))}
-              </CFormSelect>
+                loading={catalogos.loading && catalogos.formatos.length === 0}
+                placeholder="Seleccionar formato o buscar..."
+              />
             </CInputGroup>
             {errors.ID_FORMATOS && (
               <small className="text-danger d-block mt-1">{errors.ID_FORMATOS}</small>
             )}
           </CCol>
 
+          {/* Tipo de Libro - SearchableSelect */}
           <CCol xs={12} sm={6} md={4}>
             <label className="form-label small fw-semibold text-muted">Tipo de Libro *</label>
             <CInputGroup>
               <CInputGroupText>
                 <CIcon icon={cilBook} />
               </CInputGroupText>
-              <CFormSelect
+              <SearchableSelect
                 name="ID_TIPO"
                 value={formData.ID_TIPO}
-                onChange={handleChange}
+                options={catalogos.tipos}
+                onChange={(val) => handleSelectChange('ID_TIPO', val)}
                 invalid={!!errors.ID_TIPO}
-                required
-              >
-                <option value="">Seleccionar...</option>
-                {catalogos.tipos.map((tip) => (
-                  <option key={tip.value} value={tip.value}>
-                    {tip.label}
-                  </option>
-                ))}
-              </CFormSelect>
+                loading={catalogos.loading && catalogos.tipos.length === 0}
+                placeholder="Seleccionar tipo o buscar..."
+              />
             </CInputGroup>
             {errors.ID_TIPO && (
               <small className="text-danger d-block mt-1">{errors.ID_TIPO}</small>
             )}
           </CCol>
 
-          <CCol xs={12} sm={6} md={4}>
-            <label className="form-label small fw-semibold text-muted">Estado del Libro *</label>
-            <CInputGroup>
-              <CInputGroupText>
-                <CIcon icon={cilCheckCircle} />
-              </CInputGroupText>
-              <CFormSelect
-                name="ESTADO_LIBROS"
-                value={formData.ESTADO_LIBROS}
-                onChange={handleChange}
-                invalid={!!errors.ESTADO_LIBROS}
-                required
-              >
-                <option value="1">Activo</option>
-                <option value="0">Inactivo</option>
-              </CFormSelect>
-            </CInputGroup>
-            {errors.ESTADO_LIBROS && (
-              <small className="text-danger d-block mt-1">{errors.ESTADO_LIBROS}</small>
-            )}
-          </CCol>
+          {/* Estado eliminado del formulario */}
 
           <CCol xs={12} className="mt-4">
             <div className="d-flex align-items-center gap-2 pb-2 border-bottom fw-semibold text-secondary">
@@ -388,8 +443,11 @@ const Registro_bk: React.FC<RegisterBkProps> = (props) => {
             </div>
           </CCol>
 
+          {/* Título Tejuelo: máx 10 caracteres */}
           <CCol xs={12} sm={6} md={6}>
-            <label className="form-label small fw-semibold text-muted">Título Tejuelo:</label>
+            <label className="form-label small fw-semibold text-muted">
+              Título Tejuelo *
+            </label>
             <CInputGroup>
               <CInputGroupText>
                 <CIcon icon={cilTag} />
@@ -399,12 +457,20 @@ const Registro_bk: React.FC<RegisterBkProps> = (props) => {
                 placeholder="Abreviatura del título"
                 value={formData.TITULOTEJUELO_LIBROS}
                 onChange={handleChange}
+                invalid={!!errors.TITULOTEJUELO_LIBROS}
+                maxLength={10}
               />
             </CInputGroup>
+            {errors.TITULOTEJUELO_LIBROS && (
+              <small className="text-danger d-block mt-1">{errors.TITULOTEJUELO_LIBROS}</small>
+            )}
           </CCol>
 
+          {/* Autor Tejuelo: máx 3 caracteres */}
           <CCol xs={12} sm={6} md={6}>
-            <label className="form-label small fw-semibold text-muted">Autor Tejuelo:</label>
+            <label className="form-label small fw-semibold text-muted">
+              Autor Tejuelo *
+            </label>
             <CInputGroup>
               <CInputGroupText>
                 <CIcon icon={cilUser} />
@@ -414,8 +480,13 @@ const Registro_bk: React.FC<RegisterBkProps> = (props) => {
                 placeholder="Código de autor"
                 value={formData.AUTORTEJUELO_LIBROS}
                 onChange={handleChange}
+                invalid={!!errors.AUTORTEJUELO_LIBROS}
+                maxLength={3}
               />
             </CInputGroup>
+            {errors.AUTORTEJUELO_LIBROS && (
+              <small className="text-danger d-block mt-1">{errors.AUTORTEJUELO_LIBROS}</small>
+            )}
           </CCol>
 
           <CCol xs={12}>
@@ -437,18 +508,20 @@ const Registro_bk: React.FC<RegisterBkProps> = (props) => {
           variant="outline"
           className='hover:text-white'
           onClick={handleClose}
+          size="sm"
           disabled={loading}
         >
           <CIcon icon={cilExitToApp} className="me-1" />
           Cerrar
         </CButton>
-        {canDoAction('btn_crear_libro') && (
+        {canGuardarLibro && (
           <CButton
             color='success'
             variant='outline'
             className='hover:text-white'
             onClick={handleSubmit}
             disabled={loading}
+            size="sm"
           >
             {loading ? (
               <>

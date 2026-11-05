@@ -1,26 +1,32 @@
-import React from 'react'
+import React, { useState, useMemo } from 'react'
 import {
   CButton,
   CCard,
   CCardBody,
   CCardHeader,
   CCol,
-  CForm,
-  CFormInput,
-  CInputGroup,
-  CInputGroupText,
+  CDatePicker,
+  CFormLabel,
   CModal,
   CModalBody,
   CModalFooter,
   CModalHeader,
   CModalTitle,
+  CRow,
   CSmartTable,
-  CSpinner
+  CSpinner,
 } from '@coreui/react-pro'
 import CIcon from '@coreui/icons-react'
-import { cilBan, cilCalendar, cilCloudDownload, cilExitToApp, cilSave } from '@coreui/icons'
-import { useReporteLibrosBaja } from '@/hooks/reportes/inventario/LibroBaja'
-
+import {
+  cilCloudDownload,
+  cilExitToApp,
+  cilSave,
+  cilSync,
+} from '@coreui/icons'
+import {
+  useReporteLibrosBaja,
+  LibroInventarioItem,
+} from '@/hooks/reportes/inventario/useLibroBaja'
 
 export interface LibBajaProps {
   visible: boolean
@@ -28,139 +34,264 @@ export interface LibBajaProps {
 }
 
 const LibBajaModal: React.FC<LibBajaProps> = ({ visible, setVisible }) => {
-const {handleReset,
-  anoBaja,
-  setAnoBaja,
-  libros,
-  isLoading,
-  handleGetLibrosBaja,excelLink,
-  handleDescargarExcel
-} = useReporteLibrosBaja()
+  const [tableKey, setTableKey] = useState<number>(0)
+
+  const {
+    handleReset,
+    anoBaja,
+    setAnoBaja,
+    libros,
+    isLoading,
+    handleGetLibrosBaja,
+    excelLink,
+    handleDescargarExcel,
+    haBuscado,
+    canGenerarLibrosBaja,
+    canDescargarLibrosBaja,
+  } = useReporteLibrosBaja()
+
+  const handleFullReset = () => {
+    handleReset()
+    setTableKey((prev: number) => prev + 1)
+  }
 
   const handleClose = () => {
-    handleReset()
+    handleFullReset()
     setVisible(false)
   }
+
+  const tableItems = useMemo(() => {
+    return libros.map((l: LibroInventarioItem) => {
+      const isbn = l.ISBN_LIBROS || l.isbn || ''
+      const titulo = l.TITULO_LIBROS || l.titulo || ''
+      const titulotej = l.TITULOTEJUELO_LIBROS || l.titulotej || ''
+      const autortej = l.AUTORTEJUELO_LIBROS || l.autortej || ''
+      const rawPrecio = l.PRECIO_LIBROS ?? l.precio
+      const precioDisplay =
+        rawPrecio !== undefined && rawPrecio !== null && rawPrecio !== ''
+          ? `$${Number(rawPrecio).toFixed(2)}`
+          : '$0.00'
+      const codigo = l.CODIGODEBARRAS_LIBROS || l.codigo || ''
+
+      return {
+        ...l,
+        isbn,
+        titulo,
+        titulotej,
+        autortej,
+        precio: rawPrecio,
+        precioDisplay,
+        codigo,
+      }
+    })
+  }, [libros])
+
   const columns = [
     {
       key: 'isbn',
       label: 'ISBN',
-      _style: { width: '20%' },
+      _style: { width: '16%' },
     },
     {
       key: 'titulo',
       label: 'Título',
-      _style: { width: '20%' },
+      _style: { width: '24%' },
     },
     {
       key: 'titulotej',
       label: 'Título Tejuelo',
-      _style: { width: '20%' },
+      _style: { width: '15%' },
     },
     {
       key: 'autortej',
       label: 'Autor Tejuelo',
-      _style: { width: '20%' },
+      _style: { width: '15%' },
     },
     {
       key: 'precio',
       label: 'Precio',
-      _style: { width: '20%' },
+      _style: { width: '12%' },
     },
     {
       key: 'codigo',
       label: 'Código de Barras',
-      _style: { width: '20%' },
+      _style: { width: '18%' },
     },
   ]
 
   return (
     <CModal
       size="xl"
-      alignment="center"
+      scrollable
       visible={visible}
       onClose={handleClose}
+      backdrop="static"
     >
-      <CModalHeader>
-        <CIcon icon={cilBan} size='xl' className='me-2' />
-        <CModalTitle className='text-secondary text-muted'>Libros Dados de Baja</CModalTitle>
+      <CModalHeader closeButton>
+        <CModalTitle className="d-flex align-items-center gap-2">
+          <span>Libros Dados de Baja</span>
+        </CModalTitle>
       </CModalHeader>
       <CModalBody>
-        <CForm className="row g-3">
-          <CCol md={6}>
-            <CInputGroup>
-              <CInputGroupText>
-                <CIcon icon={cilCalendar} />
-              </CInputGroupText>
-              <CFormInput
-                type="number"
-                placeholder="Año (ej. 2024)"
-                value={anoBaja}
-                onChange={(e) => setAnoBaja(e.target.value)}
-                min="2017"
-                max="2099"
-              />
-            </CInputGroup>
-          </CCol>
-        </CForm>
-        <hr className="my-3" />
-        <CCard>
-          <CCardHeader>Libros</CCardHeader>
-          <CCardBody
-            className="table-responsive"
-            style={{ maxHeight: '400px', overflowY: 'auto' }}
-          >
-            <p className='badge bg-white border rounded text-primary'>Total de libros recibidos: <strong>{libros.length}</strong></p>
-            <hr className="my-3" style={{ border: '1px dashed black' }} />
+        <CCard className="mb-3 border-0 bg-body shadow-sm">
+          <CCardBody className="p-3">
+            <div className="fw-semibold text-body mb-2 small text-uppercase">
+              Filtro por Año de Baja
+            </div>
+            <CRow className="g-3 align-items-end">
+              <CCol xs={12} sm={8} md={6}>
+                <CFormLabel className="small fw-semibold mb-1">Año</CFormLabel>
+                <CDatePicker
+                  key={tableKey}
+                  size="sm"
+                  locale="es-ES"
+                  selectionType="year"
+                  placeholder="Seleccione el año"
+                  cleaner
+                  inputReadOnly
+                  inputDateFormat={(date: Date) => {
+                    if (!date || isNaN(date.getTime())) return ''
+                    const year = date.getHours() >= 18 ? date.getUTCFullYear() : date.getFullYear()
+                    return String(year)
+                  }}
+                  inputDateParse={(val: string | Date) => {
+                    if (val instanceof Date) return val
+                    const num = Number(val)
+                    return !isNaN(num) && num > 1900 ? new Date(num, 0, 1, 12, 0, 0) : new Date(val)
+                  }}
+                  date={anoBaja ? new Date(Number(anoBaja), 0, 1, 12, 0, 0) : null}
+                  onDateChange={(val: any) => {
+                    if (!val) {
+                      setAnoBaja('')
+                      return
+                    }
+                    if (typeof val === 'string') {
+                      const match = val.match(/\b(19\d{2}|20\d{2})\b/) || val.match(/^(\d{4})/)
+                      if (match) {
+                        setAnoBaja(match[1])
+                        return
+                      }
+                    }
+                    if (val instanceof Date && !isNaN(val.getTime())) {
+                      const year = val.getHours() >= 18 ? val.getUTCFullYear() : val.getFullYear()
+                      setAnoBaja(String(year))
+                      return
+                    }
+                  }}
+                />
+              </CCol>
+
+              <CCol xs={12} sm={4} md={6} className="d-flex gap-2">
+                {canGenerarLibrosBaja && (
+                  <CButton
+                    color="primary"
+                    variant="outline"
+                    size="sm"
+                    className="w-100 d-flex align-items-center justify-content-center"
+                    onClick={() => {
+                      setTableKey((prev) => prev + 1)
+                      handleGetLibrosBaja()
+                    }}
+                    disabled={isLoading || !anoBaja}
+                  >
+                    {isLoading ? (
+                      <>
+                        <CSpinner size="sm" className="me-1" />
+                        <span>Cargando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CIcon icon={cilSave} className="me-1" />
+                        <span>Generar</span>
+                      </>
+                    )}
+                  </CButton>
+                )}
+                <CButton
+                  color="secondary"
+                  variant="outline"
+                  size="sm"
+                  title="Limpiar filtros"
+                  onClick={handleFullReset}
+                  disabled={isLoading}
+                >
+                  <CIcon icon={cilSync} />
+                </CButton>
+              </CCol>
+            </CRow>
+          </CCardBody>
+        </CCard>
+
+        <CCard className="border shadow-sm">
+          <CCardHeader className="d-flex justify-content-between align-items-center bg-transparent py-2">
+            <span className="fw-semibold small text-uppercase">
+              Libros Dados de Baja
+            </span>
+            <span className="text-body-secondary small">
+              Total recibidos: <strong>{libros.length}</strong>
+            </span>
+          </CCardHeader>
+          <CCardBody className="p-0">
             <CSmartTable
-              activePage={2}
+              key={tableKey}
+              activePage={1}
               columns={columns}
-              items={libros.map((l) => ({
-                ...l,
-                isbn: l.ISBN_LIBROS,
-                titulo: l.TITULO_LIBROS,
-                titulotej: l.TITULOTEJUELO_LIBROS,
-                autortej: l.AUTORTEJUELO_LIBROS,
-                precio: l.PRECIO_LIBROS,
-                codigo: l.CODIGODEBARRAS_LIBROS
-              }))}
+              columnSorter
+              tableFilter={haBuscado && !isLoading && libros.length > 0}
+              tableFilterLabel="Buscar:"
+              tableFilterPlaceholder="Buscar en la tabla..."
+              cleaner
+              items={tableItems}
+              itemsPerPage={60}
+              pagination
+              noItemsLabel={
+                haBuscado
+                  ? 'No se encontraron libros dados de baja para el año seleccionado'
+                  : 'Seleccione un año y haga clic en Generar para ver el reporte'
+              }
               scopedColumns={{
                 isbn: (item: any) => (
                   <td>
-                    <span className="font-monospace small text-muted badge bg-body border">{item.ISBN_LIBROS}</span>
+                    <span className="font-monospace small text-muted badge bg-body border">
+                      {item.isbn || '-'}
+                    </span>
                   </td>
                 ),
                 titulo: (item: any) => (
                   <td>
-                    <span className="font-monospace small">{item.TITULO_LIBROS}</span>
+                    <span className="font-monospace small">{item.titulo || '-'}</span>
                   </td>
                 ),
                 titulotej: (item: any) => (
                   <td>
-                    <span className='font-monospace small'>{item.TITULOTEJUELO_LIBROS}</span>
+                    <span className="font-monospace small">{item.titulotej || '-'}</span>
                   </td>
                 ),
                 autortej: (item: any) => (
                   <td>
-                    <span className='font-monospace small'>{item.AUTORTEJUELO_LIBROS}</span>
+                    <span className="font-monospace small">{item.autortej || '-'}</span>
                   </td>
                 ),
                 precio: (item: any) => (
                   <td>
-                    <span className='text-success font-monospace small  badge bg-body border'>${item.PRECIO_LIBROS || '0.00'}</span>
+                    <span className="font-monospace small text-success badge bg-body border">
+                      {item.precioDisplay}
+                    </span>
                   </td>
                 ),
                 codigo: (item: any) => (
                   <td>
-                    <span className="font-monospace small text-primary badge bg-body border">{item.CODIGODEBARRAS_LIBROS}</span>
+                    <span className="font-monospace small text-primary badge bg-body border">
+                      {item.codigo || '-'}
+                    </span>
                   </td>
                 ),
               }}
               tableProps={{
-                className: 'add-this-custom-class',
                 responsive: true,
                 striped: true,
                 hover: true,
+                className: 'mb-0',
               }}
               tableBodyProps={{
                 className: 'align-middle',
@@ -169,43 +300,42 @@ const {handleReset,
           </CCardBody>
         </CCard>
       </CModalBody>
-      <CModalFooter>
-        <CButton
-          color='danger'
-          variant='outline'
-          onClick={handleClose}
-          className='hover:text-white'
-        >
-          <CIcon icon={cilExitToApp} className='me-1' /> Cerrar
-        </CButton>
-        <CButton
-          color='primary'
-          variant='outline'
-          onClick={handleGetLibrosBaja}
-          disabled={isLoading}
-          className='hover:text-white'
-        >
-          {isLoading ? (
-            <>
-              <CSpinner size="sm" variant="grow" aria-hidden="true" />
-              Cargando...
-            </>
-          ) : (
-            <>
-              <CIcon icon={cilSave} className='me-1' /> Generar
-            </>
-          )}
-        </CButton>
-        {excelLink && (
+      <CModalFooter className="d-flex justify-content-between align-items-center">
+        <div className="text-body-secondary small">
+          Mostrando <strong>{libros.length}</strong> libro(s)
+        </div>
+        <div className="d-flex gap-2">
           <CButton
-            color='success'
-            variant='outline'
-            onClick={handleDescargarExcel}
-            className='hover:text-white'
+            color="danger"
+            variant="outline"
+            size="sm"
+            className="hover:text-white shadow-sm"
+            onClick={handleClose}
           >
-            <CIcon icon={cilCloudDownload} className='hover:text-white' /> Descargar
+            <CIcon icon={cilExitToApp} className="me-1" />
+            Cerrar
           </CButton>
-        )}
+
+          {canDescargarLibrosBaja && (
+            <CButton
+              color="success"
+              variant="outline"
+              size="sm"
+              className="hover:text-white shadow-sm"
+              onClick={handleDescargarExcel}
+              disabled={
+                isLoading ||
+                !haBuscado ||
+                libros.length === 0 ||
+                !excelLink
+              }
+            >
+              <CIcon icon={cilCloudDownload} className="me-1" />
+              Descargar Excel
+            </CButton>
+          )}
+
+        </div>
       </CModalFooter>
     </CModal>
   )

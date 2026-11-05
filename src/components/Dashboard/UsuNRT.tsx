@@ -10,7 +10,6 @@ import {
 } from '@coreui/react-pro'
 import CIcon from '@coreui/icons-react'
 import { cibLibreoffice } from '@coreui/icons'
-import { usePermissions } from '@/context/PermissionsContext'
 
 export interface PersonaReporteItem {
     ID_PERSONA?: number | string
@@ -28,13 +27,16 @@ export interface PersonaReporteItem {
     [key: string]: any
 }
 
+import { UsuarioItem } from '@/models/dashboard/dashboard.model'
+
 export interface UsuNRTProps {
-    usuariosNuevos?: any[]
-    usuariosRenovaciones?: any[]
-    todosUsuarios?: any[]
+    usuariosNuevos?: UsuarioItem[]
+    usuariosRenovaciones?: UsuarioItem[]
+    todosUsuarios?: UsuarioItem[]
     loading?: boolean
     visible?: boolean
     setVisible?: (visible: boolean) => void
+    canExportar?: boolean
     onExportarExcel?: () => void
 }
 
@@ -43,10 +45,9 @@ const UsuNRT: React.FC<UsuNRTProps> = ({
     usuariosRenovaciones = [],
     todosUsuarios = [],
     loading = false,
+    canExportar = true,
     onExportarExcel,
 }) => {
-
-    const { canDoAction } = usePermissions()
 
     const columns = [
         { key: 'cedula', label: 'Cédula', _style: { width: '13%' } },
@@ -67,6 +68,7 @@ const UsuNRT: React.FC<UsuNRTProps> = ({
             pagination
             itemsPerPageSelect
             tableFilter
+            tableFilterLabel="Filter:"
             tableFilterPlaceholder="Buscar por cédula, nombre, correo..."
             columnSorter
             noItemsLabel={
@@ -149,16 +151,17 @@ const UsuNRT: React.FC<UsuNRTProps> = ({
                         Renovaciones ({usuariosRenovaciones.length})
                     </CTab>
                 </CTabList>
-                {canDoAction('btn_exportar_excel_usuario') && (
+                {canExportar && (
                 <CButton 
-                    color='success' 
-                    size='sm' 
-                    className='text-white fw-semibold mb-2 mb-sm-0'
+                    color="success" 
+                    variant="outline"
+                    size="sm" 
+                    className="hover:text-white fw-semibold mb-2 mb-sm-0 d-flex align-items-center"
                     onClick={onExportarExcel}
                     disabled={loading || (todosUsuarios.length === 0 && usuariosNuevos.length === 0 && usuariosRenovaciones.length === 0)}
                 >
-                    <CIcon icon={cibLibreoffice} className='me-1' />
-                    Exportar Excel
+                    <CIcon icon={cibLibreoffice} className="me-1" />
+                    <span>Exportar Excel</span>
                 </CButton>
             )}
             </div>

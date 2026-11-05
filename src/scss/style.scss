@@ -12,7 +12,15 @@ body {
   width: 100%;
   padding-inline: var(--cui-sidebar-occupy-start, 0) var(--cui-sidebar-occupy-end, 0);
   will-change: auto;
-  @include transition(padding .15s);
+  transition: padding 0.15s ease-in-out, padding-inline-start 0.15s ease-in-out;
+}
+
+@media (min-width: 992px) {
+  // Cuando el menú colapsado se expande al pasar el mouse (:hover),
+  // empujar y adaptar el contenido de la página para que no tape las gráficas
+  .sidebar.sidebar-narrow-unfoldable:hover ~ .wrapper {
+    padding-inline-start: var(--cui-sidebar-width, 16rem) !important;
+  }
 }
 
 .header > .container-fluid,
@@ -141,6 +149,49 @@ body {
     background-color: transparent !important;
   }
 
+  // Centrado perfecto de iconos cuando el sidebar está minimizado
+  &.sidebar-narrow,
+  &.sidebar-narrow-unfoldable:not(:hover) {
+    .nav-text,
+    .nav-badge,
+    .nav-title,
+    .nav-group-items {
+      display: none !important;
+    }
+
+    // Ocultar la flecha desplegable en los grupos para que los iconos no se desplacen
+    // y queden exactamente en la misma línea vertical centrada que el Dashboard
+    .nav-group-toggle::after {
+      display: none !important;
+      content: none !important;
+      width: 0 !important;
+      margin: 0 !important;
+    }
+
+    .nav-link,
+    .nav-group-toggle {
+      justify-content: center !important;
+      padding-left: 0 !important;
+      padding-right: 0 !important;
+      padding-inline: 0 !important;
+      margin: 2px 4px !important;
+      text-align: center !important;
+    }
+
+    .nav-icon {
+      margin: 0 auto !important;
+      margin-left: 0 !important;
+      margin-right: 0 !important;
+      margin-inline: 0 !important;
+      display: flex !important;
+      justify-content: center !important;
+      align-items: center !important;
+      width: 1.5rem !important;
+      height: 1.5rem !important;
+      flex: 0 0 1.5rem !important;
+    }
+  }
+
   .nav-icon-bullet {
     background-color: transparent !important;
     border: 1.5px solid rgba(255, 255, 255, 0.75) !important;
@@ -248,5 +299,45 @@ input::-ms-clear {
   width: 0 !important;
   height: 0 !important;
 }
+
+// Animación de rotación continua para botones de refrescar/recargar
+@keyframes spinReload {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.rotate-animation {
+  animation: spinReload 0.8s linear infinite !important;
+  display: inline-block;
+}
+
+// Ajuste estético para inputs de filtro en CSmartTable (Dashboard, Usuarios, Libros, etc.)
+// Evita que los placeholders descriptivos largos se vean cortados
+.col-auto > .row > .col-sm-auto > .form-control,
+.col-sm-auto > input.form-control {
+  min-width: 310px;
+  border-radius: 0.5rem;
+  transition: min-width 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+
+  &:focus {
+    min-width: 340px;
+  }
+
+  @media (max-width: 768px) {
+    min-width: 240px;
+    &:focus {
+      min-width: 260px;
+    }
+  }
+
+  @media (max-width: 576px) {
+    min-width: 180px;
+  }
+}
+
 
 

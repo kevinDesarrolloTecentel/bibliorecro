@@ -20,7 +20,9 @@ const ModalGen: React.FC<ModalGeneroProps> = (props) => {
         handleGuardarGenero,
         nombreGenero,
         guardando,
-        setNombreGenero
+        setNombreGenero,
+        canGuardarGenero,
+        canActualizarGenero,
     } = hook
 
     return (
@@ -56,7 +58,7 @@ const ModalGen: React.FC<ModalGeneroProps> = (props) => {
                                     <CIcon className="text-muted" icon={cilBank} />
                                 </CInputGroupText>
                                 <CFormInput
-                                    type="texr"
+                                    type="text"
                                     placeholder="Ej: Musical"
                                     value={nombreGenero}
                                     onChange={(e) => setNombreGenero(e.target.value)}
@@ -68,23 +70,46 @@ const ModalGen: React.FC<ModalGeneroProps> = (props) => {
                     </CForm>
                 </CModalBody>
                 <CModalFooter className="bg-body d-flex justify-content-between aling-items-center">
-                    <CButton color="danger" variant="outline" className="hover:text-white" onClick={handleClose} disabled={guardando}>
+                    <CButton size="sm"
+                        color="danger" variant="outline" className="hover:text-white" onClick={handleClose} disabled={guardando}>
                         <CIcon className="me-1" icon={cilExitToApp} />
                         Cancelar
                     </CButton>
-                    <CButton color="success" variant="outline" type="submit" form="formmodalgenero" disabled={guardando || !nombreGenero.trim()} className="d-flex align-items-center gap-1 shadow-sm hover:text-white">
-                        {guardando ? (
-                            <>
-                                <CSpinner size="sm" className="me-1" variant="grow" />
-                                Guardando...
-                            </>
-                        ) : (
-                            <>
-                                <CIcon className="me-1" icon={cilNewspaper} />
-                                {generoEnEdicion ? 'Actualizar Género' : 'Guardar Género'}
-                            </>
-                        )}
-                    </CButton>
+                    {generoEnEdicion ? (
+                        canActualizarGenero && (
+                            <CButton size="sm"
+                                color="success" variant="outline" type="submit" form="formmodalgenero" disabled={guardando || !nombreGenero.trim()} className="d-flex align-items-center gap-1 shadow-sm hover:text-white">
+                                {guardando ? (
+                                    <>
+                                        <CSpinner size="sm" className="me-1" variant="grow" />
+                                        Actualizando...
+                                    </>
+                                ) : (
+                                    <>
+                                        <CIcon className="me-1" icon={cilNewspaper} />
+                                        Actualizar Género
+                                    </>
+                                )}
+                            </CButton>
+                        )
+                    ) : (
+                        canGuardarGenero && (
+                            <CButton size="sm"
+                                color="success" variant="outline" type="submit" form="formmodalgenero" disabled={guardando || !nombreGenero.trim()} className="d-flex align-items-center gap-1 shadow-sm hover:text-white">
+                                {guardando ? (
+                                    <>
+                                        <CSpinner size="sm" className="me-1" variant="grow" />
+                                        Guardando...
+                                    </>
+                                ) : (
+                                    <>
+                                        <CIcon className="me-1" icon={cilNewspaper} />
+                                        Guardar Género
+                                    </>
+                                )}
+                            </CButton>
+                        )
+                    )}
                 </CModalFooter>
             </CModal>
         </>

@@ -21,8 +21,9 @@ const EditoModal: React.FC<ModaleditorialProps> = (props) => {
         editorialEnEdicion,
         nombreEditorial,
         setNombreEditorial,
-        guardando
-
+        guardando,
+        canGuardarEditorial,
+        canActualizarEditorial,
     } = hook
     return (
         <>
@@ -63,24 +64,46 @@ const EditoModal: React.FC<ModaleditorialProps> = (props) => {
                     </CForm>
                 </CModalBody>
                 <CModalFooter className="bg-body d-flex align-items-center justify-content-between">
-                    <CButton color="danger" variant="outline" className="hover:text-white" onClick={handleClose} disabled={guardando}>
+                    <CButton size="sm"
+                        color="danger" variant="outline" className="hover:text-white" onClick={handleClose} disabled={guardando}>
                         <CIcon className="me-1" icon={cilAccountLogout} />
                         Cancelar
                     </CButton>
-                    <CButton color="success" variant="outline" type="submit" form="formeditorialmodal" disabled={guardando} className="hover:text-white">
-                        {guardando ?
-                            (
-                                <>
-                                    <CSpinner size="sm" className="me-1" variant="grow" />
-                                    Guardando...
-                                </>
-                            ) : (
-                                <>
-                                    <CIcon className="me-1" icon={cilDescription} />
-                                    {editorialEnEdicion ? 'Actualizar Editorial' : 'Guardar Editorial'}
-                                </>
-                            )}
-                    </CButton>
+                    {editorialEnEdicion ? (
+                        canActualizarEditorial && (
+                            <CButton size="sm"
+                                color="success" variant="outline" type="submit" form="formeditorialmodal" disabled={guardando} className="hover:text-white">
+                                {guardando ? (
+                                    <>
+                                        <CSpinner size="sm" className="me-1" variant="grow" />
+                                        Actualizando...
+                                    </>
+                                ) : (
+                                    <>
+                                        <CIcon className="me-1" icon={cilDescription} />
+                                        Actualizar Editorial
+                                    </>
+                                )}
+                            </CButton>
+                        )
+                    ) : (
+                        canGuardarEditorial && (
+                            <CButton size="sm"
+                                color="success" variant="outline" type="submit" form="formeditorialmodal" disabled={guardando} className="hover:text-white">
+                                {guardando ? (
+                                    <>
+                                        <CSpinner size="sm" className="me-1" variant="grow" />
+                                        Guardando...
+                                    </>
+                                ) : (
+                                    <>
+                                        <CIcon className="me-1" icon={cilDescription} />
+                                        Guardar Editorial
+                                    </>
+                                )}
+                            </CButton>
+                        )
+                    )}
                 </CModalFooter>
             </CModal>
         </>

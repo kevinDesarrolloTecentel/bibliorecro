@@ -1,81 +1,111 @@
+import { useState } from "react"
 import useRoles from "@/hooks/admin-roles/useRoles"
-import { cilExitToApp, cilPenNib, cilShieldAlt, cilTrash } from "@coreui/icons"
+import { cilExitToApp, cilPenNib, cilTrash } from "@coreui/icons"
 import CIcon from "@coreui/icons-react"
-import { CButton, CCol, CForm, CFormInput, CFormSelect, CModal, CModalBody, CModalFooter, CModalHeader, CModalTitle, CSpinner } from "@coreui/react-pro"
-import { usePermissions } from "@/context/PermissionsContext"
+import { CButton, CCol, CForm, CFormInput, CModal, CModalBody, CModalFooter, CModalHeader, CModalTitle, CSpinner } from "@coreui/react-pro"
 
 const ModalRolActu = ({ userState }: { userState: ReturnType<typeof useRoles> }) => {
-    const { canDoAction } = usePermissions()
+    const [actionLoading, setActionLoading] = useState<'actualizar' | 'eliminar' | null>(null)
 
-    return(
-                    <CModal visible={userState.modalEditar} onClose={() => userState.setModalEditar(false)}>
-                        <CModalHeader>
-                            <CModalTitle className="d-flex align-items-center">
-                                <CIcon icon={cilShieldAlt} className="me-2 text-primary" />
-                                Actualizar o Eliminar Rol
-                            </CModalTitle>
-                        </CModalHeader>
-                        <CModalBody>
-                            <CForm className="row g-3">
-                                <CCol xs={12}>
-                                    <CFormInput
-                                        type="text"
-                                        id="editNombreRol"
-                                        label="Nombre del Rol *"
-                                        value={userState.editFormData.nombre}
-                                        onChange={(e) => userState.setEditFormData({ ...userState.editFormData, nombre: e.target.value })}
-                                    />
-                                </CCol>
-                                <CCol xs={12} sm={6}>
-                                    <CFormInput
-                                        type="number"
-                                        id="editNivelRol"
-                                        label="Nivel del Rol *"
-                                        min={1}
-                                        max={10}
-                                        value={userState.editFormData.nivel}
-                                        onChange={(e) => userState.setEditFormData({ ...userState.editFormData, nivel: Number(e.target.value) })}
-                                    />
-                                </CCol>
-                                <CCol xs={12} sm={6}>
-                                    <CFormSelect
-                                        id="editEstadoRol"
-                                        label="Estado"
-                                        value={userState.editFormData.estado}
-                                        onChange={(e) => userState.setEditFormData({ ...userState.editFormData, estado: e.target.value })}
-                                    >
-                                        <option value="Activo">Activo</option>
-                                        <option value="Inactivo">Inactivo</option>
-                                    </CFormSelect>
-                                </CCol>
-                            </CForm>
-                        </CModalBody>
-                        <CModalFooter>
-                            <CButton color="secondary" variant="outline" onClick={() => userState.setModalEditar(false)} disabled={userState.guardando}>
-                                <CIcon icon={cilExitToApp} className="me-1"/>
-                                Cerrar
-                            </CButton>
-                            {canDoAction('btn_eliminar_rol') && (
-                                <CButton
-                                    color="danger"
-                                    variant="outline"
-                                    onClick={() => userState.handleEliminarRol(userState.editFormData.id, userState.editFormData.nombre)}
-                                    disabled={userState.guardando}
-                                >
-                                    {userState.guardando ? <CSpinner size="sm" className="me-1" /> : null}
-                                    <CIcon icon={cilTrash} className="me-1"/>
-                                    Eliminar Rol
-                                </CButton>
-                            )}
-                            {canDoAction('btn_actualizar_rol') && (
-                                <CButton color="success" onClick={userState.handleActualizarRol} disabled={userState.guardando}>
-                                    {userState.guardando ? <CSpinner size="sm" className="me-1" /> : null}
-                                    <CIcon icon={cilPenNib} className="me-1"/>
-                                    Actualizar Rol
-                                </CButton>
-                            )}
-                        </CModalFooter>
-                    </CModal>
+    const isBusy = userState.guardando || actionLoading !== null
+
+    const nombreLimpio = userState.editFormData.nombre.trim()
+    const nombreDuplicado = Boolean(
+        nombreLimpio &&
+        userState.roles.some((r: any) => {
+            const rId = String(r.ID_ROL ?? r.id ?? '')
+            const rNombre = String(r.NOMBRE_ROL ?? r.nombre ?? r.name ?? '').trim().toLowerCase()
+            return rId !== String(userState.editFormData.id) && rNombre === nombreLimpio.toLowerCase()
+        })
+    )
+
+    const handleActualizar = async () => {
+        if (nombreDuplicado || !nombreLimpio) return
+        setActionLoading('actualizar')
+        try {
+            await userState.handleActualizarRol()
+        } finally {
+            setActionLoading(null)
+        }
+    }
+
+    const handleEliminar = async () => {
+        setActionLoading('eliminar')
+        try {
+            await userState.handleEliminarRol(userState.editFormData.id, userState.editFormData.nombre)
+        } finally {
+            setActionLoading(null)
+        }
+    }
+
+    return (
+        <CModal visible={userState.modalEditar} onClose={userState.handleCerrarEditar}>
+            <CModalHeader>
+                <CModalTitle className="d-flex align-items-center">
+                    Actualizar o Eliminar Rol
+                </CModalTitle>
+            </CModalHeader>
+            <CModalBody>
+                <CForm className="row g-3">
+                    <CCol xs={12}>
+                        <CFormInput
+                            type="text"
+                            id="editNombreRol"
+                            label="Nombre del Rol *"
+                            value={userState.editFormData.nombre}
+                            invalid={nombreDuplicado}
+                            feedbackInvalid="Ya existe otro rol registrado con este nombre."
+                            onChange={(e) => userState.setEditFormData({ ...userState.editFormData, nombre: e.target.value })}
+                        />
+                    </CCol>
+                    <CCol xs={12}>
+                        <CFormInput
+                            type="number"
+                            id="editNivelRol"
+                            label="Nivel del Rol *"
+                            min={1}
+                            max={100}
+                            value={userState.editFormData.nivel}
+                            onChange={(e) => userState.setEditFormData({ ...userState.editFormData, nivel: Number(e.target.value) })}
+                        />
+                    </CCol>
+                </CForm>
+            </CModalBody>
+            <CModalFooter>
+                <CButton size="sm" className="hover:text-white shadow-sm" color="secondary" variant="outline" onClick={userState.handleCerrarEditar} disabled={isBusy}>
+                    <CIcon icon={cilExitToApp} className="me-1"/>
+                    Cerrar
+                </CButton>
+                {userState.canEliminarRol && (
+                    <CButton
+                        color="danger"
+                        variant="outline"
+                        size="sm"
+                        className="hover:text-white shadow-sm"
+                        onClick={handleEliminar}
+                        disabled={isBusy}
+                    >
+                        {actionLoading === 'eliminar' ? <CSpinner size="sm" className="me-1" /> : null}
+                        <CIcon icon={cilTrash} className="me-1"/>
+                        Eliminar Rol
+                    </CButton>
+                )}
+                {userState.canActualizarRol && (
+                    <CButton
+                        color="success"
+                        size="sm"
+                        className="hover:text-white shadow-sm"
+                        onClick={handleActualizar}
+                        disabled={isBusy || nombreDuplicado || !nombreLimpio}
+                        variant="outline"
+                    >
+                        {actionLoading === 'actualizar' ? <CSpinner size="sm" className="me-1" /> : null}
+                        <CIcon icon={cilPenNib} className="me-1"/>
+                        Actualizar Rol
+                    </CButton>
+                )}
+            </CModalFooter>
+        </CModal>
     )
 }
 export default ModalRolActu

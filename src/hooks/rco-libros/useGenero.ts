@@ -2,6 +2,7 @@ import { GeneroLib } from "@/models/rco/generoLb";
 import { ActualizarGenLib, EliminarGenLib, ListarGeneroLib, NuevoGenLib } from "@/Service/rco/GenLib";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Swal from "sweetalert2";
+import { usePermissions } from "@/context/PermissionsContext";
 
 export type GeneroLItem = GeneroLib
 export type GeneroItem = GeneroLib
@@ -20,18 +21,6 @@ export interface UseGeneroLProps {
 
 export type UseGeneroProps = UseGeneroLProps
 
-const Toast = Swal.mixin({
-    toast: true,
-    position:'top-end',
-    showConfirmButton: false,
-    timer:2500,
-    timerProgressBar: true,
-    didOpen:(toast)=>{
-        toast.onmouseenter = Swal.stopTimer
-        toast.onmouseleave = Swal.resumeTimer
-    }
-})
-
 export const useGeneroL = ({
     autoFetch= true,
     visible: visibleProp,
@@ -43,6 +32,15 @@ export const useGeneroL = ({
     onGeneroActualizado,
     onGeneroEliminado
 }: UseGeneroLProps = {}) => {
+    const { canDoAction, verificarAccionEnServidor } = usePermissions()
+
+    const canCrearGenero = canDoAction('btn_crear_genero')
+    const canGuardarGenero = canDoAction('btn_guardar_genero')
+    const canEditarGenero = canDoAction('btn_editar_genero')
+    const canActualizarGenero = canDoAction('btn_actualizar_genero')
+    const canEliminarGenero = canDoAction('btn_eliminar_genero')
+    const canVerInfoGenero = canDoAction('btn_ver_info_genero')
+
     const notifyCreado = onGenerolCreado || onGeneroCreado
     const notifyActualizado = onGenerolActualizado || onGeneroActualizado
     const notifyEliminado = onGenerolEliminado || onGeneroEliminado
@@ -59,7 +57,7 @@ export const useGeneroL = ({
     const [nombreGenerol, setNombreGenerol] = useState('')
     const [guardando, setGuardando] = useState(false)
 
-    const fetchGenerol = useCallback(async()=>{
+    const fetchGenerol = useCallback(async(preserveSelection = true)=>{
         setLoadingGenerol(true)
         try{
             const response = await ListarGeneroLib()
@@ -82,20 +80,21 @@ export const useGeneroL = ({
             }))
 
             setListaGenerol(parsedList)
-            setGeneroSeleccionado((prev) =>{
-                if(!prev) return null
+            if (preserveSelection) {
+                setGeneroSeleccionado((prev) =>{
+                    if(!prev) return null
 
-                const prevId = String(prev.ID_RCOGENERO ?? prev.id)
-                const matched = parsedList.find(
-                    (g) => String(g.ID_RCOGENERO ?? g.id) === prevId
-                )
-                return matched || null
-            })
+                    const prevId = String(prev.ID_RCOGENERO ?? prev.id)
+                    const matched = parsedList.find(
+                        (g) => String(g.ID_RCOGENERO ?? g.id) === prevId
+                    )
+                    return matched || null
+                })
+            } else {
+                setGeneroSeleccionado(null)
+            }
         }catch(error: any){
-            Toast.fire({
-                icon:'error',
-                title:'No se pudo cargar la lista de Generos'
-            })
+            console.error('Error al cargar géneros:', error)
         }finally{
             setLoadingGenerol(false)
         }
@@ -105,12 +104,39 @@ export const useGeneroL = ({
         if(autoFetch){fetchGenerol()}
     },[autoFetch, fetchGenerol])
 
+    const handleRecargar = useCallback(async () => {
+        setBusquedaGenerol('')
+        setPaginaActual(1)
+        setGeneroSeleccionado(null)
+        await fetchGenerol(false)
+    }, [fetchGenerol])
+
     const handleOpen = useCallback(
         (generol?: GeneroLib) =>{
             if(generol){
+                if (!canEditarGenero) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Acceso Denegado',
+                        text: 'No tienes permisos para editar géneros.',
+                        confirmButtonColor: '#dc3545',
+                        confirmButtonText: 'Entendido',
+                    })
+                    return
+                }
                 setGeneroEnEdicion(generol)
                 setNombreGenerol(generol.NOMBRE_RCOGENERO || '')
             }else{
+                if (!canCrearGenero) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Acceso Denegado',
+                        text: 'No tienes permisos para crear géneros.',
+                        confirmButtonColor: '#dc3545',
+                        confirmButtonText: 'Entendido',
+                    })
+                    return
+                }
                 setGeneroEnEdicion(null)
                 setNombreGenerol('')
             }
@@ -119,7 +145,7 @@ export const useGeneroL = ({
             }else{
                 setInternalVisble(true)
             }
-        },[setVisibleProp]
+        },[setVisibleProp, canEditarGenero, canCrearGenero]
     )
 
     const handleClose = useCallback(()=>{
@@ -184,12 +210,59 @@ export const useGeneroL = ({
         
         if(!nombreGenerol.trim()){
             Swal.fire({
-                icon:  'warning',
-                title:'Campos requeridos',
-                text:'Por favor ingrese el nombre del Género',
-                confirmButtonColor:'#0d6efd'
+                icon: 'warning',
+                title: 'Campos requeridos',
+                text: 'Por favor ingrese el nombre del género.',
+                confirmButtonColor: '#dc3545',
+                confirmButtonText: 'Entendido',
             })
             return
+        }
+
+        if (generoEnEdicion) {
+            if (!canActualizarGenero) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Acceso Denegado',
+                    text: 'No tienes permisos para actualizar el género.',
+                    confirmButtonColor: '#dc3545',
+                    confirmButtonText: 'Entendido',
+                })
+                return
+            }
+            const tienePermiso = await verificarAccionEnServidor('btn_actualizar_genero')
+            if (!tienePermiso) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Acceso Denegado',
+                    text: 'No tienes permisos para actualizar el género.',
+                    confirmButtonColor: '#dc3545',
+                    confirmButtonText: 'Entendido',
+                })
+                return
+            }
+        } else {
+            if (!canGuardarGenero) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Acceso Denegado',
+                    text: 'No tienes permisos para guardar nuevos géneros.',
+                    confirmButtonColor: '#dc3545',
+                    confirmButtonText: 'Entendido',
+                })
+                return
+            }
+            const tienePermiso = await verificarAccionEnServidor('btn_guardar_genero')
+            if (!tienePermiso) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Acceso Denegado',
+                    text: 'No tienes permisos para guardar nuevos géneros.',
+                    confirmButtonColor: '#dc3545',
+                    confirmButtonText: 'Entendido',
+                })
+                return
+            }
         }
 
         setGuardando(true)
@@ -202,9 +275,12 @@ export const useGeneroL = ({
                 const id = generoEnEdicion.ID_RCOGENERO ?? generoEnEdicion.id ?? '';
                 await ActualizarGenLib(id, payload)
 
-                Toast.fire({
-                    icon:'success',
-                    title:'Género actualizado correctamente'
+                Swal.fire({
+                    icon: 'success',
+                    title: '¡Género actualizado!',
+                    text: 'El género fue actualizado correctamente.',
+                    timer: 1800,
+                    showConfirmButton: false,
                 })
 
                 await fetchGenerol()
@@ -217,9 +293,12 @@ export const useGeneroL = ({
             }else{
                 const res = await NuevoGenLib(payload)
 
-                Toast.fire({
-                    icon:'success',
-                    title:'Género registrado con éxito'
+                Swal.fire({
+                    icon: 'success',
+                    title: '¡Género registrado!',
+                    text: 'El género fue registrado con éxito.',
+                    timer: 1800,
+                    showConfirmButton: false,
                 })
 
                 await fetchGenerol()
@@ -237,12 +316,14 @@ export const useGeneroL = ({
             handleClose()
         }catch (error: any){
             const errorMsg =
-            error?.response?.data?. message ||
-            'Error al procesar la  solicitud requeridda'
+            error?.response?.data?.message ||
+            'Error al procesar la solicitud con el servidor.'
             Swal.fire({
-                icon:'error',
-                title:"Error al guardar",
+                icon: 'error',
+                title: 'Error al guardar',
                 text: errorMsg,
+                confirmButtonColor: '#dc3545',
+                confirmButtonText: 'Entendido',
             })
         } finally{
             setGuardando(false)
@@ -250,6 +331,8 @@ export const useGeneroL = ({
     },[
         nombreGenerol, 
         generoEnEdicion, 
+        canActualizarGenero,
+        canGuardarGenero,
         fetchGenerol, 
         notifyActualizado, 
         notifyCreado, 
@@ -258,6 +341,17 @@ export const useGeneroL = ({
 
     const handleEliminarGnerol = useCallback(
         async (genParam?: GeneroLib) =>{
+            if (!canEliminarGenero) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Acceso Denegado',
+                    text: 'No tienes permisos para eliminar géneros.',
+                    confirmButtonColor: '#dc3545',
+                    confirmButtonText: 'Entendido',
+                })
+                return
+            }
+
             const gen = genParam || generoSeleccionado 
             if(!gen) return
 
@@ -265,22 +359,37 @@ export const useGeneroL = ({
             if(!id) return
 
             const confirmResult =  await Swal.fire({
-                title:' Eliminar Genero?',
-                text: `Estas seguro de que quieres eliminar el genero "${gen.NOMBRE_RCOGENERO}"?`,
+                title: '¿Eliminar género?',
+                text: `¿Estás seguro de que deseas eliminar el género "${gen.NOMBRE_RCOGENERO}"?`,
                 icon: 'warning',
                 showCancelButton: true,
-                confirmButtonColor:'#dc3545',
-                cancelButtonColor:'#6c757d',
-                confirmButtonText:'Si, Eliminar',
-                cancelButtonText:'Cancelar'
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar'
             })
 
             if(confirmResult.isConfirmed){
+                const tienePermiso = await verificarAccionEnServidor('btn_eliminar_genero')
+                if (!tienePermiso) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Acceso Denegado',
+                        text: 'No tienes permisos para eliminar géneros.',
+                        confirmButtonColor: '#dc3545',
+                        confirmButtonText: 'Entendido',
+                    })
+                    return
+                }
+
                 try{
                     await EliminarGenLib(id)
-                    Toast.fire({
-                        icon:'success',
-                        title:'Genero Eliminado con exito'
+                    Swal.fire({
+                        icon: 'success',
+                        title: '¡Género eliminado!',
+                        text: 'El género fue eliminado con éxito.',
+                        timer: 1800,
+                        showConfirmButton: false,
                     })
 
                     if(
@@ -297,17 +406,18 @@ export const useGeneroL = ({
                     error?.response?.data?.message ||
                     error?.response?.message ||
                     error?.message ||
-                    'Error al eliminar el Genero'
+                    'Error al intentar eliminar el género.'
 
                     Swal.fire({
-                        icon:'error',
-                        title:'Error al Eliminar',
+                        icon: 'error',
+                        title: 'Error al eliminar',
                         text: msg,
-                        confirmButtonColor: '#0d6efd'
+                        confirmButtonColor: '#dc3545',
+                        confirmButtonText: 'Entendido',
                     })
                 }
             }
-        },[generoSeleccionado, fetchGenerol, notifyEliminado]
+        },[generoSeleccionado, canEliminarGenero, fetchGenerol, notifyEliminado]
     )
     return {
         isVisible,
@@ -342,12 +452,20 @@ export const useGeneroL = ({
         handleEliminarGenero: handleEliminarGnerol,
         fetchGenerol,
         fetchGeneros: fetchGenerol,
+        handleRecargar,
         generoPaginados,
         paginaActual,
         totalPaginas,
         totalGeneros: listaGenerol?.length,
         totalFiltrados:generolFiltrado.length,
         handlePageChange,
+        canCrearGenero,
+        canGuardarGenero,
+        canEditarGenero,
+        canActualizarGenero,
+        canEliminarGenero,
+        canVerInfoGenero,
+        verificarAccionEnServidor,
     }
 }
 

@@ -1,10 +1,12 @@
 import { useMemo } from 'react'
 import { getUserImageUrl } from '@/utils/imageUtils'
 
-import usePersonas, { deduplicarPersonas } from './usePersonas'
+import usePersonas, { deduplicarPersonas, debeExcluirDeRegistrados, extraerInscripcion } from './usePersonas'
 import { ClienteItem } from '@/models/tab/persona.model'
+import { sanitizarHistorialSanciones } from '@/utils/sancionUtils'
 
 export type { ClienteItem }
+export { extraerInscripcion }
 
 export const getBadge = (estado: string) => {
   switch (estado) {
@@ -18,61 +20,25 @@ export const getBadge = (estado: string) => {
 }
 
 export const getBadgeSancion = (sancionado: string) => {
-  switch (sancionado) {
-    case 'Con sanción':
-    case 'Sancionado':
-      return 'warning'
-    case 'Sin sanción':
-      return 'secondary'
-    default:
-      return 'secondary'
+  const s = String(sancionado || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+  if (s.includes('vet') || s.includes('vida')) {
+    return 'danger'
   }
+  if (s.includes('con sancion') || s.includes('sancionado')) {
+    return 'warning'
+  }
+  if (s.includes('sin sancion')) {
+    return 'secondary'
+  }
+  return 'secondary'
 }
+import { formatFecha, calcularFinUnAnio } from '@/utils/dateUtils'
+export { formatFecha, calcularFinUnAnio }
 
-export const formatFecha = (f: any) => {
-  if (!f) return 'No registrada'
-  if (f === 'No registrada' || f === 'Sin inscripción') return f
-  if (typeof f === 'string') {
-    if (
-      f.startsWith('0000-00-00') ||
-      f.startsWith('1969-12-31') ||
-      f.startsWith('1970-01-01')
-    ) {
-      return 'No registrada'
-    }
-    const clean = f.includes('T') ? f.split('T')[0] : f.includes(' ') ? f.split(' ')[0] : f
-    if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) {
-      const [y, m, d] = clean.split('-')
-      if (Number(y) <= 1970) return 'No registrada'
-      return `${d}/${m}/${y}`
-    }
-    return clean
-  }
-  if (f instanceof Date && !isNaN(f.getTime())) {
-    if (f.getFullYear() <= 1970) return 'No registrada'
-    const d = String(f.getDate()).padStart(2, '0')
-    const m = String(f.getMonth() + 1).padStart(2, '0')
-    const y = f.getFullYear()
-    return `${d}/${m}/${y}`
-  }
-  return String(f)
-}
-
-export const calcularFinUnAnio = (fecha: any): string | null => {
-  if (!fecha) return null
-  try {
-    const s = String(fecha).trim()
-    const clean = s.includes('T') ? s.split('T')[0] : s.includes(' ') ? s.split(' ')[0] : s
-    if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) {
-      const [y, m, d] = clean.split('-')
-      const nextYear = parseInt(y, 10) + 1
-      return `${nextYear}-${m}-${d}`
-    }
-  } catch {
-    return null
-  }
-  return null
-}
 
 export const mapearPersona = (item: any, index: number): ClienteItem => {
   const id = item.ID_PERSONA ?? item.id ?? (index + 1)
@@ -81,11 +47,12 @@ export const mapearPersona = (item: any, index: number): ClienteItem => {
   const apellido = item.APELLIDO_PERSONA ?? item.apellidos ?? ''
   const email = item.CORREO_PERSONA ?? item.correo ?? ''
 
-  // Identificar si existe inscripción formal
-  const rawIdInscripcion = item.ID_INSCRIPCION ?? item.inscripcion?.ID_INSCRIPCION
-  const rawInicio = item.FECHAINICIO_INSCRIPCION ?? item.inscripcion?.FECHAINICIO_INSCRIPCION
-  const rawFin = item.FECHAFIN_INSCRIPCION ?? item.inscripcion?.FECHAFIN_INSCRIPCION
-  const rawCosto = item.COSTO_INSCRIPCION ?? item.inscripcion?.COSTO_INSCRIPCION
+  // Identificar si existe inscripción formal (compatible con array inscripciones, objeto o campos directos)
+  const inscActual = extraerInscripcion(item)
+  const rawIdInscripcion = inscActual?.ID_INSCRIPCION ?? item.ID_INSCRIPCION ?? item.inscripcion?.ID_INSCRIPCION
+  const rawInicio = inscActual?.FECHAINICIO_INSCRIPCION ?? item.FECHAINICIO_INSCRIPCION ?? item.inscripcion?.FECHAINICIO_INSCRIPCION
+  const rawFin = inscActual?.FECHAFIN_INSCRIPCION ?? item.FECHAFIN_INSCRIPCION ?? item.inscripcion?.FECHAFIN_INSCRIPCION
+  const rawCosto = inscActual?.COSTO_INSCRIPCION ?? item.COSTO_INSCRIPCION ?? item.inscripcion?.COSTO_INSCRIPCION
 
   const tieneInscripcion = Boolean(
     rawInicio ||
@@ -122,19 +89,128 @@ export const mapearPersona = (item: any, index: number): ClienteItem => {
     costo = '0.00'
   }
 
-  const tieneSancion = Boolean(
-    item.ESTADO_SANCION === 1 ||
-    item.ESTADO_SANCION === '1' ||
-    item.ESTADO_PERSONA === 2 ||
-    item.ESTADO_PERSONA === '2' ||
-    (item.DETALLE_SANCION && !String(item.DETALLE_SANCION).toLowerCase().includes('sin sancion'))
+  // Procesar y sanitizar historial de sanciones
+  const rawListSanciones: any[] = []
+  if (Array.isArray(item.sanciones) && item.sanciones.length > 0) {
+    rawListSanciones.push(...item.sanciones)
+  } else if (Array.isArray(item.raw?.sanciones) && item.raw.sanciones.length > 0) {
+    rawListSanciones.push(...item.raw.sanciones)
+  }
+
+  if (Array.isArray(item.vetos) && item.vetos.length > 0) {
+    rawListSanciones.push(...item.vetos)
+  } else if (Array.isArray(item.raw?.vetos) && item.raw.vetos.length > 0) {
+    rawListSanciones.push(...item.raw.vetos)
+  }
+
+  if (rawListSanciones.length === 0) {
+    if (Array.isArray(item.historial_sanciones) && item.historial_sanciones.length > 0) {
+      rawListSanciones.push(...item.historial_sanciones)
+    } else if (Array.isArray(item.raw?.historial_sanciones) && item.raw.historial_sanciones.length > 0) {
+      rawListSanciones.push(...item.raw.historial_sanciones)
+    }
+  }
+
+  // Solo si no hay sanciones en los arreglos se revisan campos individuales del objeto plano
+  if (rawListSanciones.length === 0 && (item.ID_SANCION || item.id_sancion || item.ID_VETO || item.id_veto || (item.FECHAINICIO_SANCION && item.FECHAINICIO_SANCION !== 'No registrada'))) {
+    rawListSanciones.push({
+      id: item.ID_SANCION ?? item.id_sancion ?? item.ID_VETO ?? item.id_veto,
+      inicio: item.FECHAINICIO_SANCION ?? item.FECHA_VETO ?? item.fecha_veto,
+      fin: item.FECHAFIN_SANCION ?? ((item.ESTADO_VETO === 2 || item.ESTADO_VETO === '2' || item.estado_veto === 2 || item.estado_veto === '2' || item.TIENE_VETO_PERMANENTE === 1 || item.TIENE_VETO_PERMANENTE === '1') ? 'Indefinido' : ''),
+      detalle: item.DETALLE_SANCION ?? item.MOTIVO_VETO ?? item.motivo_veto,
+      estado: item.ESTADO_VETO ?? item.ESTADO_SANCION,
+    })
+  }
+
+  const historial_sanciones = sanitizarHistorialSanciones(rawListSanciones)
+
+  // Comprobar si el usuario tiene alguna sanción activa o veto de por vida:
+  const esVetado = Boolean(
+    (Array.isArray(item.vetos) && item.vetos.some((v: any) => v.ESTADO_VETO === 2 || v.ESTADO_VETO === '2' || v.estado_veto === 2 || v.estado_veto === '2')) ||
+    (Array.isArray(item.raw?.vetos) && item.raw.vetos.some((v: any) => v.ESTADO_VETO === 2 || v.ESTADO_VETO === '2' || v.estado_veto === 2 || v.estado_veto === '2')) ||
+    item.ESTADO_VETO === 2 ||
+    item.ESTADO_VETO === '2' ||
+    item.estado_veto === 2 ||
+    item.estado_veto === '2' ||
+    item.TIENE_VETO_PERMANENTE === 1 ||
+    item.TIENE_VETO_PERMANENTE === '1' ||
+    item.es_vetado ||
+    (Array.isArray(historial_sanciones) && historial_sanciones.some((s: any) => s.estado === 2 || s.estado === '2' || s.fin === 'Indefinido'))
   )
 
-  const sancionado: 'Con sanción' | 'Sin sanción' = tieneSancion ? 'Con sanción' : 'Sin sanción'
 
-  const sancion =
-    item.DETALLE_SANCION ||
-    (tieneSancion ? 'Usuario con sanción activa' : 'Sin sanciones')
+  const esSinSancionExplicito = Boolean(
+    item.sancion === 0 ||
+    item.sancion === '0' ||
+    item.TIENE_SANCION === 0 ||
+    item.TIENE_SANCION === '0' ||
+    item.ESTADO_SANCION === 0 ||
+    item.ESTADO_SANCION === '0' ||
+    item.estado_sancion === 0 ||
+    item.estado_sancion === '0'
+  )
+
+  const esConSancionExplicito = Boolean(
+    item.sancion === 1 ||
+    item.sancion === '1' ||
+    item.TIENE_SANCION === 1 ||
+    item.TIENE_SANCION === '1' ||
+    item.ESTADO_SANCION === 1 ||
+    item.ESTADO_SANCION === '1' ||
+    item.estado_sancion === 1 ||
+    item.estado_sancion === '1'
+  )
+
+  const tieneSancion = !esSinSancionExplicito && esConSancionExplicito
+
+  // Detectar si el usuario NO tiene sanción activa actualmente, pero SÍ registra sanciones previas en su historial:
+  const tieneSancionPrevia = !tieneSancion && (
+    historial_sanciones.length > 0 ||
+    Boolean(
+      (item.FECHAINICIO_SANCION && item.FECHAINICIO_SANCION !== 'No registrada') ||
+      (item.FECHAFIN_SANCION && item.FECHAFIN_SANCION !== 'No registrada') ||
+      (item.DETALLE_SANCION &&
+        !String(item.DETALLE_SANCION).toLowerCase().includes('sin sancion') &&
+        String(item.DETALLE_SANCION).trim() !== '')
+    )
+  )
+
+  let sancionado: 'Con sanción' | 'Sin sanción' | 'Vetado' = 'Sin sanción'
+  if (esVetado) {
+    sancionado = 'Vetado'
+  } else if (tieneSancion) {
+    sancionado = 'Con sanción'
+  } else {
+    sancionado = 'Sin sanción'
+  }
+
+  const masActualSancion = historial_sanciones[0]
+  const inicio_sancion =
+    masActualSancion?.inicio ||
+    formatFecha(item.FECHAINICIO_SANCION || item.FECHA_VETO || item.fecha_veto) ||
+    ''
+  const fin_sancion = esVetado
+    ? 'Indefinido'
+    : (masActualSancion?.fin || formatFecha(item.FECHAFIN_SANCION) || '')
+  const total_sanciones = historial_sanciones.length
+
+  let motivo_sancion_actual = ''
+  const motivoMasActual = (masActualSancion?.detalle && masActualSancion.detalle !== 'Sin motivo especificado' && masActualSancion.detalle !== 'Sin detalle especificado')
+    ? masActualSancion.detalle
+    : ''
+
+  if (esVetado) {
+    motivo_sancion_actual = item.MOTIVO_VETO || motivoMasActual || 'Veto permanente registrado en el sistema'
+  } else if (tieneSancion) {
+    motivo_sancion_actual = motivoMasActual || item.DETALLE_SANCION || item.ESTADO || item.raw?.ESTADO || 'Usuario con sanción activa'
+  } else if (tieneSancionPrevia) {
+    motivo_sancion_actual = motivoMasActual || item.DETALLE_SANCION || (String(item.ESTADO || item.raw?.ESTADO || '').toLowerCase().includes('sancion') ? (item.ESTADO || item.raw?.ESTADO) : '') || 'Sanción anterior registrada en el sistema'
+  } else {
+    motivo_sancion_actual = 'Sin sanciones vigentes'
+  }
+
+  const sancion = motivo_sancion_actual
+  const otras_sanciones = historial_sanciones.slice(1)
 
   const estadoRaw = String(item.ESTADO_PERSONA ?? item.estado ?? 'Activo')
   let estado: 'Activo' | 'Inactivo' = 'Activo'
@@ -170,6 +246,7 @@ export const mapearPersona = (item: any, index: number): ClienteItem => {
 
   return {
     id,
+    id_inscripcion: rawIdInscripcion,
     identificacion: String(identificacion),
     nombre: String(nombre),
     apellido: String(apellido),
@@ -181,6 +258,18 @@ export const mapearPersona = (item: any, index: number): ClienteItem => {
     sancion: String(sancion),
     estado,
     sancionado,
+    tiene_sancion: tieneSancion,
+    tiene_sancion_previa: tieneSancionPrevia,
+    es_vetado: esVetado,
+    inicio_sancion,
+    fin_sancion,
+    motivo_sancion_actual,
+    otras_sanciones,
+    total_sanciones,
+    historial_sanciones,
+    inscripciones: item.inscripciones || item.raw?.inscripciones || (inscActual ? [inscActual] : []),
+    sanciones: item.sanciones || item.raw?.sanciones || [],
+    vetos: item.vetos || item.raw?.vetos || [],
     id_tipo_identificacion: String(tipoIdentificacionId),
     id_nacionalidad: String(nacionalidadId),
     id_genero: String(generoId),
@@ -247,8 +336,10 @@ export const parseDateToTimestamp = (val: any): number => {
 export const obtenerTimestampInscripcion = (cliente: ClienteItem | any): number => {
   const raw = cliente?.raw || cliente || {}
   const insc = raw.inscripcion ?? raw.renovacion ?? {}
+  const inscActual = extraerInscripcion(raw)
 
   const candidates = [
+    inscActual?.FECHAINICIO_INSCRIPCION,
     raw.FECHAINICIO_INSCRIPCION ?? insc.FECHAINICIO_INSCRIPCION,
     raw.FECHAREGISTRO_PERSONA ?? cliente?.inicio_inscripcion,
   ]
@@ -303,6 +394,7 @@ export const useClienteDs = (customPersonaState?: ReturnType<typeof usePersonas>
   const items = useMemo(() => {
     const rawList = deduplicarPersonas(personaState.personas || [])
     return rawList
+      .filter((item: any) => !debeExcluirDeRegistrados(item))
       .map((item, idx) => mapearPersona(item, idx))
       .sort((a, b) => {
         const timeA = obtenerTimestampInscripcion(a)
@@ -329,6 +421,15 @@ export const useClienteDs = (customPersonaState?: ReturnType<typeof usePersonas>
     toggleDetails: personaState.toggleDetails,
     handleAbrirEditar: personaState.handleAbrirEditar,
     handleEliminarPersona: personaState.handleEliminarPersona,
+    canCrearUsuario: personaState.canCrearUsuario,
+    canGuardarUsuario: personaState.canGuardarUsuario,
+    canVerDetalles: personaState.canVerDetalles,
+    canEditar: personaState.canEditarUsuario,
+    canActualizar: personaState.canActualizarUsuario,
+    canEliminar: personaState.canEliminarUsuario,
+    canRenovar: personaState.canRenovarUsuario,
+    canGuardarRenovacion: personaState.canGuardarRenovacion,
+    tieneAcciones: personaState.tieneAcciones,
   }
 }
 

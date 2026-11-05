@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, useEffect } from 'react'
 import Swal from 'sweetalert2'
 import { Categoria } from '@/models/rco/categoria'
 import { ActualizarCatLib, CatLibros, EliminarCatLib, NuevaCatLib } from '@/Service/rco/CatLib'
+import { usePermissions } from '@/context/PermissionsContext'
 
 
 export type CategoriaItem = Categoria
@@ -15,18 +16,6 @@ export interface UseCategoriaProps {
   onCategoriaEliminada?: (id: number | string) => void
 }
 
-const Toast = Swal.mixin({
-  toast: true,
-  position: 'top-end',
-  showConfirmButton: false,
-  timer: 3000,
-  timerProgressBar: true,
-  didOpen: (toast) => {
-    toast.onmouseenter = Swal.stopTimer
-    toast.onmouseleave = Swal.resumeTimer
-  },
-})
-
 export const useCategoria = ({
   autoFetch = true,
   visible: visibleProp,
@@ -35,6 +24,15 @@ export const useCategoria = ({
   onCategoriaActualizada,
   onCategoriaEliminada,
 }: UseCategoriaProps = {}) => {
+  const { canDoAction, verificarAccionEnServidor } = usePermissions()
+
+  const canCrearCategoria = canDoAction('btn_crear_categoria')
+  const canGuardarCategoria = canDoAction('btn_guardar_categoria')
+  const canEditarCategoria = canDoAction('btn_editar_categoria')
+  const canActualizarCategoria = canDoAction('btn_actualizar_categoria')
+  const canEliminarCategoria = canDoAction('btn_eliminar_categoria')
+  const canVerInfoCategoria =canDoAction('btn_ver_info_categoria')
+
   const [internalVisible, setInternalVisible] = useState(false)
   const isControlled = typeof visibleProp === 'boolean'
   const isVisible = isControlled ? visibleProp : internalVisible
@@ -48,8 +46,10 @@ export const useCategoria = ({
   const [codigoCategoria, setCodigoCategoria] = useState('')
   const [nombreCategoria, setNombreCategoria] = useState('')
   const [guardando, setGuardando] = useState(false)
+  
 
-  const fetchCategorias = useCallback(async () => {
+
+  const fetchCategorias = useCallback(async (preserveSelection = true) => {
     setLoadingCategorias(true)
     try {
       const response = await CatLibros()
@@ -73,20 +73,20 @@ export const useCategoria = ({
       }))
 
       setListaCategorias(parsedList)
-      setCategoriaSeleccionada((prev) => {
-        if (!prev) return null
-        const prevId = String(prev.ID_CATEGORIA ?? prev.id)
-        const matched = parsedList.find(
-          (c) => String(c.ID_CATEGORIA ?? c.id) === prevId,
-        )
-        return matched || null
-      })
+      if (preserveSelection) {
+        setCategoriaSeleccionada((prev) => {
+          if (!prev) return null
+          const prevId = String(prev.ID_CATEGORIA ?? prev.id)
+          const matched = parsedList.find(
+            (c) => String(c.ID_CATEGORIA ?? c.id) === prevId,
+          )
+          return matched || null
+        })
+      } else {
+        setCategoriaSeleccionada(null)
+      }
     } catch (error: any) {
       console.error('Error al cargar categorías desde la API:', error)
-      Toast.fire({
-        icon: 'error',
-        title: 'No se pudieron cargar las categorías del servidor',
-      })
     } finally {
       setLoadingCategorias(false)
     }
@@ -98,13 +98,40 @@ export const useCategoria = ({
     }
   }, [autoFetch, fetchCategorias])
 
+  const handleRecargar = useCallback(async () => {
+    setBusquedaCategoria('')
+    setPaginaActual(1)
+    setCategoriaSeleccionada(null)
+    await fetchCategorias(false)
+  }, [fetchCategorias])
+
   const handleOpen = useCallback(
     (categoria?: Categoria) => {
       if (categoria) {
+        if (!canEditarCategoria) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Acceso Denegado',
+            text: 'No tienes permisos para editar categorías.',
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Entendido',
+          })
+          return
+        }
         setCategoriaEnEdicion(categoria)
         setCodigoCategoria(String(categoria.CODIGO_CATEGORIA || ''))
         setNombreCategoria(categoria.NOMBRE_CATEGORIA || '')
       } else {
+        if (!canCrearCategoria) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Acceso Denegado',
+            text: 'No tienes permisos para crear categorías.',
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Entendido',
+          })
+          return
+        }
         setCategoriaEnEdicion(null)
         setCodigoCategoria('')
         setNombreCategoria('')
@@ -116,7 +143,7 @@ export const useCategoria = ({
         setInternalVisible(true)
       }
     },
-    [setVisibleProp],
+    [canCrearCategoria, canEditarCategoria, setVisibleProp],
   )
 
   const handleClose = useCallback(() => {
@@ -185,9 +212,56 @@ export const useCategoria = ({
           icon: 'warning',
           title: 'Campos requeridos',
           text: 'Por favor ingrese el código y el nombre de la categoría.',
-          confirmButtonColor: '#0d6efd',
+          confirmButtonColor: '#dc3545',
+          confirmButtonText: 'Entendido',
         })
         return
+      }
+
+      if (categoriaEnEdicion) {
+        if (!canActualizarCategoria) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Acceso Denegado',
+            text: 'No tienes permisos para actualizar la categoría.',
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Entendido',
+          })
+          return
+        }
+        const tienePermiso = await verificarAccionEnServidor('btn_actualizar_categoria')
+        if (!tienePermiso) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Acceso Denegado',
+            text: 'No tienes permisos para actualizar la categoría.',
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Entendido',
+          })
+          return
+        }
+      } else {
+        if (!canGuardarCategoria) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Acceso Denegado',
+            text: 'No tienes permisos para guardar nuevas categorías.',
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Entendido',
+          })
+          return
+        }
+        const tienePermiso = await verificarAccionEnServidor('btn_guardar_categoria')
+        if (!tienePermiso) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Acceso Denegado',
+            text: 'No tienes permisos para guardar nuevas categorías.',
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Entendido',
+          })
+          return
+        }
       }
 
       setGuardando(true)
@@ -201,9 +275,12 @@ export const useCategoria = ({
           const id = categoriaEnEdicion.ID_CATEGORIA ?? categoriaEnEdicion.id
           await ActualizarCatLib(id, payload)
 
-          Toast.fire({
+          Swal.fire({
             icon: 'success',
-            title: 'Categoría actualizada con éxito',
+            title: '¡Categoría actualizada!',
+            text: 'La categoría fue actualizada con éxito.',
+            timer: 1800,
+            showConfirmButton: false,
           })
 
           await fetchCategorias()
@@ -216,9 +293,12 @@ export const useCategoria = ({
         } else {
           const res = await NuevaCatLib(payload)
 
-          Toast.fire({
+          Swal.fire({
             icon: 'success',
-            title: 'Categoría registrada con éxito',
+            title: '¡Categoría registrada!',
+            text: 'La categoría fue registrada con éxito.',
+            timer: 1800,
+            showConfirmButton: false,
           })
 
           await fetchCategorias()
@@ -245,7 +325,8 @@ export const useCategoria = ({
           icon: 'error',
           title: 'Error al guardar',
           text: errorMsg,
-          confirmButtonColor: '#0d6efd',
+          confirmButtonColor: '#dc3545',
+          confirmButtonText: 'Entendido',
         })
       } finally {
         setGuardando(false)
@@ -255,6 +336,8 @@ export const useCategoria = ({
       codigoCategoria,
       nombreCategoria,
       categoriaEnEdicion,
+      canActualizarCategoria,
+      canGuardarCategoria,
       fetchCategorias,
       handleClose,
       onCategoriaActualizada,
@@ -264,6 +347,17 @@ export const useCategoria = ({
 
   const handleEliminarCategoria = useCallback(
     async (catParam?: Categoria) => {
+      if (!canEliminarCategoria) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Acceso Denegado',
+          text: 'No tienes permisos para eliminar categorías.',
+          confirmButtonColor: '#dc3545',
+          confirmButtonText: 'Entendido',
+        })
+        return
+      }
+
       const cat = catParam || categoriaSeleccionada
       if (!cat) return
 
@@ -282,11 +376,26 @@ export const useCategoria = ({
       })
 
       if (confirmResult.isConfirmed) {
+        const tienePermiso = await verificarAccionEnServidor('btn_eliminar_categoria')
+        if (!tienePermiso) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Acceso Denegado',
+            text: 'No tienes permisos para eliminar categorías.',
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Entendido',
+          })
+          return
+        }
+
         try {
           await EliminarCatLib(id)
-          Toast.fire({
+          Swal.fire({
             icon: 'success',
-            title: 'Categoría eliminada con éxito',
+            title: '¡Categoría eliminada!',
+            text: 'La categoría fue eliminada con éxito.',
+            timer: 1800,
+            showConfirmButton: false,
           })
           if (
             categoriaSeleccionada &&
@@ -308,12 +417,13 @@ export const useCategoria = ({
             icon: 'error',
             title: 'Error al eliminar',
             text: msg,
-            confirmButtonColor: '#0d6efd',
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Entendido',
           })
         }
       }
     },
-    [categoriaSeleccionada, fetchCategorias, onCategoriaEliminada],
+    [canEliminarCategoria, categoriaSeleccionada, fetchCategorias, onCategoriaEliminada],
   )
 
   return {
@@ -340,11 +450,19 @@ export const useCategoria = ({
     handleGuardarCategoria,
     handleEliminarCategoria,
     fetchCategorias,
+    handleRecargar,
     paginaActual,
     totalPaginas,
     totalCategorias: listaCategorias.length,
     totalFiltradas: categoriasFiltradas.length,
     handlePageChange,
+    canCrearCategoria,
+    canGuardarCategoria,
+    canEditarCategoria,
+    canActualizarCategoria,
+    canEliminarCategoria,
+    canVerInfoCategoria,
+    verificarAccionEnServidor,
   }
 }
 

@@ -2,6 +2,7 @@ import { Proveedor } from "@/models/rco/proveedor";
 import { ActualizarProvLib, EliminarProvLib, ListarProveedorLib, NuevoProvLib } from "@/Service/rco/ProveedorLib";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Swal from "sweetalert2";
+import { usePermissions } from "@/context/PermissionsContext";
 
 
 export type ProveedorItem = Proveedor
@@ -15,14 +16,6 @@ export interface UseProveedorProps{
   onProveedorEliminado?: (id:number | string) => void
 }
 
-const Toast = Swal.mixin({
-  toast: true,
-  position: 'top-end',
-  showConfirmButton: false,
-  timer: 2500,
-  timerProgressBar: true
-})
-
 export const useProveedor = ({
   autoFetch = true,
   visible: visibleProp,
@@ -31,6 +24,15 @@ export const useProveedor = ({
   onProveedorActualizado,
   onProveedorEliminado,
 }: UseProveedorProps ={}) => {
+  const { canDoAction, verificarAccionEnServidor } = usePermissions()
+
+  const canCrearProveedor = canDoAction('btn_crear_proveedor')
+  const canGuardarProveedor = canDoAction('btn_guardar_proveedor')
+  const canEditarProveedor = canDoAction('btn_editar_proveedor')
+  const canActualizarProveedor = canDoAction('btn_actualizar_proveedor')
+  const canEliminarProveedor = canDoAction('btn_eliminar_proveedor')
+  const canVerInfoProveedor = canDoAction('btn_ver_info_proveedor')
+
   const [internalVisible, setInternalVisible] = useState(false)
   const isControlled = typeof visibleProp === 'boolean'
   const isVisible = isControlled ? visibleProp : internalVisible
@@ -44,7 +46,7 @@ export const useProveedor = ({
   const [nombreProveedor, setNombreProveedor] = useState('')
   const [guardando, setGuardando] = useState(false)
 
-  const fetchProveedores = useCallback( async() => {
+  const fetchProveedores = useCallback( async(preserveSelection = true) => {
     setLoadingProveedor(true)
     try{
       const response =  await ListarProveedorLib()
@@ -67,19 +69,20 @@ export const useProveedor = ({
       }))
 
       setListaProveedores(parsedList)
-      setProveedorSeleccionado((prev) => {
-        if (!prev) return null
-        const prevId = String(prev.ID_PROVEEDOR ?? prev.id)
-        const matched = parsedList.find(
-          (c) => String(c.ID_PROVEEDOR ?? c.id) === prevId, 
-        )
-        return matched || null
-      })
+      if (preserveSelection) {
+        setProveedorSeleccionado((prev) => {
+          if (!prev) return null
+          const prevId = String(prev.ID_PROVEEDOR ?? prev.id)
+          const matched = parsedList.find(
+            (c) => String(c.ID_PROVEEDOR ?? c.id) === prevId, 
+          )
+          return matched || null
+        })
+      } else {
+        setProveedorSeleccionado(null)
+      }
     }catch(error: any){
-      Toast.fire({
-        icon:'error',
-        title:'No se pudo cargar los Proveedores'
-      })
+      console.error('Error al cargar proveedores:', error)
     } finally{
       setLoadingProveedor(false)
     }
@@ -91,12 +94,39 @@ export const useProveedor = ({
     }
   }, [autoFetch,fetchProveedores])
 
+  const handleRecargar = useCallback(async () => {
+    setBusquedaProveedor('')
+    setPaginaActual(1)
+    setProveedorSeleccionado(null)
+    await fetchProveedores(false)
+  }, [fetchProveedores])
+
   const handleOpen = useCallback(
     (proveedor?: Proveedor) => {
       if (proveedor) {
+        if (!canEditarProveedor) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Acceso Denegado',
+            text: 'No tienes permisos para editar proveedores.',
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Entendido',
+          })
+          return
+        }
         setProveedorEnEdicion(proveedor)
         setNombreProveedor(String(proveedor.NOMBRE_PROVEEDOR || ''))
       } else {
+        if (!canCrearProveedor) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Acceso Denegado',
+            text: 'No tienes permisos para crear proveedores.',
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Entendido',
+          })
+          return
+        }
         setProveedorEnEdicion(null)
         setNombreProveedor('')
       }
@@ -107,7 +137,7 @@ export const useProveedor = ({
         setInternalVisible(true)
       }
     },
-    [setVisibleProp],
+    [setVisibleProp, canEditarProveedor, canCrearProveedor],
   )
 
   const handleClose = useCallback(() => {
@@ -173,10 +203,57 @@ export const useProveedor = ({
         Swal.fire({
           icon: 'warning',
           title: 'Campos requeridos',
-          text: 'Por favor ingrese el nombre del proveedor',
-          confirmButtonColor: '#0d6efd',
+          text: 'Por favor ingrese el nombre del proveedor.',
+          confirmButtonColor: '#dc3545',
+          confirmButtonText: 'Entendido',
         })
         return
+      }
+
+      if (proveedorEnEdicion) {
+        if (!canActualizarProveedor) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Acceso Denegado',
+            text: 'No tienes permisos para actualizar el proveedor.',
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Entendido',
+          })
+          return
+        }
+        const tienePermiso = await verificarAccionEnServidor('btn_actualizar_proveedor')
+        if (!tienePermiso) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Acceso Denegado',
+            text: 'No tienes permisos para actualizar el proveedor.',
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Entendido',
+          })
+          return
+        }
+      } else {
+        if (!canGuardarProveedor) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Acceso Denegado',
+            text: 'No tienes permisos para guardar nuevos proveedores.',
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Entendido',
+          })
+          return
+        }
+        const tienePermiso = await verificarAccionEnServidor('btn_guardar_proveedor')
+        if (!tienePermiso) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Acceso Denegado',
+            text: 'No tienes permisos para guardar nuevos proveedores.',
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Entendido',
+          })
+          return
+        }
       }
 
       setGuardando(true)
@@ -188,9 +265,12 @@ export const useProveedor = ({
           const id = proveedorEnEdicion.ID_PROVEEDOR ?? proveedorEnEdicion.id
           await ActualizarProvLib(id, payload)
 
-          Toast.fire({
+          Swal.fire({
             icon: 'success',
-            title: 'Proveedor Actualizado Correctamente',
+            title: '¡Proveedor actualizado!',
+            text: 'El proveedor fue actualizado correctamente.',
+            timer: 1800,
+            showConfirmButton: false,
           })
 
           await fetchProveedores()
@@ -203,9 +283,12 @@ export const useProveedor = ({
         } else {
           const res = await NuevoProvLib(payload)
 
-          Toast.fire({
+          Swal.fire({
             icon: 'success',
-            title: 'Proveedor registrado con exito',
+            title: '¡Proveedor registrado!',
+            text: 'El proveedor fue registrado con éxito.',
+            timer: 1800,
+            showConfirmButton: false,
           })
 
           await fetchProveedores()
@@ -232,73 +315,105 @@ export const useProveedor = ({
           icon: 'error',
           title: 'Error al guardar',
           text: errorMsg,
-          confirmButtonColor: '#0d6efd',
+          confirmButtonColor: '#dc3545',
+          confirmButtonText: 'Entendido',
         })
       } finally {
         setGuardando(false)
       }
-    },[
-          nombreProveedor,
-          proveedorEnEdicion,
-          fetchProveedores,
-          handleClose,
-          onProveedorActualizado,
-          onProveedorCreado
-        ]
-    )
+    },
+    [
+      nombreProveedor,
+      proveedorEnEdicion,
+      canActualizarProveedor,
+      canGuardarProveedor,
+      fetchProveedores,
+      handleClose,
+      onProveedorActualizado,
+      onProveedorCreado,
+    ],
+  )
 
-    const handleEliminarProveedor = useCallback(
-      async (provParam?: Proveedor) =>{
-        const prov = provParam || proveedorSeleccionado
-        if(!prov) return
-        
-        const id = prov.ID_PROVEEDOR ?? prov.id
-        if(!id) return 
-
-        const confirmResult = await Swal.fire({
-          icon:'warning',
-          title:'Estas seguro eliminar al proveedor?',
-          text:`Se eliminara al proveedor '${prov.NOMBRE_PROVEEDOR}'`,
-          showCancelButton: true,
-          confirmButtonColor:'#dc3545',
-          cancelButtonColor:'#6c757d',
-          confirmButtonText:'Si, eliminar',
-          cancelButtonText:'Cancelar' 
+  const handleEliminarProveedor = useCallback(
+    async (provParam?: Proveedor) => {
+      if (!canEliminarProveedor) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Acceso Denegado',
+          text: 'No tienes permisos para eliminar proveedores.',
+          confirmButtonColor: '#dc3545',
+          confirmButtonText: 'Entendido',
         })
+        return
+      }
 
-        if(confirmResult.isConfirmed){
-          try{
-            await EliminarProvLib(id)
-            Toast.fire({
-              icon:'success',
-              title:'Proveedor eliminado correctamente'
-            })
-            if(
-              proveedorSeleccionado  && String(
-                proveedorSeleccionado.ID_PROVEEDOR ?? proveedorSeleccionado.id) === String(id)
-            ){
-              setProveedorSeleccionado(null)
-            }
-            await fetchProveedores()
-            if(onProveedorEliminado){
-              onProveedorEliminado(id)
-            }
-          }catch(error: any){
-            const smg =
-            error?.response?.data?.message ||
-            'Error no se pudo eliminar el proveedor'
-            Swal.fire({
-              icon:'error',
-              title:'Error al eliminar el proveedor',
-              text: smg,
-              confirmButtonColor:'#0d6efd'
-            })
-          }
+      const prov = provParam || proveedorSeleccionado
+      if (!prov) return
+
+      const id = prov.ID_PROVEEDOR ?? prov.id
+      if (!id) return
+
+      const confirmResult = await Swal.fire({
+        icon: 'warning',
+        title: '¿Estás seguro de eliminar el proveedor?',
+        text: `Se eliminará el proveedor "${prov.NOMBRE_PROVEEDOR}"`,
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar',
+      })
+
+      if (confirmResult.isConfirmed) {
+        const tienePermiso = await verificarAccionEnServidor('btn_eliminar_proveedor')
+        if (!tienePermiso) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Acceso Denegado',
+            text: 'No tienes permisos para eliminar proveedores.',
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Entendido',
+          })
+          return
         }
-      },
-      [proveedorSeleccionado, fetchProveedores, onProveedorEliminado]
-    )
-    return {
+
+        try {
+          await EliminarProvLib(id)
+          Swal.fire({
+            icon: 'success',
+            title: '¡Proveedor eliminado!',
+            text: 'El proveedor fue eliminado correctamente.',
+            timer: 1800,
+            showConfirmButton: false,
+          })
+          if (
+            proveedorSeleccionado &&
+            String(proveedorSeleccionado.ID_PROVEEDOR ?? proveedorSeleccionado.id) === String(id)
+          ) {
+            setProveedorSeleccionado(null)
+          }
+          await fetchProveedores()
+          if (onProveedorEliminado) {
+            onProveedorEliminado(id)
+          }
+        } catch (error: any) {
+          const smg =
+            error?.response?.data?.message ||
+            'Error al intentar eliminar el proveedor'
+          Swal.fire({
+            icon: 'error',
+            title: 'Error al eliminar',
+            text: smg,
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Entendido',
+          })
+        }
+      }
+    },
+    [proveedorSeleccionado, canEliminarProveedor, fetchProveedores, onProveedorEliminado],
+  )
+
+  return {
     isVisible,
     handleOpen,
     handleClose,
@@ -323,11 +438,19 @@ export const useProveedor = ({
     handleEliminarProveedor,
     guardando,
     fetchProveedores,
+    handleRecargar,
     paginaActual,
     totalPaginas,
     totalProveedores: listaProveedores.length,
     totalFiltrados: proveedoresFiltrados.length,
     handlePageChange,
+    canCrearProveedor,
+    canGuardarProveedor,
+    canEditarProveedor,
+    canActualizarProveedor,
+    canEliminarProveedor,
+    canVerInfoProveedor,
+    verificarAccionEnServidor,
   }
 }
 

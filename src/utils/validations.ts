@@ -2,6 +2,7 @@
  * Utilidades de validación para formularios del sistema
  */
 
+
 export interface FormErrors {
   [key: string]: string | undefined
 }

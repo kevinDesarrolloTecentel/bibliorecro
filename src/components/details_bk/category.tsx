@@ -6,25 +6,35 @@ import useCategoria, { UseCategoriaProps } from '@/hooks/rco-libros/useCategoria
 
 export interface ModalCategoriaProps extends UseCategoriaProps {
   categoriaState?: ReturnType<typeof useCategoria>
+
+
 }
 
 const ModalCate: React.FC<ModalCategoriaProps> = (props) => {
+  const handleCodigoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const soloNumeros = e.target.value.replace(/\D/g, '')
+    setCodigoCategoria(soloNumeros)
+  }
+
   const internalHook = useCategoria({
     ...props,
     autoFetch: !props.categoriaState,
   })
   const hook = props.categoriaState || internalHook
 
+
   const {
     isVisible,
     handleClose,
     categoriaEnEdicion,
     codigoCategoria,
-    setCodigoCategoria, 
+    setCodigoCategoria,
     nombreCategoria,
     setNombreCategoria,
     guardando,
     handleGuardarCategoria,
+    canGuardarCategoria,
+    canActualizarCategoria,
   } = hook
 
   return (
@@ -37,7 +47,7 @@ const ModalCate: React.FC<ModalCategoriaProps> = (props) => {
         backdrop="static"
       >
         <CModalHeader closeButton className="bg-body">
-          <CModalTitle id="ModalCategoriaLabel" className="d-flex align-items-center gap-2 fs-5 fw-bold text-dark">
+          <CModalTitle id="ModalCategoriaLabel" className="d-flex align-items-center gap-2 fs-5 fw-bold text-body">
             <CIcon icon={cilBookmark} size="lg" className="text-primary" />
             <span>
               {categoriaEnEdicion
@@ -68,7 +78,7 @@ const ModalCate: React.FC<ModalCategoriaProps> = (props) => {
                   type="text"
                   placeholder="Ej: 001"
                   value={codigoCategoria}
-                  onChange={(e) => setCodigoCategoria(e.target.value)}
+                  onChange={handleCodigoChange}
                   required
                 />
               </CInputGroup>
@@ -96,30 +106,62 @@ const ModalCate: React.FC<ModalCategoriaProps> = (props) => {
         </CModalBody>
 
         <CModalFooter className="bg-body d-flex justify-content-between align-items-center">
-          <CButton color="danger" variant="outline" className='hover:text-white' onClick={handleClose} disabled={guardando}>
+          <CButton color="danger" variant="outline" className='hover:text-white' onClick={handleClose} disabled={guardando} size="sm"
+          >
             <CIcon icon={cilExitToApp} className="me-1" />
             Cancelar
           </CButton>
-          <CButton
-            color="success"
-            variant='outline'
-            type="submit"
-            form="formModalCategoria"
-            disabled={guardando || !codigoCategoria.trim() || !nombreCategoria.trim()}
-            className="d-flex align-items-center gap-1 shadow-sm hover:text-white"
-          >
-            {guardando ? (
-              <>
-                <CSpinner size="sm" className="me-1" />
-                Guardando...
-              </>
-            ) : (
-              <>
-                <CIcon icon={cilSave} className="me-1" />
-                {categoriaEnEdicion ? 'Actualizar Categoría' : 'Guardar Categoría'}
-              </>
-            )}
-          </CButton>
+          {categoriaEnEdicion ? (
+            canActualizarCategoria && (
+              <CButton
+                color="success"
+                variant="outline"
+                size="sm"
+
+                type="submit"
+                form="formModalCategoria"
+                disabled={guardando || !codigoCategoria.trim() || !nombreCategoria.trim()}
+                className="d-flex align-items-center gap-1 shadow-sm hover:text-white"
+              >
+                {guardando ? (
+                  <>
+                    <CSpinner size="sm" className="me-1" />
+                    Actualizando...
+                  </>
+                ) : (
+                  <>
+                    <CIcon icon={cilSave} className="me-1" />
+                    Actualizar Categoría
+                  </>
+                )}
+              </CButton>
+            )
+          ) : (
+            canGuardarCategoria && (
+              <CButton
+                color="success"
+                variant="outline"
+                type="submit"
+                size="sm"
+
+                form="formModalCategoria"
+                disabled={guardando || !codigoCategoria.trim() || !nombreCategoria.trim()}
+                className="d-flex align-items-center gap-1 shadow-sm hover:text-white"
+              >
+                {guardando ? (
+                  <>
+                    <CSpinner size="sm" className="me-1" />
+                    Guardando...
+                  </>
+                ) : (
+                  <>
+                    <CIcon icon={cilSave} className="me-1" />
+                    Guardar Categoría
+                  </>
+                )}
+              </CButton>
+            )
+          )}
         </CModalFooter>
       </CModal>
     </>

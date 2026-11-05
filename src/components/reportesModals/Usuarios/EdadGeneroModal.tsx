@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useMemo } from 'react'
 import {
   useReporteUsuariosEdadGenero,
   PersonaReporteItem,
@@ -16,16 +16,14 @@ import {
   CCardBody,
   CCardHeader,
   CCol,
-  CFormInput,
   CFormLabel,
   CFormSelect,
-  CInputGroup,
-  CInputGroupText,
   CModal,
   CModalBody,
   CModalFooter,
   CModalHeader,
   CModalTitle,
+  CRangeSlider,
   CRow,
   CSmartTable,
   CSpinner,
@@ -37,6 +35,8 @@ export interface EGModalProps {
 }
 
 const EGModal: React.FC<EGModalProps> = ({ visible, setVisible }) => {
+  const [tableKey, setTableKey] = useState<number>(0)
+
   const {
     generos,
     generoId,
@@ -52,21 +52,36 @@ const EGModal: React.FC<EGModalProps> = ({ visible, setVisible }) => {
     handleGet,
     handleDescargarExcel,
     handleReset,
+    canGenerarUsuariosInscritos,
+    canDescargarUsuariosInscritos,
   } = useReporteUsuariosEdadGenero()
 
-  const handleClose = () => {
+  const handleFullReset = () => {
     handleReset()
+    setTableKey((prev: number) => prev + 1)
+  }
+
+  const handleClose = () => {
+    handleFullReset()
     setVisible(false)
   }
 
-  const bloquearCaracteresNoNumericos = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (['-', '+', 'e', 'E', '.', ','].includes(e.key)) {
-      e.preventDefault()
-    }
-  }
+  const tableItems = useMemo(() => {
+    return usuarios.map((item) => ({
+      ...item,
+      cedula: item.IDENTIFICACION_PERSONA || '',
+      nombre: item.NOMBRE_PERSONA || '',
+      apellido: item.APELLIDO_PERSONA || '',
+      fechaNacimiento: item.FECHA_PERSONA
+        ? new Date(item.FECHA_PERSONA).toLocaleDateString()
+        : '',
+      edad: item.EDAD_PERSONA !== undefined && item.EDAD_PERSONA !== null ? String(item.EDAD_PERSONA) : '',
+      correo: item.CORREO_PERSONA || '',
+    }))
+  }, [usuarios])
 
   const esRangoInvalido = Boolean(
-    edadDesde !== '' && edadHasta !== ''&& Number(edadDesde) > Number(edadHasta)
+    edadDesde !== '' && edadHasta !== '' && Number(edadDesde) > Number(edadHasta)
   )
 
   const columns = [
@@ -122,51 +137,43 @@ const EGModal: React.FC<EGModalProps> = ({ visible, setVisible }) => {
               Filtros de Búsqueda
             </div>
             <CRow className="g-3 align-items-end">
-              <CCol xs={12} sm={6} md={3}>
-                <CFormLabel className="small fw-semibold mb-1">Edad Desde</CFormLabel>
-                <CInputGroup size="sm">
-                  <CInputGroupText>Mín</CInputGroupText>
-                  <CFormInput
-                    type="number"
-                    min={0}
-                    max={edadHasta !== '' ? Number(edadHasta): 120}
-                    placeholder="Ej. 1"
-                    value={edadDesde}
-                    invalid = {esRangoInvalido}
-                    onKeyDown={bloquearCaracteresNoNumericos}
-                    onChange={(e) => setEdadDesde(e.target.value.replace(/\D/g, '').slice(0, 3))}
-                    onBlur={() =>{
-                      if (edadDesde !== '' && edadHasta !== '' && Number(edadDesde) > Number(edadHasta)){
-                        setEdadHasta(edadDesde)
+              <CCol xs={12} md={7}>
+                <div className="d-flex justify-content-between align-items-center mb-1">
+                  <CFormLabel className="small fw-semibold mb-0">Rango de Edad</CFormLabel>
+                  <span className="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 font-monospace">
+                    {edadDesde !== '' ? edadDesde : '1'} - {edadHasta !== '' ? edadHasta : '100'} años
+                  </span>
+                </div>
+                <div className="pt-3 pb-1 px-2">
+                  <CRangeSlider
+                    min={1}
+                    max={100}
+                    step={1}
+                    value={[
+                      edadDesde !== '' ? Number(edadDesde) : 1,
+                      edadHasta !== '' ? Number(edadHasta) : 100,
+                    ]}
+                    tooltips
+                    tooltipsFormat={(val: number) => `${val} años`}
+                    labels={[
+                      { value: 1, label: '1' },
+                      { value: 20, label: '20' },
+                      { value: 40, label: '40' },
+                      { value: 60, label: '60' },
+                      { value: 80, label: '80' },
+                      { value: 100, label: '100+' },
+                    ]}
+                    onChange={(val: number[]) => {
+                      if (Array.isArray(val) && val.length >= 2) {
+                        setEdadDesde(String(val[0]))
+                        setEdadHasta(String(val[1]))
                       }
                     }}
                   />
-                </CInputGroup>
+                </div>
               </CCol>
 
-              <CCol xs={12} sm={6} md={3}>
-                <CFormLabel className="small fw-semibold mb-1">Edad Hasta</CFormLabel>
-                <CInputGroup size="sm">
-                  <CInputGroupText>Máx</CInputGroupText>
-                  <CFormInput
-                    type="number"
-                    min={edadDesde !== '' ? Number(edadDesde) : 0}
-                    max={120}
-                    placeholder="Ej. 65"
-                    value={edadHasta}
-                    invalid = {esRangoInvalido}
-                    onKeyDown={bloquearCaracteresNoNumericos}
-                    onChange={(e) => setEdadHasta(e.target.value.replace(/\D/g, '').slice(0, 3))}
-                    onBlur={() => {
-                      if (edadHasta !== '' && edadDesde !== '' && Number(edadHasta) < Number(edadDesde)){
-                        setEdadHasta(edadDesde)
-                      }
-                    }}
-                  />
-                </CInputGroup>
-              </CCol>
-
-              <CCol xs={12} sm={6} md={3}>
+              <CCol xs={12} sm={7} md={3}>
                 <CFormLabel className="small fw-semibold mb-1">Género</CFormLabel>
                 <CFormSelect
                   size="sm"
@@ -182,33 +189,42 @@ const EGModal: React.FC<EGModalProps> = ({ visible, setVisible }) => {
                 </CFormSelect>
               </CCol>
 
-              <CCol xs={12} sm={6} md={3} className="d-flex gap-2">
-                <CButton
-                  color="primary"
-                  variant='outline'
-                  size="sm"
-                  className="w-100 d-flex align-items-center justify-content-center"
-                  onClick={handleGet}
-                  disabled={isLoading || esRangoInvalido}
-                >
-                  {isLoading ? (
-                    <>
-                      <CSpinner size="sm" className="me-1" />
-                      <span>Cargando...</span>
-                    </>
-                  ) : (
-                    <>
-                      <CIcon icon={cilSave} className="me-1" />
-                      <span>Generar</span>
-                    </>
-                  )}
-                </CButton>
+              <CCol xs={12} sm={5} md={2} className="d-flex gap-2">
+                {canGenerarUsuariosInscritos && (
+                  <CButton
+                    color="primary"
+                    variant="outline"
+                    size="sm"
+                    className="w-100 d-flex align-items-center justify-content-center"
+                    onClick={() => {
+                      setTableKey((prev) => prev + 1)
+                      handleGet()
+                    }}
+                    disabled={
+                      isLoading ||
+                      !edadDesde ||
+                      !edadHasta ||
+                      esRangoInvalido
+                    }                  >
+                    {isLoading ? (
+                      <>
+                        <CSpinner size="sm" className="me-1" />
+                        <span>Cargando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CIcon icon={cilSave} className="me-1" />
+                        <span>Generar</span>
+                      </>
+                    )}
+                  </CButton>
+                )}
                 <CButton
                   color="secondary"
                   variant="outline"
                   size="sm"
                   title="Limpiar filtros"
-                  onClick={handleReset}
+                  onClick={handleFullReset}
                   disabled={isLoading}
                 >
                   <CIcon icon={cilSync} />
@@ -227,16 +243,20 @@ const EGModal: React.FC<EGModalProps> = ({ visible, setVisible }) => {
               Total recibidos: <strong>{usuarios.length}</strong>
             </span>
           </CCardHeader>
-          <CCardBody className="p-0">
+          <CCardBody className="p-3">
             <CSmartTable
+              key={tableKey}
               activePage={1}
               clickableRows
               columns={columns}
               columnSorter
-              items={usuarios}
+              items={tableItems}
               itemsPerPage={60}
               pagination
+              tableFilter={haBuscado && !isLoading && usuarios.length > 0}
+              tableFilterLabel="Buscar:"
               tableFilterPlaceholder="Buscar en la tabla..."
+              cleaner
               noItemsLabel={
                 haBuscado
                   ? 'No se encontraron usuarios registrados con los filtros seleccionados'
@@ -255,7 +275,7 @@ const EGModal: React.FC<EGModalProps> = ({ visible, setVisible }) => {
                     <span className='font-monospace small'>
                       {item.NOMBRE_PERSONA}
                     </span>
-                    </td>
+                  </td>
                 ),
                 apellido: (item: PersonaReporteItem) => (
                   <td>
@@ -266,8 +286,8 @@ const EGModal: React.FC<EGModalProps> = ({ visible, setVisible }) => {
                   <td>
                     <span className='font-monospace small badge bg-body border text-primary'>
                       {item.FECHA_PERSONA
-                      ? new Date(item.FECHA_PERSONA).toLocaleDateString()
-                      : '-'}
+                        ? new Date(item.FECHA_PERSONA).toLocaleDateString()
+                        : '-'}
                     </span>
                   </td>
                 ),
@@ -304,26 +324,36 @@ const EGModal: React.FC<EGModalProps> = ({ visible, setVisible }) => {
           Mostrando <strong>{usuarios.length}</strong> registro(s)
         </div>
         <div className="d-flex gap-2">
-          <CButton 
-          color="danger" 
-          variant="outline"
-          className='hover:text-white' 
-          onClick={handleClose}
+          <CButton
+            color="danger"
+            variant="outline"
+            size="sm"
+            className="hover:text-white shadow-sm"
+            onClick={handleClose}
           >
             <CIcon icon={cilExitToApp} className="me-1" />
             Cerrar
           </CButton>
-          {excelLink && (
+
+          {canDescargarUsuariosInscritos && (
             <CButton
               color="success"
               variant="outline"
-              className='hover:text-white'
+              size="sm"
+              className="hover:text-white shadow-sm"
               onClick={handleDescargarExcel}
+              disabled={
+                isLoading ||
+                !haBuscado ||
+                usuarios.length === 0 ||
+                !excelLink
+              }
             >
               <CIcon icon={cilCloudDownload} className="me-1" />
               Descargar
             </CButton>
           )}
+
         </div>
       </CModalFooter>
     </CModal>

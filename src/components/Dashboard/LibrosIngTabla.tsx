@@ -1,8 +1,8 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { cilBookmark } from '@coreui/icons'
 import CIcon from '@coreui/icons-react'
 import { CCard, CCardBody, CCardHeader, CSmartTable } from '@coreui/react-pro'
-import { LibroIngresoItem } from '@/hooks/dashboard/useLibrosIng'
+import { LibroIngresoItem } from '@/models/dashboard/dashboard.model'
 
 export interface LibrosIngTablaProps {
   libros: LibroIngresoItem[]
@@ -27,6 +27,13 @@ export const COLUMNAS_LIBROS: Array<{ key: string; label: string; _style?: React
 ]
 
 export const LibrosIngTabla: React.FC<LibrosIngTablaProps> = ({ libros, loading = false, haBuscado = false }) => {
+  const [tableKey, setTableKey] = useState<number>(0)
+  useEffect(() => {
+    if (loading) {
+      setTableKey((prev) => prev + 1)
+    }
+  }, [loading])
+
   return (
     <CCard className="shadow-sm border-0">
       <CCardHeader className="bg-body py-3 border-bottom d-flex align-items-center justify-content-between">
@@ -36,19 +43,21 @@ export const LibrosIngTabla: React.FC<LibrosIngTablaProps> = ({ libros, loading 
             Tabla de Ingreso de los Nuevos Libros
           </span>
         </div>
-        <span className="badge bg-secondary font-monospace">
+        <span className={`badge font-monospace ${haBuscado && libros.length > 0 ? 'bg-primary' : 'bg-secondary'}`}>
           {haBuscado ? `${libros.length} ${libros.length === 1 ? 'libro' : 'libros'}` : '0 libros'}
         </span>
       </CCardHeader>
       <CCardBody>
         <CSmartTable
+          key={tableKey}
           activePage={1}
           columns={COLUMNAS_LIBROS}
           items={libros}
           itemsPerPage={10}
           itemsPerPageSelect
           pagination
-          tableFilter
+          tableFilter={haBuscado && !loading && libros.length > 0}
+          tableFilterLabel="Filter:"
           tableFilterPlaceholder="Buscar por título, autor, isbn..."
           columnSorter
           noItemsLabel={

@@ -1,14 +1,13 @@
 import Cookies from 'js-cookie'
 import CryptoJS from 'crypto-js'
 
-
 export const ENCRYPTION_KEY =
   ((import.meta as any).env?.VITE_ENCRYPTION_KEY as string) || 'clave_token'
 
 export const AUTH_COOKIE_NAME = 'tk'
 export const USER_STORAGE_KEY = 'userData'
 
-//Encriptacion Aes
+// Encriptacion AES
 export const encryptData = (text: string, secret: string = ENCRYPTION_KEY): string => {
   return CryptoJS.AES.encrypt(text, secret).toString()
 }
@@ -23,11 +22,7 @@ export const decryptData = (ciphertext: string, secret: string = ENCRYPTION_KEY)
   }
 }
 
-export const encryptToken = encryptData
-export const decryptToken = decryptData
-
-
-//Gestion de cookies
+// Gestion de cookies
 export const getCookieOptions = (_isRemember: boolean = false, expSeconds: number = 3600): Cookies.CookieAttributes => {
   return {
     path: '/',
@@ -37,26 +32,14 @@ export const getCookieOptions = (_isRemember: boolean = false, expSeconds: numbe
   }
 }
 
-// El token ya NO se almacena en localStorage por seguridad y para que resida únicamente en Cookies
-export const saveTokenStorage = (_rawToken?: string): void => {
-  if (typeof window === 'undefined') return
-  try {
-    ;['kt', 'token', 'authToken'].forEach((k) => window.localStorage.removeItem(k))
-  } catch {}
-}
-
-// Obtener token (obsoleto, retorna null para forzar uso exclusivo de Cookies)
-export const getTokenStorage = (): string | null => {
-  return null
-}
-
-// Guardar el token exclusivamente en Cookie ('tk') con la expiración del backend
+// Guardar el token en la cookie
 export const saveAuthCookie = (rawToken: string, isRemember: boolean = false, expSeconds: number = 3600): void => {
   try {
     const encrypted = encryptData(rawToken, ENCRYPTION_KEY)
     Cookies.set(AUTH_COOKIE_NAME, encrypted, getCookieOptions(isRemember, expSeconds))
-    // Limpieza de cualquier copia previa en localStorage
-    saveTokenStorage()
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem('tk')
+    }
   } catch (e) {
     console.error('[storage] Error guardando token en cookie:', e)
   }
@@ -65,9 +48,7 @@ export const saveAuthCookie = (rawToken: string, isRemember: boolean = false, ex
 export const getAuthCookie = (): string | null => {
   try {
     const cookie =
-      Cookies.get(AUTH_COOKIE_NAME) ||
-      Cookies.get('tk') ||
-      Cookies.get('token')
+      Cookies.get(AUTH_COOKIE_NAME)
 
     if (cookie) {
       if (cookie.startsWith('U2FsdGVkX1')) {
@@ -83,7 +64,7 @@ export const getAuthCookie = (): string | null => {
 
 export const removeAuthCookie = (): void => {
   try {
-    const cookieNames = [AUTH_COOKIE_NAME, 'token']
+    const cookieNames = [AUTH_COOKIE_NAME]
     cookieNames.forEach((name) => {
       Cookies.remove(name, { path: '/' })
       Cookies.remove(name)
@@ -94,28 +75,18 @@ export const removeAuthCookie = (): void => {
   } catch { }
 }
 
-//Gestion de localstorage
+// Gestion de localstorage
 export const saveUserStorage = (user: any, _isRemember: boolean = true): void => {
   if (!user || typeof window === 'undefined') return
   try {
-    const {
-      token: _t,
-      access_token: _at,
-      accessToken: _at2,
-      jwt: _jwt,
-      api_token: _apt,
-      authorization: _auth,
-      authorisation: _auth2,
-      PASSWORD_USUARIO: _p1,
-      password: _p2,
-      contrasena: _p3,
-      clave: _p4,
-      ...safeUser
-    } = user
+    const safeUser = {
+      NICK_USUARIO: user.NICK_USUARIO ?? '',
+      NOMBRES_USUARIO: user.NOMBRES_USUARIO ?? '',
+      expires_in: user.expires_in ?? 3600,
+    }
 
     const serialized = JSON.stringify(safeUser)
 
-    // Guardar en ambos storages la información legible del usuario
     window.localStorage.setItem(USER_STORAGE_KEY, serialized)
     window.sessionStorage.setItem(USER_STORAGE_KEY, serialized)
   } catch (e) {
@@ -123,7 +94,7 @@ export const saveUserStorage = (user: any, _isRemember: boolean = true): void =>
   }
 }
 
-//Obtener los datos del usuario desde localstorage
+// Obtener los datos del usuario desde localstorage
 export const getUserStorage = (): any | null => {
   if (typeof window === 'undefined') return null
   try {
@@ -141,20 +112,13 @@ export const getUserStorage = (): any | null => {
       parsed = JSON.parse(raw)
     }
 
-    if (parsed && typeof parsed === 'object') {
-      delete parsed.token
-      delete parsed.PASSWORD_USUARIO
-      delete parsed.password
-      delete parsed.contrasena
-      delete parsed.clave
-    }
-
-    return parsed
+    return parsed && typeof parsed === 'object' ? parsed : null
   } catch {
     return null
   }
 }
 
+// Limpiar toda la información de auth
 export const clearAllAuthStorage = (): void => {
   removeAuthCookie()
   if (typeof window !== 'undefined') {
@@ -165,8 +129,8 @@ export const clearAllAuthStorage = (): void => {
     try {
       window.localStorage.removeItem(USER_STORAGE_KEY)
       window.localStorage.removeItem('biblio_permisos_cache')
-      window.localStorage.removeItem('biblio_permisos_sync_time')
-      ;['kt', 'token', 'authToken'].forEach((k) => window.localStorage.removeItem(k))
+      window.localStorage.removeItem('biblio_permisos_modificados')
+      window.localStorage.removeItem('tk')
     } catch { }
   }
 }
@@ -177,8 +141,6 @@ export default {
   USER_STORAGE_KEY,
   encryptData,
   decryptData,
-  saveTokenStorage,
-  getTokenStorage,
   saveAuthCookie,
   getAuthCookie,
   removeAuthCookie,

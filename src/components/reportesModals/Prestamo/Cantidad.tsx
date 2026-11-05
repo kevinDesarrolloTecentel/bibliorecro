@@ -1,8 +1,8 @@
-import React from 'react'
+import React, { useState, useMemo } from 'react'
 import {
   useReporteCantidadPrestamosHoy,
   PrestamoReporteItem,
-} from '@/hooks/reportes/prestamos/CantidadPrestamo'
+} from '@/hooks/reportes/prestamos/useCantidadPrestamo'
 import {
   cilCloudDownload,
   cilExitToApp,
@@ -16,10 +16,8 @@ import {
   CCardBody,
   CCardHeader,
   CCol,
-  CFormInput,
+  CDatePicker,
   CFormLabel,
-  CInputGroup,
-  CInputGroupText,
   CModal,
   CModalBody,
   CModalFooter,
@@ -36,21 +34,63 @@ export interface CantidadPrestamosProps {
 }
 
 const CantidadModal: React.FC<CantidadPrestamosProps> = ({ visible, setVisible }) => {
+  const [tableKey, setTableKey] = useState<number>(0)
+
   const {
     fechaHoy,
     setFechaHoy,
     prestamos,
     isLoading,
     excelLink,
+    haBuscado,
     handleGetHoy,
     handleDescargarExcel,
     handleReset,
+    canGenerarCantidadPrestamos,
+    canDescargarCantidadPrestamos,
   } = useReporteCantidadPrestamosHoy()
 
-  const handleClose = () => {
+  const handleFullReset = () => {
     handleReset()
+    setTableKey((prev: number) => prev + 1)
+  }
+
+  const handleClose = () => {
+    handleFullReset()
     setVisible(false)
   }
+
+  const currentDate = useMemo(() => {
+    if (!fechaHoy) return null
+    const [y, m, d] = fechaHoy.split('-').map(Number)
+    if (!y || !m || !d) return null
+    return new Date(y, m - 1, d, 12, 0, 0)
+  }, [fechaHoy])
+
+  const tableItems = useMemo(() => {
+    return prestamos.map((item: PrestamoReporteItem) => {
+      const titulo = item.TITULO_LIBROS || ''
+      const fechaEntrega = item.FECHAFIN_PRESTAMO
+        ? new Date(item.FECHAFIN_PRESTAMO).toLocaleDateString()
+        : '-'
+      const cedula = item.IDENTIFICACION_PERSONA || ''
+      const nombre = item.NOMBRE_PERSONA || ''
+      const apellido = item.APELLIDO_PERSONA || ''
+      const correo = item.CORREO_PERSONA || ''
+      const telefono = item.TELEFONO_PERSONA || ''
+
+      return {
+        ...item,
+        titulo,
+        fechaEntrega,
+        cedula,
+        nombre,
+        apellido,
+        correo,
+        telefono,
+      }
+    })
+  }, [prestamos])
 
   const columns = [
     {
@@ -106,49 +146,93 @@ const CantidadModal: React.FC<CantidadPrestamosProps> = ({ visible, setVisible }
       <CModalBody>
         <CCard className="mb-3 border-0 bg-body shadow-sm">
           <CCardBody className="p-3">
-            <div className="fw-semibold text-body mb-2">
+            <div className="fw-semibold text-body mb-2 small text-uppercase">
               Seleccione la Fecha de Préstamo
             </div>
             <CRow className="g-3 align-items-end">
               <CCol xs={12} sm={8} md={6}>
-                <CFormLabel className="fw-semibold mb-1">Fecha</CFormLabel>
-                <CInputGroup size="sm">
-                  <CInputGroupText>Día</CInputGroupText>
-                  <CFormInput
-                    type="date"
-                    value={fechaHoy}
-                    onChange={(e) => setFechaHoy(e.target.value)}
-                  />
-                </CInputGroup>
+                <CFormLabel className="small fw-semibold mb-1">Fecha</CFormLabel>
+                <CDatePicker
+                  key={tableKey}
+                  size="sm"
+                  locale="es-ES"
+                  placeholder="Seleccione la fecha"
+                  cleaner
+                  inputReadOnly
+                  inputDateFormat={(date: Date) => {
+                    if (!date || isNaN(date.getTime())) return ''
+                    const d = date.getHours() >= 18 ? new Date(date.getTime() + 6 * 3600 * 1000) : date
+                    const day = String(d.getDate()).padStart(2, '0')
+                    const month = String(d.getMonth() + 1).padStart(2, '0')
+                    const year = d.getFullYear()
+                    return `${day}/${month}/${year}`
+                  }}
+                  date={currentDate}
+                  onDateChange={(val) => {
+                    if (!val) {
+                      setFechaHoy('')
+                      return
+                    }
+                    if (val instanceof Date) {
+                      const d = val.getHours() >= 18 ? new Date(val.getTime() + 6 * 3600 * 1000) : val
+                      const y = d.getFullYear()
+                      const m = String(d.getMonth() + 1).padStart(2, '0')
+                      const day = String(d.getDate()).padStart(2, '0')
+                      setFechaHoy(`${y}-${m}-${day}`)
+                      return
+                    }
+                    if (typeof val === 'string') {
+                      const match = val.match(/^(\d{4})-(\d{2})-(\d{2})/)
+                      if (match) {
+                        setFechaHoy(match[0])
+                        return
+                      }
+                      const ddmmyyyy = val.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})/)
+                      if (ddmmyyyy) {
+                        const d = ddmmyyyy[1].padStart(2, '0')
+                        const m = ddmmyyyy[2].padStart(2, '0')
+                        const y = ddmmyyyy[3]
+                        setFechaHoy(`${y}-${m}-${d}`)
+                        return
+                      }
+                      setFechaHoy(val)
+                    }
+                  }}
+                />
               </CCol>
 
               <CCol xs={12} sm={4} md={6} className="d-flex gap-2">
-                <CButton
-                  color="primary"
-                  variant="outline"
-                  size="sm"
-                  className="w-100 d-flex align-items-center justify-content-center"
-                  onClick={handleGetHoy}
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <>
-                      <CSpinner size="sm" className="me-1" />
-                      <span>Cargando...</span>
-                    </>
-                  ) : (
-                    <>
-                      <CIcon icon={cilSave} className="me-1" />
-                      <span>Generar</span>
-                    </>
-                  )}
-                </CButton>
+                {canGenerarCantidadPrestamos && (
+                  <CButton
+                    color="primary"
+                    variant="outline"
+                    size="sm"
+                    className="w-100 d-flex align-items-center justify-content-center"
+                    onClick={() => {
+                      setTableKey((prev) => prev + 1)
+                      handleGetHoy()
+                    }}
+                    disabled={isLoading || !fechaHoy}
+                  >
+                    {isLoading ? (
+                      <>
+                        <CSpinner size="sm" className="me-1" />
+                        <span>Cargando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CIcon icon={cilSave} className="me-1" />
+                        <span>Generar</span>
+                      </>
+                    )}
+                  </CButton>
+                )}
                 <CButton
                   color="secondary"
                   variant="outline"
                   size="sm"
                   title="Limpiar filtros"
-                  onClick={handleReset}
+                  onClick={handleFullReset}
                   disabled={isLoading}
                 >
                   <CIcon icon={cilSync} />
@@ -169,68 +253,70 @@ const CantidadModal: React.FC<CantidadPrestamosProps> = ({ visible, setVisible }
           </CCardHeader>
           <CCardBody className="p-0">
             <CSmartTable
+              key={tableKey}
               activePage={1}
               columns={columns}
               columnSorter
-              items={prestamos}
+              tableFilter={haBuscado && !isLoading && prestamos.length > 0}
+              tableFilterLabel="Buscar:"
+              tableFilterPlaceholder="Buscar en la tabla..."
+              cleaner
+              items={tableItems}
               itemsPerPage={60}
+              pagination
               noItemsLabel={
-                isLoading ? (
-                  'Cargando registros...'
-                ) : (
-                  <div className="d-flex justify-content-center">
-                    <CSpinner color="primary" size="sm" variant="grow" />
-                  </div>
-                )
+                haBuscado
+                  ? 'No se encontraron préstamos para la fecha seleccionada'
+                  : 'Seleccione una fecha y haga clic en Generar para ver el reporte'
               }
               scopedColumns={{
-                titulo: (item: PrestamoReporteItem) => (
+                titulo: (item: any) => (
                   <td>
                     <span className="font-monospace small fw-semibold">
-                      {item.TITULO_LIBROS}
+                      {item.titulo}
                     </span>
                   </td>
                 ),
-                fechaEntrega: (item: PrestamoReporteItem) => (
+                fechaEntrega: (item: any) => (
                   <td>
                     <span className="font-monospace small badge bg-body border text-primary">
-                      {item.FECHAFIN_PRESTAMO
-                        ? new Date(item.FECHAFIN_PRESTAMO).toLocaleDateString()
-                        : '-'}
+                      {item.fechaEntrega}
                     </span>
                   </td>
                 ),
-                cedula: (item: PrestamoReporteItem) => (
+                cedula: (item: any) => (
                   <td>
                     <span className="font-monospace small text-muted badge bg-body border">
-                      {item.IDENTIFICACION_PERSONA}
+                      {item.cedula}
                     </span>
                   </td>
                 ),
-                nombre: (item: PrestamoReporteItem) => (
+                nombre: (item: any) => (
                   <td>
                     <span className="font-monospace small">
-                      {item.NOMBRE_PERSONA}
+                      {item.nombre}
                     </span>
                   </td>
                 ),
-                apellido: (item: PrestamoReporteItem) => (
+                apellido: (item: any) => (
                   <td>
                     <span className="font-monospace small">
-                      {item.APELLIDO_PERSONA}
+                      {item.apellido}
                     </span>
                   </td>
                 ),
-                correo: (item: PrestamoReporteItem) => (
+                correo: (item: any) => (
                   <td>
-                    <span className="font-monospace small badge rounded-pill border px-3 text-muted">
-                      {item.CORREO_PERSONA}
+                    <span className="font-monospace small badge bg-body border text-muted rounded-pill py-1 px-2">
+                      {item.correo || '-'}
                     </span>
                   </td>
                 ),
-                telefono: (item: PrestamoReporteItem) => (
+                telefono: (item: any) => (
                   <td>
-                    <span className="font-monospace small badge bg-body border text-success">{item.TELEFONO_PERSONA || '-'}</span>
+                    <span className="font-monospace small badge bg-body border rounded-pill text-success">
+                      {item.telefono || '-'}
+                    </span>
                   </td>
                 ),
               }}
@@ -252,21 +338,30 @@ const CantidadModal: React.FC<CantidadPrestamosProps> = ({ visible, setVisible }
           Mostrando <strong>{prestamos.length}</strong> registro(s)
         </div>
         <div className="d-flex gap-2">
-          <CButton color="danger" variant="outline" className='hover:text-white' onClick={handleClose}>
+          <CButton size="sm" color="danger" variant="outline" className="hover:text-white shadow-sm" onClick={handleClose}>
             <CIcon icon={cilExitToApp} className="me-1" />
             Cerrar
           </CButton>
-          {excelLink && (
+
+          {canDescargarCantidadPrestamos && (
             <CButton
               color="success"
+              size="sm"
               variant="outline"
-              className='hover:text-white'
+              className="hover:text-white shadow-sm"
               onClick={handleDescargarExcel}
+              disabled={
+                isLoading ||
+                !haBuscado ||
+                prestamos.length === 0 ||
+                !excelLink
+              }
             >
               <CIcon icon={cilCloudDownload} className="me-1" />
-              Descargar
+              Descargar Excel
             </CButton>
           )}
+
         </div>
       </CModalFooter>
     </CModal>

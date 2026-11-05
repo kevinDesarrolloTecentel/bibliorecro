@@ -1,8 +1,8 @@
-import React from 'react'
+import React, { useState, useMemo } from 'react'
 import {
   useReportePrestamosMensuales,
   PrestamoReporteItem,
-} from '@/hooks/reportes/prestamos/PrestamosMensuales'
+} from '@/hooks/reportes/prestamos/usePrestamosMensuales'
 import {
   cilCloudDownload,
   cilExitToApp,
@@ -16,10 +16,8 @@ import {
   CCardBody,
   CCardHeader,
   CCol,
-  CFormInput,
+  CDatePicker,
   CFormLabel,
-  CInputGroup,
-  CInputGroupText,
   CModal,
   CModalBody,
   CModalFooter,
@@ -36,21 +34,63 @@ export interface PrestamoMProps {
 }
 
 const PrestamoMModal: React.FC<PrestamoMProps> = ({ visible, setVisible }) => {
+  const [tableKey, setTableKey] = useState<number>(0)
+
   const {
     fechaMes,
     setFechaMes,
     prestamos,
     isLoading,
     excelLink,
+    haBuscado,
     handleGetMes,
     handleDescargarExcel,
     handleReset,
+    canGenerarPrestamosMensuales,
+    canDescargarPrestamosMensuales,
   } = useReportePrestamosMensuales()
 
-  const handleClose = () => {
+  const handleFullReset = () => {
     handleReset()
+    setTableKey((prev: number) => prev + 1)
+  }
+
+  const handleClose = () => {
+    handleFullReset()
     setVisible(false)
   }
+
+  const currentDate = useMemo(() => {
+    if (!fechaMes) return null
+    const [y, m] = fechaMes.split('-').map(Number)
+    if (!y || !m) return null
+    return new Date(y, m - 1, 1, 12, 0, 0)
+  }, [fechaMes])
+
+  const tableItems = useMemo(() => {
+    return prestamos.map((item: PrestamoReporteItem) => {
+      const titulo = item.TITULO_LIBROS || ''
+      const fechaEntrega = item.FECHAFIN_PRESTAMO
+        ? new Date(item.FECHAFIN_PRESTAMO).toLocaleDateString()
+        : '-'
+      const cedula = item.IDENTIFICACION_PERSONA || ''
+      const nombre = item.NOMBRE_PERSONA || ''
+      const apellido = item.APELLIDO_PERSONA || ''
+      const correo = item.CORREO_PERSONA || ''
+      const telefono = item.TELEFONO_PERSONA || ''
+
+      return {
+        ...item,
+        titulo,
+        fechaEntrega,
+        cedula,
+        nombre,
+        apellido,
+        correo,
+        telefono,
+      }
+    })
+  }, [prestamos])
 
   const columns = [
     {
@@ -106,49 +146,94 @@ const PrestamoMModal: React.FC<PrestamoMProps> = ({ visible, setVisible }) => {
       <CModalBody>
         <CCard className="mb-3 border-0 bg-body shadow-sm">
           <CCardBody className="p-3">
-            <div className="fw-semibold text-body mb-2">
+            <div className="fw-semibold text-body mb-2 small text-uppercase">
               Seleccione el Mes y Año Requeridos
             </div>
             <CRow className="g-3 align-items-end">
               <CCol xs={12} sm={8} md={6}>
-                <CFormLabel className="fw-semibold mb-1">Año y Mes</CFormLabel>
-                <CInputGroup size="sm">
-                  <CInputGroupText>Mes</CInputGroupText>
-                  <CFormInput
-                    type="month"
-                    value={fechaMes}
-                    onChange={(e) => setFechaMes(e.target.value)}
-                  />
-                </CInputGroup>
+                <CFormLabel className="small fw-semibold mb-1">Año y Mes</CFormLabel>
+                <CDatePicker
+                  key={tableKey}
+                  size="sm"
+                  locale="es-ES"
+                  selectionType="month"
+                  placeholder="Seleccione el mes y año"
+                  cleaner
+                  inputReadOnly
+                  inputDateFormat={(date: Date) => {
+                    if (!date || isNaN(date.getTime())) return ''
+                    const d = date.getHours() >= 18 ? new Date(date.getTime() + 6 * 3600 * 1000) : date
+                    const monthName = d.toLocaleDateString('es-ES', { month: 'long' })
+                    const year = d.getFullYear()
+                    return `${monthName} de ${year}`
+                  }}
+                  inputDateParse={(val: string | Date) => {
+                    if (val instanceof Date) return val
+                    if (typeof val === 'string') {
+                      const match = val.match(/^(\d{4})-(\d{1,2})/)
+                      if (match) {
+                        return new Date(Number(match[1]), Number(match[2]) - 1, 1, 12, 0, 0)
+                      }
+                    }
+                    return new Date(val)
+                  }}
+                  date={currentDate}
+                  onDateChange={(val: any) => {
+                    if (!val) {
+                      setFechaMes('')
+                      return
+                    }
+                    if (val instanceof Date && !isNaN(val.getTime())) {
+                      const d = val.getHours() >= 18 ? new Date(val.getTime() + 6 * 3600 * 1000) : val
+                      const y = d.getFullYear()
+                      const m = String(d.getMonth() + 1).padStart(2, '0')
+                      setFechaMes(`${y}-${m}`)
+                      return
+                    }
+                    if (typeof val === 'string') {
+                      const match = val.match(/^(\d{4})-(\d{1,2})/)
+                      if (match) {
+                        setFechaMes(`${match[1]}-${match[2].padStart(2, '0')}`)
+                        return
+                      }
+                      setFechaMes(val)
+                    }
+                  }}
+                />
               </CCol>
 
               <CCol xs={12} sm={4} md={6} className="d-flex gap-2">
-                <CButton
-                  color="primary"
-                  variant="outline"
-                  size="sm"
-                  className="w-100 d-flex align-items-center justify-content-center"
-                  onClick={handleGetMes}
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <>
-                      <CSpinner size="sm" className="me-1" />
-                      <span>Cargando...</span>
-                    </>
-                  ) : (
-                    <>
-                      <CIcon icon={cilSave} className="me-1" />
-                      <span>Generar</span>
-                    </>
-                  )}
-                </CButton>
+                {canGenerarPrestamosMensuales && (
+                  <CButton
+                    color="primary"
+                    variant="outline"
+                    size="sm"
+                    className="w-100 d-flex align-items-center justify-content-center"
+                    onClick={() => {
+                      setTableKey((prev) => prev + 1)
+                      handleGetMes()
+                    }}
+                    disabled={isLoading || !fechaMes}
+                  >
+                    {isLoading ? (
+                      <>
+                        <CSpinner size="sm" className="me-1" />
+                        <span>Cargando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CIcon icon={cilSave} className="me-1" />
+                        <span>Generar</span>
+                      </>
+                    )}
+                  </CButton>
+                )}
                 <CButton
                   color="secondary"
                   variant="outline"
                   size="sm"
                   title="Limpiar filtros"
-                  onClick={handleReset}
+                  onClick={handleFullReset}
                   disabled={isLoading}
                 >
                   <CIcon icon={cilSync} />
@@ -169,68 +254,70 @@ const PrestamoMModal: React.FC<PrestamoMProps> = ({ visible, setVisible }) => {
           </CCardHeader>
           <CCardBody className="p-0">
             <CSmartTable
+              key={tableKey}
               activePage={1}
               columns={columns}
               columnSorter
-              items={prestamos}
+              tableFilter={haBuscado && !isLoading && prestamos.length > 0}
+              tableFilterLabel="Buscar:"
+              tableFilterPlaceholder="Buscar en la tabla..."
+              cleaner
+              items={tableItems}
               itemsPerPage={60}
+              pagination
               noItemsLabel={
-                isLoading ? (
-                  'Cargando registros...'
-                ) : (
-                  <div className="d-flex justify-content-center">
-                    <CSpinner color="primary" size="sm" variant="grow" />
-                  </div>
-                )
+                haBuscado
+                  ? 'No se encontraron préstamos para el mes y año seleccionados'
+                  : 'Seleccione un mes y año, y haga clic en Generar para ver el reporte'
               }
               scopedColumns={{
-                titulo: (item: PrestamoReporteItem) => (
+                titulo: (item: any) => (
                   <td>
                     <span className="font-monospace small fw-semibold">
-                      {item.TITULO_LIBROS}
+                      {item.titulo}
                     </span>
                   </td>
                 ),
-                fechaEntrega: (item: PrestamoReporteItem) => (
+                fechaEntrega: (item: any) => (
                   <td>
                     <span className="font-monospace small badge bg-body border text-primary">
-                      {item.FECHAFIN_PRESTAMO
-                        ? new Date(item.FECHAFIN_PRESTAMO).toLocaleDateString()
-                        : '-'}
+                      {item.fechaEntrega}
                     </span>
                   </td>
                 ),
-                cedula: (item: PrestamoReporteItem) => (
+                cedula: (item: any) => (
                   <td>
                     <span className="font-monospace small text-muted badge bg-body border">
-                      {item.IDENTIFICACION_PERSONA}
+                      {item.cedula}
                     </span>
                   </td>
                 ),
-                nombre: (item: PrestamoReporteItem) => (
+                nombre: (item: any) => (
                   <td>
                     <span className="font-monospace small">
-                      {item.NOMBRE_PERSONA}
+                      {item.nombre}
                     </span>
                   </td>
                 ),
-                apellido: (item: PrestamoReporteItem) => (
+                apellido: (item: any) => (
                   <td>
                     <span className="font-monospace small">
-                      {item.APELLIDO_PERSONA}
+                      {item.apellido}
                     </span>
                   </td>
                 ),
-                correo: (item: PrestamoReporteItem) => (
+                correo: (item: any) => (
                   <td>
-                    <span className="font-monospace small badge rounded-pill border px-3 text-muted">
-                      {item.CORREO_PERSONA || 'Sin Correo'}
+                    <span className="font-monospace small badge bg-body border text-muted rounded-pill py-1 px-2">
+                      {item.correo || '-'}
                     </span>
                   </td>
                 ),
-                telefono: (item: PrestamoReporteItem) => (
+                telefono: (item: any) => (
                   <td>
-                    <span className="font-monospace small badge text-success border">{item.TELEFONO_PERSONA || '-'}</span>
+                    <span className="font-monospace small badge bg-body border rounded-pill text-success">
+                      {item.telefono || '-'}
+                    </span>
                   </td>
                 ),
               }}
@@ -252,20 +339,30 @@ const PrestamoMModal: React.FC<PrestamoMProps> = ({ visible, setVisible }) => {
           Mostrando <strong>{prestamos.length}</strong> registro(s)
         </div>
         <div className="d-flex gap-2">
-          <CButton color="danger" variant="outline" onClick={handleClose}>
+          <CButton size="sm" color="danger" variant="outline" className="hover:text-white shadow-sm" onClick={handleClose}>
             <CIcon icon={cilExitToApp} className="me-1" />
             Cerrar
           </CButton>
-          {excelLink && (
+
+          {canDescargarPrestamosMensuales && (
             <CButton
               color="success"
+              size="sm"
               variant="outline"
+              className="hover:text-white shadow-sm"
               onClick={handleDescargarExcel}
+              disabled={
+                isLoading ||
+                !haBuscado ||
+                prestamos.length === 0 ||
+                !excelLink
+              }
             >
               <CIcon icon={cilCloudDownload} className="me-1" />
-              Descargar
+              Descargar Excel
             </CButton>
           )}
+
         </div>
       </CModalFooter>
     </CModal>

@@ -1,27 +1,20 @@
 import { useState, useCallback } from 'react'
 import Swal from 'sweetalert2'
 import { PersonasNuevasReport } from '@/Service/tab/Persona'
-import { STORAGE_BASE_URL } from '@/utils/imageUtils'
+import { STORAGE_BASE_URL, descargarArchivo } from '@/utils/imageUtils'
+import { usePermissions } from '@/context/PermissionsContext'
 
-export { STORAGE_BASE_URL }
+export { STORAGE_BASE_URL, descargarArchivo }
 
-export interface PersonaReporteItem {
-  ID_PERSONA?: number | string
-  IDENTIFICACION_PERSONA?: string
-  NOMBRE_PERSONA?: string
-  APELLIDO_PERSONA?: string
-  FECHA_PERSONA?: string
-  EDAD_PERSONA?: number
-  CORREO_PERSONA?: string
-  ESTADOINSCRIPCION_PERSONA?: number
-  TELEFONO_PERSONA?: string
-  TIPO_PERSONA?: string
-  ESTADO_RENOVACIONES?: number
-  cantidad_prestamos?: number
-  [key: string]: any
-}
+import { PersonaReporteItem } from '@/models/reportes/usuarios'
+
+export type { PersonaReporteItem }
 
 export const useReporteNuevosUsuarios = () => {
+  const { canDoAction, verificarAccionEnServidor } = usePermissions()
+  const canGenerarNuevosUsuarios = canDoAction('btn_generar_nuevos_usuarios')
+  const canDescargarNuevosUsuarios = canDoAction('btn_descargar_nuevos_usuarios')
+
   const [diaRegistro, setDiaRegistro] = useState<string>('')
   const [mesRegistro, setMesRegistro] = useState<string>('')
   const [anoRegistro, setAnoRegistro] = useState<string>('')
@@ -31,21 +24,43 @@ export const useReporteNuevosUsuarios = () => {
   const [haBuscado, setHaBuscado] = useState<boolean>(false)
 
   const handleGetNuevosUsuarios = useCallback(async () => {
-    if (!mesRegistro || !anoRegistro) {
-      Swal.mixin({
-        toast: true,
-        position: 'top-end',
-        timer: 2500,
-        timerProgressBar: false,
-        showConfirmButton: false,
-      }).fire({
+    if (!canGenerarNuevosUsuarios) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Acceso Denegado',
+        text: 'No tienes permisos para generar este reporte.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return
+    }
+
+    if (!mesRegistro || !anoRegistro || !diaRegistro) {
+      Swal.fire({
         icon: 'warning',
-        title: 'Por favor, ingrese el mes y año.',
+        title: 'Campo requerido',
+        text: 'Por favor, seleccione una fecha.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
       })
       return
     }
 
     setIsLoading(true)
+
+    const tienePermiso = await verificarAccionEnServidor('btn_generar_nuevos_usuarios')
+    if (!tienePermiso) {
+      setIsLoading(false)
+      Swal.fire({
+        icon: 'error',
+        title: 'Acceso Denegado',
+        text: 'No tienes permisos para generar este reporte.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return
+    }
+
     setHaBuscado(true)
     setUsuarios([])
     setExcelLink(null)
@@ -68,7 +83,8 @@ export const useReporteNuevosUsuarios = () => {
           icon: 'info',
           title: 'Sin nuevos usuarios',
           text: data.error,
-          confirmButtonColor: '#0d6efd',
+          confirmButtonColor: '#044c8c',
+          confirmButtonText: 'Entendido',
         })
         setUsuarios([])
       } else {
@@ -84,52 +100,79 @@ export const useReporteNuevosUsuarios = () => {
             icon: 'info',
             title: 'Sin nuevos usuarios',
             text: 'No se encontraron nuevos usuarios registrados en la fecha seleccionada.',
-            confirmButtonColor: '#0d6efd',
+            confirmButtonColor: '#044c8c',
+            confirmButtonText: 'Entendido',
           })
         }
       }
     } catch (error: any) {
       console.error('Error al obtener nuevos usuarios', error)
+      setUsuarios([])
+      setExcelLink(null)
       const respData = error?.response?.data
       const errStr = typeof respData === 'string' ? respData : JSON.stringify(respData || '')
+      const errorMsg = error?.response?.data?.message || error?.message || ''
 
       const isZeroResultsError =
         error?.response?.status === 404 ||
         (error?.response?.status === 500 &&
-          (errStr.includes('PersonasExport') || errStr.includes('toArray() on null')))
+          (errStr.includes('PersonasExport') || errStr.includes('toArray() on null'))) ||
+        errorMsg.toLowerCase().includes('no existe') ||
+        errorMsg.toLowerCase().includes('no se encontr') ||
+        errorMsg.toLowerCase().includes('sin registros') ||
+        errStr.toLowerCase().includes('no existe') ||
+        errStr.toLowerCase().includes('no se encontr')
 
       if (isZeroResultsError) {
-        setUsuarios([])
-        setExcelLink(null)
         Swal.fire({
           icon: 'info',
           title: 'Sin nuevos usuarios',
-          text: 'No se encontraron nuevos usuarios registrados en la fecha seleccionada.',
-          confirmButtonColor: '#0d6efd',
+          text:  'No se encontraron nuevos usuarios registrados en la fecha seleccionada.',
+          confirmButtonColor: '#044c8c',
+          confirmButtonText: 'Entendido',
         })
       } else {
-        Swal.mixin({
-          toast: true,
-          position: 'top-end',
-          timer: 2500,
-          timerProgressBar: false,
-          showConfirmButton: false,
-        }).fire({
-          icon: 'warning',
-          title: 'Error!',
-          text: 'Hubo un problema al obtener los nuevos usuarios.',
+        Swal.fire({
+          icon: 'error',
+          title: 'Error al consultar',
+          text:  'Hubo un problema al obtener los nuevos usuarios.',
+          confirmButtonColor: '#dc3545',
+          confirmButtonText: 'Entendido',
         })
       }
     } finally {
       setIsLoading(false)
     }
-  }, [diaRegistro, mesRegistro, anoRegistro])
+  }, [canGenerarNuevosUsuarios, diaRegistro, mesRegistro, anoRegistro])
 
-  const handleDescargarExcel = useCallback(() => {
-    if (excelLink) {
-      window.open(`${STORAGE_BASE_URL}/${excelLink}`, '_blank')
+  const handleDescargarExcel = useCallback(async () => {
+    if (!canDescargarNuevosUsuarios) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Acceso Denegado',
+        text: 'No tienes permisos para descargar este reporte.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return
     }
-  }, [excelLink])
+
+    const tienePermiso = await verificarAccionEnServidor('btn_descargar_nuevos_usuarios')
+    if (!tienePermiso) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Acceso Denegado',
+        text: 'No tienes permisos para descargar este reporte.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return
+    }
+
+    if (excelLink) {
+      await descargarArchivo(`${STORAGE_BASE_URL}/${excelLink}`)
+    }
+  }, [canDescargarNuevosUsuarios, excelLink, verificarAccionEnServidor])
 
   const handleReset = useCallback(() => {
     setDiaRegistro('')
@@ -154,6 +197,9 @@ export const useReporteNuevosUsuarios = () => {
     handleGetNuevosUsuarios,
     handleDescargarExcel,
     handleReset,
+    canGenerarNuevosUsuarios,
+    canDescargarNuevosUsuarios,
+    verificarAccionEnServidor,
   }
 }
 

@@ -1,15 +1,21 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import Swal from 'sweetalert2'
 import {
   obtenerCatalogo,
   obtenerPermisosRol,
   guardarPermisosRol,
   obtenerAcciones,
-} from '@/Service/amd/permisosService'
+} from '@/Service/adm/Permisos'
 import { ModuloCatalogo, Pantalla, Accion } from '@/models/adm/permiso.model'
-import { notificarCambioPermisos } from '@/context/PermissionsContext'
+import { usePermissions, marcarCambioPermisos } from '@/context/PermissionsContext'
 
 export const usePermisosMatriz = (rolesList: any[] = [], fetchRoles?: () => Promise<void>) => {
+  const { canDoAction, verificarAccionEnServidor } = usePermissions()
+
+  const canVerAcciones = canDoAction('btn_ver_acciones')
+  const canCheckboxPermisos = canDoAction('btn_checkbox_permisos')
+  const canModificarAcciones = canVerAcciones && canDoAction('btn_modificar_acciones')
+
   const [catalogo, setCatalogo] = useState<ModuloCatalogo[]>([])
   const [matrix, setMatrix] = useState<Record<number, number[]>>({})
   const [accionesMatrix, setAccionesMatrix] = useState<Record<number, number[]>>({})
@@ -18,10 +24,36 @@ export const usePermisosMatriz = (rolesList: any[] = [], fetchRoles?: () => Prom
   const [savingMatriz] = useState<boolean>(false)
   const [modifiedRoleIds, setModifiedRoleIds] = useState<Set<number>>(new Set())
   const [errorPermisos, setErrorPermisos] = useState<string | null>(null)
+  const isFetchingPermisosRef = useRef<boolean>(false)
 
   // Filtros de búsqueda y módulo
   const [filtroModulo, setFiltroModulo] = useState<string>('TODOS')
   const [busqueda, setBusqueda] = useState<string>('')
+
+  // Estado para el modal de acciones/botones de una pantalla
+  const [pantallaSeleccionada, setPantallaSeleccionada] = useState<Pantalla | null>(null)
+  const [modalAccionesVisible, setModalAccionesVisible] = useState<boolean>(false)
+
+  const handleAbrirAcciones = useCallback((pantalla: Pantalla) => {
+    if (!canVerAcciones) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Acceso Denegado',
+        text: 'No tienes permisos para ver y configurar las acciones de los permisos.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return
+    }
+
+    setPantallaSeleccionada(pantalla)
+    setModalAccionesVisible(true)
+  }, [canVerAcciones])
+
+  const handleCerrarAcciones = useCallback(() => {
+    setModalAccionesVisible(false)
+    setPantallaSeleccionada(null)
+  }, [])
 
   // Lista plana de todas las pantallas
   const allPantallas = useMemo<Pantalla[]>(() => {
@@ -81,7 +113,7 @@ export const usePermisosMatriz = (rolesList: any[] = [], fetchRoles?: () => Prom
       ])
 
       if (resCat && (resCat as any).success === false) {
-        setErrorPermisos((resCat as any).message || 'Solo el administrador principal puede gestionar roles y permisos.')
+        setErrorPermisos((resCat as any).message)
         setLoadingMatriz(false)
         return
       }
@@ -89,8 +121,8 @@ export const usePermisosMatriz = (rolesList: any[] = [], fetchRoles?: () => Prom
       const catalogoData = Array.isArray(resCat)
         ? resCat
         : Array.isArray(resCat?.data)
-        ? resCat.data
-        : []
+          ? resCat.data
+          : []
 
       if (catalogoData.length > 0) {
         // Ordenar módulos y pantallas tal como en la base de datos (Dashboard primero, seguido por sus IDs)
@@ -119,15 +151,14 @@ export const usePermisosMatriz = (rolesList: any[] = [], fetchRoles?: () => Prom
       const accionesData = Array.isArray(resAcc)
         ? resAcc
         : Array.isArray(resAcc?.data)
-        ? resAcc.data
-        : []
+          ? resAcc.data
+          : []
       setAllAcciones(accionesData)
     } catch (err: any) {
       console.error('[usePermisosMatriz] Error al cargar catálogo de permisos:', err)
       const msg =
         err?.response?.data?.message ||
-        err?.response?.data?.error ||
-        'Solo el administrador principal puede gestionar roles y permisos.'
+        err?.response?.data?.error
       setErrorPermisos(msg)
       setLoadingMatriz(false)
     }
@@ -136,6 +167,8 @@ export const usePermisosMatriz = (rolesList: any[] = [], fetchRoles?: () => Prom
   // Cargar permisos y acciones asignados a cada rol desde la base de datos
   const cargarPermisosRoles = useCallback(async (roles: any[]) => {
     if (!roles || roles.length === 0) return
+    if (isFetchingPermisosRef.current) return
+    isFetchingPermisosRef.current = true
     setLoadingMatriz(true)
     try {
       const newMatrix: Record<number, number[]> = {}
@@ -176,6 +209,7 @@ export const usePermisosMatriz = (rolesList: any[] = [], fetchRoles?: () => Prom
     } catch (err) {
       console.error('[usePermisosMatriz] Error al cargar permisos de roles:', err)
     } finally {
+      isFetchingPermisosRef.current = false
       setLoadingMatriz(false)
     }
   }, [])
@@ -194,9 +228,6 @@ export const usePermisosMatriz = (rolesList: any[] = [], fetchRoles?: () => Prom
     }
   }, [rolesList, cargarPermisosRoles])
 
-  // Helper para verificar si un rol es el super administrador principal
-  // REGLA BACKEND: Solo el ID 1 o ES_ADMINISTRADOR === true es el super admin intocable.
-  // Cualquier otro rol creado (incluso con NIVEL_ROL = 1) tiene ES_ADMINISTRADOR === false y es 100% configurable.
   const checkIsAdminRol = useCallback(
     (rolId: number): boolean => {
       if (rolId === 1) return true
@@ -209,25 +240,19 @@ export const usePermisosMatriz = (rolesList: any[] = [], fetchRoles?: () => Prom
   // Helper para verificar si una pantalla está asignada a un rol
   const isPermisoAsignado = useCallback(
     (rolId: number, idPermiso: number): boolean => {
-      if (checkIsAdminRol(rolId)) {
-        return true
-      }
       const perms = matrix[rolId] || []
       return perms.includes(idPermiso)
     },
-    [matrix, checkIsAdminRol],
+    [matrix],
   )
 
   // Helper para verificar si una acción está asignada a un rol
   const isAccionAsignada = useCallback(
     (rolId: number, idAccion: number): boolean => {
-      if (checkIsAdminRol(rolId)) {
-        return true
-      }
       const list = accionesMatrix[rolId] || []
       return list.includes(idAccion)
     },
-    [accionesMatrix, checkIsAdminRol],
+    [accionesMatrix],
   )
 
   // Helper para obtener las acciones de una pantalla específica
@@ -285,12 +310,13 @@ export const usePermisosMatriz = (rolesList: any[] = [], fetchRoles?: () => Prom
       idPermiso: number,
       nombrePermiso: string,
     ) => {
-      if (checkIsAdminRol(rolId)) {
+      if (!canCheckboxPermisos) {
         Swal.fire({
-          title: 'Acceso Completo',
-          text: 'El administrador principal tiene acceso completo.',
-          icon: 'info',
-          confirmButtonColor: '#321fdb',
+          icon: 'error',
+          title: 'Acceso Denegado',
+          text: 'No tienes permisos para modificar permisos de pantallas.',
+          confirmButtonColor: '#dc3545',
+          confirmButtonText: 'Entendido',
         })
         return
       }
@@ -305,7 +331,7 @@ export const usePermisosMatriz = (rolesList: any[] = [], fetchRoles?: () => Prom
           : `¿Estás seguro de dar el permiso "${nombrePermiso}" al rol "${nombreRol}"?`,
         icon: isCurrentlyChecked ? 'warning' : 'question',
         showCancelButton: true,
-        confirmButtonColor: isCurrentlyChecked ? '#e55353' : '#321fdb',
+        confirmButtonColor: isCurrentlyChecked ? '#dc3545' : '#044c8c',
         cancelButtonColor: '#6c757d',
         confirmButtonText: isCurrentlyChecked ? 'Sí, quitar' : 'Sí, otorgar',
         cancelButtonText: 'Cancelar',
@@ -315,16 +341,29 @@ export const usePermisosMatriz = (rolesList: any[] = [], fetchRoles?: () => Prom
         return
       }
 
+      const tienePermiso = await verificarAccionEnServidor('btn_checkbox_permisos')
+      if (!tienePermiso) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Acceso Denegado',
+          text: 'No tienes permisos para modificar permisos de pantallas.',
+          confirmButtonColor: '#dc3545',
+          confirmButtonText: 'Entendido',
+        })
+        return
+      }
+
       const nuevasPantallas = isCurrentlyChecked
         ? currentList.filter((id) => id !== idPermiso)
         : [...currentList, idPermiso]
 
       if (nuevasPantallas.length === 0) {
         Swal.fire({
+          icon: 'warning',
           title: 'Acción no permitida',
           text: `El rol "${nombreRol}" debe tener al menos una pantalla asignada en el sistema. No es posible revocar todas las pantallas a la vez. Si deseas cambiarla, primero activa otra antes de quitar esta.`,
-          icon: 'warning',
-          confirmButtonColor: '#321fdb',
+          confirmButtonColor: '#dc3545',
+          confirmButtonText: 'Entendido',
         })
         return
       }
@@ -365,10 +404,6 @@ export const usePermisosMatriz = (rolesList: any[] = [], fetchRoles?: () => Prom
           PANTALLAS: nuevasPantallas,
           ACCIONES: accionesValidas,
         })
-
-        // Sincronizar en tiempo real para que menú y permisos se actualicen de inmediato sin F5
-        notificarCambioPermisos()
-
         // Actualizar estados locales
         setMatrix((prev) => ({
           ...prev,
@@ -378,6 +413,8 @@ export const usePermisosMatriz = (rolesList: any[] = [], fetchRoles?: () => Prom
           ...prev,
           [rolId]: accionesValidas,
         }))
+
+        marcarCambioPermisos()
 
         Swal.fire({
           icon: 'success',
@@ -403,14 +440,15 @@ export const usePermisosMatriz = (rolesList: any[] = [], fetchRoles?: () => Prom
           msg = `${msg}\n\n${detalles}`
         }
         Swal.fire({
+          icon: 'error',
           title: 'Error al Guardar',
           text: msg,
-          icon: 'error',
-          confirmButtonColor: '#e55353',
+          confirmButtonColor: '#dc3545',
+          confirmButtonText: 'Entendido',
         })
       }
     },
-    [matrix, accionesMatrix, allAcciones, checkIsAdminRol],
+    [matrix, accionesMatrix, allAcciones, checkIsAdminRol, canCheckboxPermisos, verificarAccionEnServidor],
   )
 
   // Confirmar y alternar acción/botón individual para un rol con SweetAlert
@@ -421,12 +459,13 @@ export const usePermisosMatriz = (rolesList: any[] = [], fetchRoles?: () => Prom
       accion: Accion,
       pantalla: Pantalla,
     ) => {
-      if (checkIsAdminRol(rolId)) {
+      if (!canModificarAcciones) {
         Swal.fire({
-          title: 'Acceso Completo',
-          text: 'El administrador principal tiene acceso completo.',
-          icon: 'info',
-          confirmButtonColor: '#321fdb',
+          icon: 'error',
+          title: 'Acceso Denegado',
+          text: 'No tienes permisos para modificar acciones de roles.',
+          confirmButtonColor: '#dc3545',
+          confirmButtonText: 'Entendido',
         })
         return
       }
@@ -443,7 +482,7 @@ export const usePermisosMatriz = (rolesList: any[] = [], fetchRoles?: () => Prom
           : `¿Estás seguro de habilitar la acción <b>"${accion.NOMBRE_ACCION}"</b> para el rol <b>"${nombreRol}"</b>?`,
         icon: isCurrentlyActive ? 'warning' : 'question',
         showCancelButton: true,
-        confirmButtonColor: isCurrentlyActive ? '#e55353' : '#321fdb',
+        confirmButtonColor: isCurrentlyActive ? '#dc3545' : '#044c8c',
         cancelButtonColor: '#6c757d',
         confirmButtonText: isCurrentlyActive ? 'Sí, deshabilitar' : 'Sí, habilitar',
         cancelButtonText: 'Cancelar',
@@ -453,17 +492,81 @@ export const usePermisosMatriz = (rolesList: any[] = [], fetchRoles?: () => Prom
         return
       }
 
+      const tienePermiso = await verificarAccionEnServidor('btn_modificar_acciones')
+      if (!tienePermiso) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Acceso Denegado',
+          text: 'No tienes permisos para modificar acciones de roles.',
+          confirmButtonColor: '#dc3545',
+          confirmButtonText: 'Entendido',
+        })
+        return
+      }
+
       // Si se activa una acción, la pantalla DEBE estar en PANTALLAS (regla backend)
       const currentPantallas = matrix[rolId] || []
       const nuevasPantallas = isCurrentlyActive
         ? currentPantallas
         : currentPantallas.includes(pantallaIdNum)
-        ? currentPantallas
-        : [...currentPantallas, pantallaIdNum]
+          ? currentPantallas
+          : [...currentPantallas, pantallaIdNum]
 
-      const updatedAcciones = isCurrentlyActive
+      let updatedAcciones = isCurrentlyActive
         ? currentAcciones.filter((id) => id !== accionIdNum)
         : Array.from(new Set([...currentAcciones, accionIdNum]))
+
+      // Identificar si la acción actual es "Ver Acciones" o "Modificar Acciones"
+      const codigoActual = String(accion.CODIGO_ACCION || '').trim().toLowerCase()
+      const nombreActual = String(accion.NOMBRE_ACCION || '').trim().toLowerCase()
+
+      const esVerAcciones =
+        codigoActual === 'btn_ver_acciones' ||
+        nombreActual === 'ver acciones' ||
+        nombreActual.includes('ver accion')
+
+      const esModificarAcciones =
+        codigoActual === 'btn_modificar_acciones' ||
+        nombreActual === 'modificar acciones' ||
+        nombreActual.includes('modificar accion')
+
+      let mensajeExtra = ''
+
+      // REGLA 1: Si se DESHABILITA "Ver Acciones", también se DESHABILITA automáticamente "Modificar Acciones"
+      if (isCurrentlyActive && esVerAcciones) {
+        const accionModObj = allAcciones.find((a: any) => {
+          const c = String(a.CODIGO_ACCION || '').trim().toLowerCase()
+          const n = String(a.NOMBRE_ACCION || '').trim().toLowerCase()
+          return (
+            c === 'btn_modificar_acciones' ||
+            n === 'modificar acciones' ||
+            n.includes('modificar accion')
+          )
+        })
+        if (accionModObj) {
+          const modId = Number(accionModObj.ID_ACCION ?? (accionModObj as any).id)
+          updatedAcciones = updatedAcciones.filter((id) => id !== modId)
+          mensajeExtra = ' (y se deshabilitó automáticamente "Modificar Acciones")'
+        }
+      }
+
+      // REGLA 2: Si se HABILITA "Modificar Acciones", también se HABILITA automáticamente "Ver Acciones"
+      if (!isCurrentlyActive && esModificarAcciones) {
+        const accionVerObj = allAcciones.find((a: any) => {
+          const c = String(a.CODIGO_ACCION || '').trim().toLowerCase()
+          const n = String(a.NOMBRE_ACCION || '').trim().toLowerCase()
+          return (
+            c === 'btn_ver_acciones' ||
+            n === 'ver acciones' ||
+            n.includes('ver accion')
+          )
+        })
+        if (accionVerObj) {
+          const verId = Number(accionVerObj.ID_ACCION ?? (accionVerObj as any).id)
+          updatedAcciones = Array.from(new Set([...updatedAcciones, verId]))
+          mensajeExtra = ' (y se habilitó automáticamente "Ver Acciones")'
+        }
+      }
 
       // Regla backend: Solo enviar IDs de acciones cuyas pantallas estén en nuevasPantallas
       const accionesValidas = updatedAcciones.filter((accId) => {
@@ -477,9 +580,6 @@ export const usePermisosMatriz = (rolesList: any[] = [], fetchRoles?: () => Prom
           ACCIONES: accionesValidas,
         })
 
-        // Sincronizar en tiempo real para que menú y permisos se actualicen de inmediato sin F5
-        notificarCambioPermisos()
-
         // Actualizar estados locales
         setAccionesMatrix((prev) => ({
           ...prev,
@@ -490,11 +590,13 @@ export const usePermisosMatriz = (rolesList: any[] = [], fetchRoles?: () => Prom
           [rolId]: nuevasPantallas,
         }))
 
+        marcarCambioPermisos()
+
         Swal.fire({
           icon: 'success',
           title: isCurrentlyActive ? 'Acción deshabilitada' : 'Acción habilitada',
-          text: `La acción "${accion.NOMBRE_ACCION}" fue actualizada para ${nombreRol}.`,
-          timer: 1600,
+          text: `La acción "${accion.NOMBRE_ACCION}" fue actualizada para ${nombreRol}${mensajeExtra}.`,
+          timer: 2000,
           showConfirmButton: false,
         })
       } catch (error: any) {
@@ -514,126 +616,33 @@ export const usePermisosMatriz = (rolesList: any[] = [], fetchRoles?: () => Prom
           msg = `${msg}\n\n${detalles}`
         }
         Swal.fire({
+          icon: 'error',
           title: 'Error al Guardar',
           text: msg,
-          icon: 'error',
-          confirmButtonColor: '#e55353',
+          confirmButtonColor: '#dc3545',
+          confirmButtonText: 'Entendido',
         })
       }
     },
-    [accionesMatrix, matrix, allAcciones, checkIsAdminRol],
+    [accionesMatrix, matrix, allAcciones, checkIsAdminRol, canModificarAcciones, verificarAccionEnServidor],
   )
 
-  // Habilitar o deshabilitar en bloque todas las acciones de una pantalla para un rol
-  const handleConfirmarToggleTodasAcciones = useCallback(
-    async (
-      rolId: number,
-      nombreRol: string,
-      pantalla: Pantalla,
-      habilitarTodas: boolean,
-    ) => {
-      if (checkIsAdminRol(rolId)) {
-        Swal.fire({
-          title: 'Acceso Completo',
-          text: 'El administrador principal tiene acceso completo.',
-          icon: 'info',
-          confirmButtonColor: '#321fdb',
-        })
-        return
-      }
 
-      const pantallaIdNum = Number(pantalla.ID_PERMISO)
-      const accionesDeEstaPantalla = allAcciones
-        .filter((a: any) => Number(a.ID_PERMISO) === pantallaIdNum)
-        .map((a: any) => Number(a.ID_ACCION ?? a.id))
 
-      if (accionesDeEstaPantalla.length === 0) return
-
-      const result = await Swal.fire({
-        title: habilitarTodas
-          ? '¿Habilitar todas las acciones?'
-          : '¿Deshabilitar todas las acciones?',
-        html: habilitarTodas
-          ? `¿Estás seguro de habilitar todos los botones de <b>"${pantalla.NOMBRE_PERMISO}"</b> para el rol <b>"${nombreRol}"</b>?`
-          : `¿Estás seguro de quitar todos los botones de <b>"${pantalla.NOMBRE_PERMISO}"</b> al rol <b>"${nombreRol}"</b>?`,
-        icon: habilitarTodas ? 'question' : 'warning',
-        showCancelButton: true,
-        confirmButtonColor: habilitarTodas ? '#321fdb' : '#e55353',
-        cancelButtonColor: '#6c757d',
-        confirmButtonText: habilitarTodas ? 'Sí, habilitar todas' : 'Sí, deshabilitar todas',
-        cancelButtonText: 'Cancelar',
-      })
-
-      if (!result.isConfirmed) return
-
-      const currentPantallas = matrix[rolId] || []
-      const nuevasPantallas = habilitarTodas
-        ? currentPantallas.includes(pantallaIdNum)
-          ? currentPantallas
-          : [...currentPantallas, pantallaIdNum]
-        : currentPantallas
-
-      const currentAcciones = accionesMatrix[rolId] || []
-      let updatedAcciones: number[]
-      if (habilitarTodas) {
-        updatedAcciones = Array.from(new Set([...currentAcciones, ...accionesDeEstaPantalla]))
-      } else {
-        updatedAcciones = currentAcciones.filter((id) => !accionesDeEstaPantalla.includes(id))
-      }
-
-      const accionesValidas = updatedAcciones.filter((accId) => {
-        const accObj = allAcciones.find((a: any) => Number(a.ID_ACCION ?? a.id) === accId)
-        return accObj && nuevasPantallas.includes(Number(accObj.ID_PERMISO))
-      })
-
-      try {
-        await guardarPermisosRol(rolId, {
-          PANTALLAS: nuevasPantallas,
-          ACCIONES: accionesValidas,
-        })
-
-        // Sincronizar en tiempo real para que menú y permisos se actualicen de inmediato sin F5
-        notificarCambioPermisos()
-
-        setAccionesMatrix((prev) => ({
-          ...prev,
-          [rolId]: accionesValidas,
-        }))
-        setMatrix((prev) => ({
-          ...prev,
-          [rolId]: nuevasPantallas,
-        }))
-
-        Swal.fire({
-          icon: 'success',
-          title: habilitarTodas ? 'Acciones habilitadas' : 'Acciones deshabilitadas',
-          text: `Se actualizaron las acciones de "${pantalla.NOMBRE_PERMISO}" para ${nombreRol}.`,
-          timer: 1600,
-          showConfirmButton: false,
-        })
-      } catch (error: any) {
-        console.error('[usePermisosMatriz] Error al actualizar todas las acciones:', error)
-        Swal.fire({
-          title: 'Error al Guardar',
-          text: error?.response?.data?.message || 'Error en el servidor',
-          icon: 'error',
-          confirmButtonColor: '#e55353',
-        })
-      }
-    },
-    [accionesMatrix, matrix, allAcciones, checkIsAdminRol],
-  )
 
   // Refrescar todos los datos desde el backend
   const handleRefrescarTodo = useCallback(async () => {
-    if (fetchRoles) {
-      await fetchRoles()
+    try {
+      setLoadingMatriz(true)
+      await cargarCatalogo()
+      if (fetchRoles) {
+        await fetchRoles()
+      }
+    } catch (err) {
+      console.error('[usePermisosMatriz] Error al refrescar todo:', err)
+      setLoadingMatriz(false)
     }
-    await cargarCatalogo()
-    if (rolesList && rolesList.length > 0) {
-      await cargarPermisosRoles(rolesList)
-    }
-  }, [fetchRoles, cargarCatalogo, cargarPermisosRoles, rolesList])
+  }, [fetchRoles, cargarCatalogo])
 
   return {
     catalogo,
@@ -666,8 +675,16 @@ export const usePermisosMatriz = (rolesList: any[] = [], fetchRoles?: () => Prom
     getRolPermisosCount,
     handleConfirmarCambioPermiso,
     handleConfirmarCambioAccion,
-    handleConfirmarToggleTodasAcciones,
     handleRefrescarTodo,
+    pantallaSeleccionada,
+    setPantallaSeleccionada,
+    modalAccionesVisible,
+    setModalAccionesVisible,
+    handleAbrirAcciones,
+    handleCerrarAcciones,
+    canVerAcciones,
+    canCheckboxPermisos,
+    canModificarAcciones,
   }
 }
 

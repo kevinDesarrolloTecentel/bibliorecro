@@ -19,20 +19,20 @@ import {
   cilPencil,
   cilPlus,
   cilSearch,
+  cilSync,
   cilTrash,
   cilTruck,
   cilX,
 } from '@coreui/icons'
 import ModalPv from '@/components/details_bk/proveedor'
 import useProveedor from '@/hooks/rco-libros/useProveedor'
-import { usePermissions } from '@/context/PermissionsContext'
 
 const Supplier = () => {
   const proveedorHook = useProveedor()
 
-  const { canDoAction } = usePermissions()
   const {
     handleOpen,
+    handleRecargar,
     proveedoresFiltrados,
     proveedoresPaginados,
     loadingProveedor,
@@ -46,9 +46,15 @@ const Supplier = () => {
     totalProveedores,
     totalFiltrados,
     handlePageChange,
+    canCrearProveedor,
+    canEditarProveedor,
+    canEliminarProveedor,
+    canVerInfoProveedor,
   } = proveedorHook
 
   const handleToggleSelect = (proveedor: any) => {
+    if (!canVerInfoProveedor) return
+
     const currentId = String(proveedorSeleccionado?.ID_PROVEEDOR ?? proveedorSeleccionado?.id ?? '')
     const targetId = String(proveedor?.ID_PROVEEDOR ?? proveedor?.id ?? '')
     if (currentId && currentId === targetId) {
@@ -71,17 +77,30 @@ const Supplier = () => {
             Administra el catálogo de proveedores.
           </p>
         </div>
-        <div className="d-flex gap-2">
-          {canDoAction('btn_crear_proveedor') && (
+        <div className="d-flex align-items-center gap-2">
           <CButton
-            color="success"
-            variant='outline'
-            className="d-flex align-items-center gap-2 shadow-sm hover:text-body"
-            onClick={() => handleOpen()}
+            color="secondary"
+            variant="outline"
+            size="sm"
+            disabled={loadingProveedor}
+            className="d-flex align-items-center gap-1 shadow-sm"
+            onClick={() => handleRecargar()}
+            title="Refrescar lista y reiniciar filtros"
           >
-            <CIcon icon={cilPlus} />
-            <span>Nuevo Proveedor</span>
+            <CIcon icon={cilSync} className={`me-1 ${loadingProveedor ? 'rotate-animation' : ''}`} />
+            <span>{loadingProveedor ? 'Refrescando...' : 'Refrescar'}</span>
           </CButton>
+          {canCrearProveedor && (
+            <CButton
+              color="success"
+              variant='outline'
+              size="sm"
+              className="d-flex align-items-center gap-2 shadow-sm hover:text-white"
+              onClick={() => handleOpen()}
+            >
+              <CIcon icon={cilPlus} />
+              <span>Nuevo Proveedor</span>
+            </CButton>
           )}
         </div>
       </div>
@@ -161,21 +180,21 @@ const Supplier = () => {
                             : 'bg-body'
                             }`}
                           style={{
-                            cursor: 'pointer',
+                            cursor: canVerInfoProveedor ? 'pointer' : 'default',
                             borderColor: isSelected ? '#0d6efd' : '#dee2e6',
                             transition: 'all 0.2s ease',
                           }}
                           onMouseEnter={(e) => {
-                            if (!isSelected) e.currentTarget.style.borderColor = '#0d6efd'
+                            if (canVerInfoProveedor && !isSelected) e.currentTarget.style.borderColor = '#0d6efd'
                           }}
                           onMouseLeave={(e) => {
-                            if (!isSelected) e.currentTarget.style.borderColor = '#dee2e6'
+                            if (canVerInfoProveedor && !isSelected) e.currentTarget.style.borderColor = '#dee2e6'
                           }}
                         >
                           <div className="d-flex align-items-center gap-3">
                             <div
                               className={`rounded-circle p-2 d-flex align-items-center justify-content-center ${isSelected
-                                ? 'bg-primary text-body'
+                                ? 'bg-primary text-white'
                                 : 'bg-primary bg-opacity-10 text-primary'
                                 }`}
                               style={{ width: '40px', height: '40px' }}
@@ -220,22 +239,48 @@ const Supplier = () => {
                 <CIcon icon={cilInfo} className="text-primary" />
                 <span>Detalle del Proveedor</span>
               </div>
-              {proveedorSeleccionado && (
+              <div className="d-flex align-items-center gap-1">
                 <CButton
                   color="secondary"
                   variant="ghost"
                   size="sm"
-                  className="py-0 px-2 text-muted"
-                  onClick={() => setProveedorSeleccionado(null)}
-                  title="Deseleccionar proveedor"
+                  disabled={loadingProveedor}
+                  className="p-1 text-muted"
+                  onClick={() => handleRecargar()}
+                  title="Refrescar y limpiar selección"
                 >
-                  <span className="small">Deseleccionar ✕</span>
+                  <CIcon icon={cilSync} className={loadingProveedor ? 'rotate-animation' : ''} />
                 </CButton>
-              )}
+                {proveedorSeleccionado && (
+                  <CButton
+                    color="secondary"
+                    variant="ghost"
+                    size="sm"
+                    className="p-1 text-muted"
+                    onClick={() => setProveedorSeleccionado(null)}
+                    title="Cerrar detalle"
+                  >
+                    <CIcon icon={cilX} />
+                  </CButton>
+                )}
+              </div>
             </CCardHeader>
 
             <CCardBody className="p-4 d-flex flex-column justify-content-between">
-              {proveedorSeleccionado ? (
+              {!canVerInfoProveedor ? (
+                <div className="text-center py-5 my-auto text-muted">
+                  <div
+                    className="bg-body rounded-circle p-4 d-inline-flex align-items-center justify-content-center mb-3"
+                    style={{ width: '80px', height: '80px' }}
+                  >
+                    <CIcon icon={cilTruck} size="xxl" className="text-danger opacity-50" />
+                  </div>
+                  <h6 className="fw-bold text-body mb-1">Información no disponible</h6>
+                  <p className="small text-muted mb-0 px-3">
+                    No cuentas con los permisos necesarios para visualizar la información y las acciones de este proveedor.
+                  </p>
+                </div>
+              ) : proveedorSeleccionado ? (
                 <div>
                   <div className="d-flex align-items-center gap-2 mb-3 text-success">
                     <CIcon icon={cilCheckCircle} size="lg" />
@@ -245,7 +290,7 @@ const Supplier = () => {
                   <div className="bg-body p-3 rounded border mb-4">
                     <div className="d-flex align-items-center gap-3 mb-3">
                       <div
-                        className="bg-primary text-body rounded-circle p-3 d-flex align-items-center justify-content-center shadow-sm"
+                        className="bg-primary text-white rounded-circle p-3 d-flex align-items-center justify-content-center shadow-sm"
                         style={{ width: '54px', height: '54px' }}
                       >
                         <CIcon icon={cilTruck} size="xl" />
@@ -266,26 +311,28 @@ const Supplier = () => {
                   </div>
 
                   <div className="d-flex gap-2 justify-content-end">
-                    {canDoAction('btn_eliminar_proveedor') && (
-                    <CButton
-                      color='danger'
-                      variant='outline'
-                      className='hover:text-white d-flex align-items-center gap-2 shadow-sm'
-                      onClick={() => handleEliminarProveedor(proveedorSeleccionado)}>
-                      <CIcon icon={cilTrash} />
-                      <span>Eliminar</span>
-                    </CButton>
+                    {canEliminarProveedor && (
+                      <CButton
+                        color='danger'
+                        variant='outline'
+                        size="sm"
+                        className='hover:text-white d-flex align-items-center gap-2 shadow-sm'
+                        onClick={() => handleEliminarProveedor(proveedorSeleccionado)}>
+                        <CIcon icon={cilTrash} />
+                        <span>Eliminar</span>
+                      </CButton>
                     )}
-                    {canDoAction('btn_editar_proveedor') && (
-                    <CButton
-                      color="success"
-                      variant='outline'
-                      className="hover:text-white d-flex align-items-center gap-2 shadow-sm hover:text-body"
-                      onClick={() => handleOpen(proveedorSeleccionado)}
-                    >
-                      <CIcon icon={cilPencil} />
-                      <span>Editar Proveedor</span>
-                    </CButton>
+                    {canEditarProveedor && (
+                      <CButton
+                        color="success"
+                        variant='outline'
+                        size="sm"
+                        className="hover:text-white d-flex align-items-center gap-2 shadow-sm"
+                        onClick={() => handleOpen(proveedorSeleccionado)}
+                      >
+                        <CIcon icon={cilPencil} />
+                        <span>Editar Proveedor</span>
+                      </CButton>
                     )}
                   </div>
                 </div>
@@ -299,18 +346,20 @@ const Supplier = () => {
                   </div>
                   <h6 className="fw-bold text-body mb-1">Ningún proveedor seleccionado</h6>
                   <p className="small text-muted mb-4 px-3">
-                    Selecciona un proveedor de la lista izquierda para consultar sus detalles o modificarlo.
+                    Selecciona un proveedor de la lista para consultar sus detalles o modificarlo.
                   </p>
-                  <CButton
-                    color="primary"
-                    variant="outline"
-                    size="sm"
-                    className="d-inline-flex align-items-center gap-1"
-                    onClick={() => handleOpen()}
-                  >
-                    <CIcon icon={cilPlus} />
-                    <span>Crear Nuevo Proveedor</span>
-                  </CButton>
+                  {canCrearProveedor && (
+                    <CButton
+                      color="primary"
+                      variant="outline"
+                      size="sm"
+                      className="d-inline-flex align-items-center gap-1"
+                      onClick={() => handleOpen()}
+                    >
+                      <CIcon icon={cilPlus} />
+                      <span>Crear Nuevo Proveedor</span>
+                    </CButton>
+                  )}
                 </div>
               )}
             </CCardBody>

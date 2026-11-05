@@ -6,7 +6,7 @@ import { filterOnlyDigits, filterOnlyLetters } from '@/utils/validations'
 import usePersonas from './usePersonas'
 import { initialPersona, Persona } from '@/models/tab/persona.model'
 import { ActualizarPersonaNueva } from '@/Service/tab/Persona'
-
+import { parseDatePickerValue } from '@/utils/dateUtils'
 
 export const initialEditFormData: Persona = initialPersona
 
@@ -16,6 +16,7 @@ export interface UsePersonaEditProps {
   setVisible?: (visible: boolean) => void
   user?: Persona | any
   onSuccess?: () => void
+  readOnly?: boolean
 }
 
 export const usePersonaEdit = ({
@@ -24,6 +25,7 @@ export const usePersonaEdit = ({
   setVisible,
   user,
   onSuccess,
+  readOnly = false,
 }: UsePersonaEditProps = {}) => {
   const isVisible =
     visible !== undefined
@@ -38,6 +40,13 @@ export const usePersonaEdit = ({
       : personaState
         ? personaState.selectedUser
         : null
+
+  // Permiso heredado del hook orquestador usePersonas 
+  const canActualizar = readOnly
+    ? false
+    : personaState
+      ? personaState.canActualizarUsuario
+      : true
 
   const [formData, setFormData] = useState<Persona>(initialPersona)
   const [loading, setLoading] = useState(false)
@@ -64,8 +73,8 @@ export const usePersonaEdit = ({
     if (currentUser && isVisible) {
       const raw = currentUser.raw || currentUser || {}
       const fotoRaw =
-        currentUser.fotografia ||
         raw.FOTO_PERSONA ||
+        currentUser.fotografia ||
         ''
       setFotoActual(getUserImageUrl(fotoRaw))
       setPreviewFoto(null)
@@ -156,8 +165,43 @@ export const usePersonaEdit = ({
     setFormData((prev) => ({ ...prev, [name]: finalValue }))
   }
 
+  const handleDateChange = (date: Date | string | null) => {
+    const finalValue = parseDatePickerValue(date)
+    let calculatedAge = ''
+    if (finalValue) {
+      const birth = new Date(finalValue)
+      if (!isNaN(birth.getTime())) {
+        const today = new Date()
+        let age = today.getFullYear() - birth.getFullYear()
+        const m = today.getMonth() - birth.getMonth()
+        if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+          age--
+        }
+        if (age >= 0) {
+          calculatedAge = String(age)
+        }
+      }
+    }
+    setFormData((prev) => ({
+      ...prev,
+      FECHA_PERSONA: finalValue,
+      EDAD_PERSONA: calculatedAge || prev.EDAD_PERSONA,
+    }))
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!canActualizar) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Acceso Denegado',
+        text: 'No tienes permisos para actualizar usuarios.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return
+    }
 
     if (
       !formData.IDENTIFICACION_PERSONA?.toString().trim() ||
@@ -202,20 +246,13 @@ export const usePersonaEdit = ({
 
     const idPersona = formData.ID_PERSONA || currentUser?.id || currentUser?.raw?.ID_PERSONA
     if (!idPersona) {
-      Swal.mixin({
-        toast: true,
-        position: "top-end",
-        showConfirmButton: false,
-        timer: 3000,
-        timerProgressBar: true,
-        didOpen: (toast) => {
-          toast.onmouseenter = Swal.stopTimer;
-          toast.onmouseleave = Swal.resumeTimer;
-        }
-      }).fire({
-        icon: "error",
-        title: "No se encontró el ID del usuario a editar."
-      });
+      Swal.fire({
+        icon: 'error',
+        title: 'Error de identificación',
+        text: 'No se encontró el ID del usuario a editar.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
       return
     }
 
@@ -272,7 +309,7 @@ export const usePersonaEdit = ({
       formDataToSend.append('CELULAR_PERSONA', formData.CELULAR_PERSONA?.trim() || '')
       formDataToSend.append('CORREO_PERSONA', formData.CORREO_PERSONA?.trim() || '')
       formDataToSend.append('DIRECCION_PERSONA', formData.DIRECCION_PERSONA?.trim() || '')
-      formDataToSend.append('DETALLE_INSCRIPCION', formData.DETALLE_INSCRIPCION?.trim() || '')
+      formDataToSend.append('DETALLE_INSCRIPCION', formData.DETALLE_PERSONA?.trim() || '')
       formDataToSend.append('DETALLE_PERSONA', formData.DETALLE_PERSONA?.trim() || '')
       formDataToSend.append('FECHA_PERSONA', fechaPersona)
 
@@ -329,20 +366,13 @@ export const usePersonaEdit = ({
       }
 
       if (ok) {
-        Swal.mixin({
-          toast: true,
-          position: "top-end",
+        Swal.fire({
+          icon: 'success',
+          title: '¡Usuario actualizado!',
+          text: 'Los datos del usuario se guardaron correctamente.',
+          timer: 1800,
           showConfirmButton: false,
-          timer: 3000,
-          timerProgressBar: true,
-          didOpen: (toast) => {
-            toast.onmouseenter = Swal.stopTimer;
-            toast.onmouseleave = Swal.resumeTimer;
-          }
-        }).fire({
-          icon: "success",
-          title: "Datos actualizados correctamente"
-        });
+        })
         handleClose()
         if (onSuccess) {
           onSuccess()
@@ -355,20 +385,13 @@ export const usePersonaEdit = ({
       const errorMsg =
         error?.response?.data?.message ||
         'No se pudo actualizar los datos del usuario.'
-      Swal.mixin({
-        toast: true,
-        position: "top-end",
-        showConfirmButton: false,
-        timer: 3000,
-        timerProgressBar: true,
-        didOpen: (toast) => {
-          toast.onmouseenter = Swal.stopTimer;
-          toast.onmouseleave = Swal.resumeTimer;
-        }
-      }).fire({
-        icon: "error",
-        title: errorMsg
-      });
+      Swal.fire({
+        icon: 'error',
+        title: 'Error al actualizar',
+        text: errorMsg,
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
     } finally {
       setLoading(false)
     }
@@ -397,10 +420,13 @@ export const usePersonaEdit = ({
     previewFoto,
     fotoActual,
     handleChange,
+    handleDateChange,
     handleClose,
     handleSubmit,
     handleFotoChange,
     setFormData,
+    canActualizar,
+    readOnly,
   }
 }
 

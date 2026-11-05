@@ -1,39 +1,185 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import Swal from 'sweetalert2'
-import { getStoredUser, setAuthSession } from '@/utils/auth'
+import { getStoredUser, setAuthSession, clearAuthSession } from '@/utils/auth'
 import { useDispatch } from 'react-redux'
-import { loginSuccess } from '@/authSlice'
-import { actualizar, crear, eliminar, listar, perfil } from '@/Service/amd/AdminUser'
-import { listarRoles } from '@/Service/amd/rolService'
+import { loginSuccess, sessionExpired } from '@/authSlice'
+import { actualizar, crear, eliminar } from '@/Service/adm/AdminUser'
+import { asignarRolesUsuario, listarUsuariosConRoles } from '@/Service/adm/Rol'
 import { UserData } from '@/models/auth'
-import useAuth from '@/hooks/useAuth'
-import { ordenarRoles } from '@/hooks/admin-roles/useRoles'
+import { AdminUser, UserFormData, UserEditFormData, CreateUserPayload, UpdateUserPayload, UserTableItem } from '@/models/adm/user.model'
+import { Rol } from '@/models/adm/rol.model'
+import useAuth from '@/hooks/auth/useAuth'
+import { usePermissions, marcarCambioPermisos } from '@/context/PermissionsContext'
 
-const Toast = Swal.mixin({
-  toast: true,
-  position: 'top-end',
-  showConfirmButton: false,
-  timer: 3000,
-  timerProgressBar: true
-})
 
-const formatApiError = (error: any, defaultMsg: string): string => {
-  const data = error?.response?.data
-  if (!data) return error?.message || defaultMsg
-  if (typeof data === 'string') return data
-  if (data.errors && typeof data.errors === 'object') {
-    const msgs = Object.entries(data.errors)
-      .map(([field, msgList]: [string, any]) => {
-        const text = Array.isArray(msgList) ? msgList.join(', ') : String(msgList)
-        return `${field}: ${text}`
-      })
-      .join(' | ')
-    if (msgs) return msgs
+const translateFieldName = (field: string): string => {
+  const f = field.toLowerCase().replace(/[_-]/g, ' ').trim()
+  if (f.includes('nick') || f.includes('usuario') || f === 'user' || f === 'username') return 'Usuario'
+  if (f.includes('pass') || f.includes('contrase')) return 'Contraseña'
+  if (f.includes('nombre') || f.includes('name')) return 'Nombres Completos'
+  if (f.includes('rol') || f.includes('role')) return 'Rol'
+  if (f.includes('estado') || f.includes('status')) return 'Estado'
+  return field
+}
+
+const translateErrorMessage = (msg: string, fieldName: string = ''): string => {
+  if (typeof msg !== 'string') return String(msg || '')
+  const lower = msg.toLowerCase().trim()
+
+  if (
+    lower.includes('already been taken') ||
+    lower.includes('already exists') ||
+    lower.includes('ya existe') ||
+    lower.includes('ya ha sido tomado') ||
+    lower.includes('duplicate')
+  ) {
+    if (fieldName.toLowerCase().includes('usuario') || lower.includes('nick')) {
+      return 'El nombre de usuario ya está registrado en el sistema. Por favor elija otro.'
+    }
+    return `El ${fieldName || 'campo'} ya se encuentra registrado en el sistema.`
   }
-  if (data.message && typeof data.message === 'string') return data.message
-  if (data.error && typeof data.error === 'string') return data.error
-  if (data.msg && typeof data.msg === 'string') return data.msg
-  return defaultMsg
+
+  const minMatch = lower.match(/must be at least (\d+) characters/)
+  if (minMatch) {
+    const min = minMatch[1]
+    if (fieldName.toLowerCase().includes('contrase') || lower.includes('password')) {
+      return `La contraseña debe tener al menos ${min} caracteres.`
+    }
+    return `El campo ${fieldName || 'indicado'} debe tener al menos ${min} caracteres.`
+  }
+
+  // Longitud máxima
+  const maxMatch = lower.match(/may not be greater than (\d+) characters/)
+  if (maxMatch) {
+    const max = maxMatch[1]
+    return `El campo ${fieldName || 'indicado'} no puede tener más de ${max} caracteres.`
+  }
+
+  // Campo obligatorio
+  if (lower.includes('is required') || lower.includes('es requerido') || lower.includes('es obligatorio')) {
+    if (fieldName.toLowerCase().includes('rol')) {
+      return 'Debe seleccionar un Rol.'
+    }
+    return `El campo ${fieldName || 'indicado'} es obligatorio.`
+  }
+
+  // Valores inválidos
+  if (lower.includes('invalid') || lower.includes('inválido')) {
+    return `El valor ingresado para ${fieldName || 'el campo'} es inválido.`
+  }
+
+  // Sesión vencida
+  if (lower.includes('unauthenticated')) {
+    return 'Su sesión ha expirado. Por favor vuelva a iniciar sesión.'
+  }
+
+  return msg
+}
+
+/**
+ * Procesa la respuesta de error de la API y extrae una lista estructurada de errores en español
+ */
+export const parseApiErrors = (error: any, defaultMsg: string): { title: string; messages: string[]; isDuplicate: boolean } => {
+  const data = error?.response?.data
+  const status = error?.response?.status
+
+  if (!data) {
+    if (error?.message && error.message.toLowerCase().includes('network')) {
+      return { title: 'Error de conexión', messages: ['No se pudo conectar con el servidor. Verifique su conexión de red.'], isDuplicate: false }
+    }
+    return { title: 'Error', messages: [error?.message || defaultMsg], isDuplicate: false }
+  }
+
+  const rawErrors: string[] = []
+  let isDuplicate = false
+
+  // 1. Si vienen errores por campos (formato Laravel standard 422: data.errors = { field: [msg1, msg2] })
+  if (data.errors && typeof data.errors === 'object') {
+    Object.entries(data.errors).forEach(([field, msgList]: [string, any]) => {
+      const fieldLabel = translateFieldName(field)
+      const list = Array.isArray(msgList) ? msgList : [msgList]
+      list.forEach((m: any) => {
+        const text = String(m || '')
+        if (
+          text.toLowerCase().includes('already been taken') ||
+          text.toLowerCase().includes('ya ha sido tomado') ||
+          text.toLowerCase().includes('duplicate')
+        ) {
+          isDuplicate = true
+        }
+        rawErrors.push(translateErrorMessage(text, fieldLabel))
+      })
+    })
+  }
+
+  // 2. Si viene un mensaje simple de error
+  if (rawErrors.length === 0) {
+    const singleMsg = data.message || data.error || data.msg
+    if (typeof singleMsg === 'string' && singleMsg.trim()) {
+      if (
+        singleMsg.toLowerCase().includes('already been taken') ||
+        singleMsg.toLowerCase().includes('duplicate') ||
+        singleMsg.toLowerCase().includes('ya existe')
+      ) {
+        isDuplicate = true
+      }
+      if (singleMsg !== 'The given data was invalid.') {
+        rawErrors.push(translateErrorMessage(singleMsg, 'Usuario'))
+      }
+    }
+  }
+
+  if (rawErrors.length === 0) {
+    rawErrors.push(defaultMsg)
+  }
+
+  let title = 'Error'
+  if (isDuplicate) {
+    title = 'Usuario ya existente'
+  } else if (status === 422) {
+    title = 'Campos requeridos o inválidos'
+  } else if (status === 401 || status === 419) {
+    title = 'Sesión expirada'
+  } else {
+    title = 'Error en la operación'
+  }
+
+  return { title, messages: rawErrors, isDuplicate }
+}
+
+/**
+ * Muestra una alerta visual atractiva (SweetAlert2) con diseño pulido
+ */
+export const showErrorAlert = (title: string, messages: string[]) => {
+  if (messages.length === 1) {
+    Swal.fire({
+      icon: 'warning',
+      title,
+      text: messages[0],
+      confirmButtonColor: '#e55353',
+      confirmButtonText: 'Entendido',
+    })
+  } else {
+    Swal.fire({
+      icon: 'warning',
+      title,
+      html: `
+        <div style="text-align: left; font-size: 0.92rem; padding: 0.2rem 0.4rem;">
+          <p style="margin-bottom: 0.6rem; color: #495057; font-weight: 500;">Por favor revise los siguientes datos:</p>
+          <ul style="color: #dc3545; padding-left: 1.2rem; margin: 0; line-height: 1.7;">
+            ${messages.map((m) => `<li>${m}</li>`).join('')}
+          </ul>
+        </div>
+      `,
+      confirmButtonColor: '#e55353',
+      confirmButtonText: 'Entendido',
+    })
+  }
+}
+
+export const formatApiError = (error: any, defaultMsg: string): string => {
+  const { messages } = parseApiErrors(error, defaultMsg)
+  return messages.join(' | ')
 }
 
 export const isBcryptHash = (str: unknown): boolean => {
@@ -47,9 +193,9 @@ export const isBcryptHash = (str: unknown): boolean => {
 }
 
 export const useUsers = (options: { fetchAll?: boolean } = { fetchAll: true }) => {
-  const [usuarios, setUsuarios] = useState<any[]>([])
-  const [rolesList, setRolesList] = useState<any[]>([])
-  const [loadingRoles, setLoadingRoles] = useState(false)
+  const [usuarios, setUsuarios] = useState<AdminUser[]>([])
+  const [rolesList] = useState<Rol[]>([])
+  const [loadingRoles] = useState(false)
   const [loading, setLoading] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
@@ -59,14 +205,14 @@ export const useUsers = (options: { fetchAll?: boolean } = { fetchAll: true }) =
   const [modalVisible, setModalVisible] = useState(false)
   const [modalEdit, setModalEdit] = useState(false)
   const [filtroRol, setFiltroRol] = useState<string>('todos')
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<UserFormData>({
     nombres: '',
     password: '',
     usuario: '',
     rol: '',
     estado: 'Activo'
   })
-  const [editFormData, setEditFormData] = useState({
+  const [editFormData, setEditFormData] = useState<UserEditFormData>({
     id: '',
     nombres: '',
     password: '',
@@ -76,24 +222,37 @@ export const useUsers = (options: { fetchAll?: boolean } = { fetchAll: true }) =
   })
   const dispatch = useDispatch()
   const { user } = useAuth()
+  const { canDoAction, verificarAccionEnServidor } = usePermissions()
   const activeUser = user || getStoredUser()
+
+  const canCrearUsuario = canDoAction('btn_crear_usuario')
+  const canGuardarUsuario = canDoAction('btn_guardar_usuario')
+  const canEditarUsuario = canDoAction('btn_editar_usuario')
+  const canActualizarUsuario = canDoAction('btn_actualizar_usuario')
+  const canEliminarUsuario = canDoAction('btn_eliminar_usuario')
 
 
   const fetchUsuarios = useCallback(async () => {
     setLoading(true)
     setErrorMsg(null)
     try {
-      const datos = await listar()
+      const datos = await listarUsuariosConRoles()
       const lista = Array.isArray(datos)
         ? datos
         : datos?.data || datos?.users || datos?.usuarios || []
       setUsuarios(lista)
     } catch (error: any) {
-      console.error('Error al listar usuarios:', error)
+      console.error('Error al obtener usuarios:', error)
       if (error?.response?.status === 401) {
         setErrorMsg(
           'El servidor rechazó la autenticación (Error 401: Unauthenticated). Por favor, haz clic en "Iniciar Sesión" para reintentar.',
         )
+      } else if (error?.response?.status === 403) {
+        clearAuthSession()
+        dispatch(sessionExpired())
+        if (typeof window !== 'undefined' && !window.location.hash.includes('#/login')) {
+          window.location.replace('/#/login?user_inactive=true')
+        }
       } else {
         setErrorMsg('No se pudo conectar con el servidor para obtener los usuarios.')
       }
@@ -103,64 +262,153 @@ export const useUsers = (options: { fetchAll?: boolean } = { fetchAll: true }) =
   }, [])
 
   const fetchRoles = useCallback(async () => {
-    try {
-      setLoadingRoles(true)
-      const datos = await listarRoles()
-      const lista = Array.isArray(datos) ? datos : datos?.data || datos?.roles || []
-      setRolesList(ordenarRoles(lista))
-    } catch (error) {
-      console.error('Error al cargar roles:', error)
-    } finally {
-      setLoadingRoles(false)
-    }
+    // Roles ya no se consultan en el módulo de usuarios
   }, [])
 
-  const handleCrearUsuario = async (formData: any): Promise<boolean> => {
-    if (
-      !formData.usuario?.trim() ||
-      !formData.password?.trim() ||
-      !formData.nombres?.trim() ||
-      !formData.rol
-    ) {
-      Toast.fire({
-        icon: 'warning',
-        title: 'Por favor, completa todos los campos requeridos',
+  const handleRecargar = useCallback(async () => {
+    setLoading(true)
+    try {
+      setFiltroRol('todos')
+      await fetchUsuarios()
+    } catch (error) {
+      console.error('Error al refrescar:', error)
+    } finally {
+      setLoading(false)
+    }
+  }, [fetchUsuarios])
+
+  const validateUserData = (
+    data: { usuario?: string; password?: string; nombres?: string; rol?: any },
+    isEdit: boolean = false
+  ): string[] => {
+    const errors: string[] = []
+    const userClean = (data.usuario || '').trim()
+    const passClean = data.password || ''
+    const nombresClean = (data.nombres || '').trim()
+
+    // 1. Validación de usuario
+    if (!userClean) {
+      errors.push('El campo "Usuario" es obligatorio.')
+    } else if (userClean.length < 3) {
+      errors.push('El nombre de usuario debe tener al menos 3 caracteres.')
+    } else if (/\s/.test(userClean)) {
+      errors.push('El nombre de usuario no debe contener espacios en blanco.')
+    }
+
+    // 2. Validación de contraseña
+    if (!isEdit) {
+      if (!passClean) {
+        errors.push('El campo "Contraseña" es obligatorio.')
+      } else if (passClean.length < 6) {
+        errors.push('La contraseña debe tener al menos 6 caracteres.')
+      }
+    } else {
+      // En edición la contraseña es opcional, pero si la escribe debe tener mínimo 6 caracteres
+      if (passClean && passClean.trim() !== '' && passClean !== '••••••••' && !isBcryptHash(passClean)) {
+        if (passClean.length < 6) {
+          errors.push('La nueva contraseña debe tener al menos 6 caracteres.')
+        }
+      }
+    }
+
+    // 3. Validación de nombres completos
+    if (!nombresClean) {
+      errors.push('El campo "Nombres Completos" es obligatorio.')
+    } else if (nombresClean.length < 3) {
+      errors.push('Los nombres completos deben tener al menos 3 caracteres.')
+    } else if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/.test(nombresClean)) {
+      errors.push('El campo "Nombres Completos" solo debe contener letras.')
+    }
+
+    return errors
+  }
+
+  const handleCrearUsuario = async (formData: UserFormData): Promise<boolean> => {
+    if (!canGuardarUsuario) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Acceso Denegado',
+        text: 'No tienes permisos para guardar o registrar un nuevo usuario.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
       })
+      return false
+    }
+
+    const tienePermiso = await verificarAccionEnServidor('btn_guardar_usuario')
+    if (!tienePermiso) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Acceso Denegado',
+        text: 'No tienes permisos para guardar o registrar un nuevo usuario.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return false
+    }
+
+    const validationErrors = validateUserData(formData, false)
+    if (validationErrors.length > 0) {
+      showErrorAlert('Campos requeridos o inválidos', validationErrors)
       return false
     }
 
     try {
       setGuardando(true)
       const estadoNum = formData.estado === 'Activo' || formData.estado === '1' ? 1 : 0
-      const rolNum = Number(formData.rol) || formData.rol
+      const rolNum = formData.rol ? (Number(formData.rol) || formData.rol) : null
 
-      const payload: any = {
+      const payload: CreateUserPayload = {
         NICK_USUARIO: formData.usuario.trim(),
         PASSWORD_USUARIO: formData.password,
         NOMBRES_USUARIO: formData.nombres.trim(),
-        ID_ROL: rolNum,
         ESTADO_USUARIO: estadoNum,
-        rol: rolNum,
         estado: estadoNum,
         usuario: formData.usuario.trim(),
         password: formData.password,
         nombres: formData.nombres.trim(),
       }
 
-      await crear(payload)
-      Toast.fire({
+      if (rolNum) {
+        payload.ID_ROL = rolNum
+        payload.rol = rolNum
+      }
+
+      const res = await crear(payload)
+
+      // Sincronizar también con la tabla intermedia de roles múltiples
+      const newId =
+        res?.data?.ID_USUARIO ??
+        res?.data?.id ??
+        res?.user?.ID_USUARIO ??
+        res?.user?.id ??
+        res?.ID_USUARIO ??
+        res?.id
+
+      if (newId && rolNum) {
+        try {
+          await asignarRolesUsuario(newId, [rolNum])
+          marcarCambioPermisos()
+        } catch (syncErr) {
+          console.warn('[handleCrearUsuario] Sincronización en tabla intermedia omitida o fallida:', syncErr)
+        }
+      }
+
+      Swal.fire({
         icon: 'success',
-        title: 'Usuario creado exitosamente',
+        title: '¡Usuario creado!',
+        text: 'El nuevo usuario se registró exitosamente.',
+        timer: 1800,
+        showConfirmButton: false,
       })
-      await fetchUsuarios()
+      if (options?.fetchAll !== false) {
+        await fetchUsuarios()
+      }
       return true
     } catch (error: any) {
       console.error('Error al crear usuario:', error)
-      const msg = formatApiError(error, 'Error al crear el usuario')
-      Toast.fire({
-        icon: 'error',
-        title: msg,
-      })
+      const { title, messages } = parseApiErrors(error, 'Error al crear el usuario')
+      showErrorAlert(title, messages)
       return false
     } finally {
       setGuardando(false)
@@ -169,28 +417,55 @@ export const useUsers = (options: { fetchAll?: boolean } = { fetchAll: true }) =
 
   const handleActualizarUsuario = async (
     id: string | number,
-    editFormData: any,
+    editFormData: UserEditFormData,
   ): Promise<boolean> => {
-    if (!editFormData.usuario?.trim() || !editFormData.nombres?.trim() || !editFormData.rol) {
-      Toast.fire({
-        icon: 'warning',
-        title: 'Por favor, completa los campos requeridos',
+    if (!canActualizarUsuario) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Acceso Denegado',
+        text: 'No tienes permisos para actualizar este usuario.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
       })
+      return false
+    }
+
+    const tienePermiso = await verificarAccionEnServidor('btn_actualizar_usuario')
+    if (!tienePermiso) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Acceso Denegado',
+        text: 'No tienes permisos para actualizar este usuario.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return false
+    }
+
+    const validationErrors = validateUserData(editFormData, true)
+    if (validationErrors.length > 0) {
+      showErrorAlert('Campos requeridos o inválidos', validationErrors)
       return false
     }
 
     try {
       setGuardando(true)
       const estadoNum = editFormData.estado === 'Activo' || editFormData.estado === '1' ? 1 : 0
-      const rolNum = Number(editFormData.rol) || editFormData.rol
+      const rolNum =
+        editFormData.rol && !isNaN(Number(editFormData.rol)) && Number(editFormData.rol) > 0
+          ? Number(editFormData.rol)
+          : null
 
-      const payload: any = {
+      const payload: UpdateUserPayload = {
         NICK_USUARIO: editFormData.usuario.trim(),
         NOMBRES_USUARIO: editFormData.nombres.trim(),
-        ID_ROL: rolNum,
         ESTADO_USUARIO: estadoNum,
-        rol: rolNum,
         estado: estadoNum,
+      }
+
+      if (rolNum) {
+        payload.ID_ROL = rolNum
+        payload.rol = rolNum
       }
       if (
         editFormData.password &&
@@ -204,19 +479,53 @@ export const useUsers = (options: { fetchAll?: boolean } = { fetchAll: true }) =
 
       console.log('[handleActualizarUsuario] Payload a enviar al backend:', payload)
       await actualizar(id, payload)
-      Toast.fire({
+      marcarCambioPermisos()
+      Swal.fire({
         icon: 'success',
-        title: 'Usuario actualizado exitosamente',
+        title: '¡Usuario actualizado!',
+        text: 'Los datos del usuario se guardaron correctamente.',
+        timer: 1800,
+        showConfirmButton: false,
       })
-      await fetchUsuarios()
+      if (options?.fetchAll !== false) {
+        await fetchUsuarios()
+      }
+
+      // Si el usuario actualizado es el usuario logueado en esta sesión, sincronizar su sesión en Redux o cerrar si se inactivó
+      const currentId = activeUser?.ID_USUARIO ?? activeUser?.id
+      const currentNick = String(activeUser?.NICK_USUARIO ?? '').trim().toLowerCase()
+      const targetNick = String(editFormData.usuario || '').trim().toLowerCase()
+      const isSelf = (currentId && String(id) === String(currentId)) || (currentNick && targetNick && currentNick === targetNick)
+
+      if (isSelf) {
+        if (estadoNum === 0) {
+          clearAuthSession()
+          dispatch(sessionExpired())
+          if (typeof window !== 'undefined') {
+            window.location.replace('/#/login?user_inactive=true')
+          }
+          return true
+        }
+
+        const updatedUser: UserData = {
+          ...activeUser,
+          NICK_USUARIO: editFormData.usuario.trim(),
+          NOMBRES_USUARIO: editFormData.nombres.trim(),
+          ESTADO_USUARIO: estadoNum,
+          estado: estadoNum,
+        }
+        delete (updatedUser as any).ID_ROL
+        delete (updatedUser as any).id_rol
+        delete (updatedUser as any).NOMBRE_ROL
+        dispatch(loginSuccess(updatedUser))
+        setAuthSession(updatedUser, activeUser?.token)
+      }
+
       return true
     } catch (error: any) {
       console.error('Error al actualizar usuario:', error)
-      const msg = formatApiError(error, 'Error al actualizar el usuario')
-      Toast.fire({
-        icon: 'error',
-        title: msg,
-      })
+      const { title, messages } = parseApiErrors(error, 'Error al actualizar el usuario')
+      showErrorAlert(title, messages)
       return false
     } finally {
       setGuardando(false)
@@ -224,6 +533,17 @@ export const useUsers = (options: { fetchAll?: boolean } = { fetchAll: true }) =
   }
 
   const handleEliminarUsuario = async (id: string | number, nombre?: string): Promise<boolean> => {
+    if (!canEliminarUsuario) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Acceso Denegado',
+        text: 'No tienes permisos para eliminar usuarios.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return false
+    }
+
     const result = await Swal.fire({
       title: '¿Estás seguro?',
       text: `¿Deseas eliminar al usuario ${nombre ? `"${nombre}"` : ''}? Esta acción no se puede deshacer.`,
@@ -237,22 +557,36 @@ export const useUsers = (options: { fetchAll?: boolean } = { fetchAll: true }) =
 
     if (!result.isConfirmed) return false
 
+    const tienePermiso = await verificarAccionEnServidor('btn_eliminar_usuario')
+    if (!tienePermiso) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Acceso Denegado',
+        text: 'No tienes permisos para eliminar usuarios.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return false
+    }
+
     try {
       setGuardando(true)
       await eliminar(id)
-      Toast.fire({
+      Swal.fire({
         icon: 'success',
-        title: 'Usuario eliminado exitosamente',
+        title: '¡Usuario eliminado!',
+        text: `El usuario ${nombre ? `"${nombre}"` : ''} fue eliminado correctamente.`,
+        timer: 1800,
+        showConfirmButton: false,
       })
-      await fetchUsuarios()
+      if (options?.fetchAll !== false) {
+        await fetchUsuarios()
+      }
       return true
     } catch (error: any) {
       console.error('Error al eliminar usuario:', error)
-      const msg = formatApiError(error, 'Error al eliminar el usuario')
-      Toast.fire({
-        icon: 'error',
-        title: msg,
-      })
+      const { title, messages } = parseApiErrors(error, 'Error al eliminar el usuario')
+      showErrorAlert(title, messages)
       return false
     } finally {
       setGuardando(false)
@@ -266,73 +600,115 @@ export const useUsers = (options: { fetchAll?: boolean } = { fetchAll: true }) =
     const nuevoEstado = estadoActual === 'Activo' ? 'Inactivo' : 'Activo'
     const estadoNum = nuevoEstado === 'Activo' ? 1 : 0
 
+    const currentId = activeUser?.ID_USUARIO ?? activeUser?.id
+    const currentNick = String(activeUser?.NICK_USUARIO ?? '').trim().toLowerCase()
+    const targetNick = String(item.Usuario ?? u.NICK_USUARIO ?? '').trim().toLowerCase()
+    const isSelf = (currentId && String(id) === String(currentId)) || (currentNick && targetNick && currentNick === targetNick)
+
     try {
       setGuardando(true)
       const payload: any = {
         NICK_USUARIO: item.Usuario || u.NICK_USUARIO,
         NOMBRES_USUARIO: item.Nombres || u.NOMBRES_USUARIO,
-        ID_ROL: u.ID_ROL ?? item.Rol,
         ESTADO_USUARIO: estadoNum,
         estado: estadoNum,
       }
+      const rawRolVal = u.ID_ROL ?? item.Rol
+      if (rawRolVal && !isNaN(Number(rawRolVal)) && Number(rawRolVal) > 0) {
+        payload.ID_ROL = Number(rawRolVal)
+        payload.rol = Number(rawRolVal)
+      }
       await actualizar(id, payload)
-      Toast.fire({
+      marcarCambioPermisos()
+
+      if (isSelf && estadoNum === 0) {
+        clearAuthSession()
+        dispatch(sessionExpired())
+        if (typeof window !== 'undefined') {
+          window.location.replace('/#/login?user_inactive=true')
+        }
+        return true
+      }
+
+      Swal.fire({
         icon: 'success',
-        title: `Usuario ${nuevoEstado === 'Activo' ? 'activado' : 'desactivado'} exitosamente`,
+        title: 'Estado actualizado',
+        text: `El usuario ahora está ${nuevoEstado === 'Activo' ? 'Activo' : 'Inactivo'}.`,
+        timer: 1800,
+        showConfirmButton: false,
       })
-      await fetchUsuarios()
+      if (options?.fetchAll !== false) {
+        await fetchUsuarios()
+      }
       return true
     } catch (error: any) {
       console.error('Error al cambiar estado:', error)
-      const msg = formatApiError(error, 'Error al cambiar el estado del usuario')
-      Toast.fire({
-        icon: 'error',
-        title: msg,
-      })
+      const { title, messages } = parseApiErrors(error, 'Error al cambiar el estado del usuario')
+      showErrorAlert(title, messages)
       return false
     } finally {
       setGuardando(false)
     }
   }
 
-  const getRolNombre = (rolVal: string | number, userRaw?: any) => {
-    if (!rolVal && rolVal !== 0) return 'Sin Rol'
+  const getRolNombre = (rolVal?: any, userRaw?: any) => {
+    if (userRaw?.ROLES && Array.isArray(userRaw.ROLES)) {
+      if (userRaw.ROLES.length === 0) return 'Sin Rol'
+      return userRaw.ROLES.map((r: any) => r.NOMBRE_ROL || r.nombre || `Rol ${r.ID_ROL}`).join(', ')
+    }
     if (userRaw) {
       const directNom = userRaw.NOMBRE_ROL || userRaw.nombre_rol || userRaw.Nombre_Rol || userRaw.ROL_NOMBRE
       if (directNom && typeof directNom === 'string' && isNaN(Number(directNom))) {
         return directNom
       }
     }
-    const target = String(rolVal).toLowerCase().trim()
-    const found = rolesList.find((r: any) => {
-      const id = String(r.ID_ROL ?? r.id ?? '').toLowerCase().trim()
-      const nom = String(r.NOMBRE_ROL ?? r.nombre ?? r.name ?? '').toLowerCase().trim()
-      return id === target || nom === target
-    })
-    if (found) {
-      return found.NOMBRE_ROL || found.nombre || found.name || 'Sin Rol'
-    }
+    if (!rolVal && rolVal !== 0) return 'Sin Rol'
     return String(rolVal)
   }
 
   useEffect(() => {
     if (options?.fetchAll !== false) {
       fetchUsuarios()
-      fetchRoles()
     }
-  }, [fetchUsuarios, fetchRoles, options?.fetchAll])
+  }, [fetchUsuarios, options?.fetchAll])
+
+  const resetFormData = useCallback(() => {
+    setFormData({
+      nombres: '',
+      password: '',
+      usuario: '',
+      rol: '',
+      estado: 'Activo',
+    })
+    setShowPassword(false)
+  }, [])
+
+  const handleAbrirCrear = useCallback(async () => {
+    if (!canCrearUsuario) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Acceso Denegado',
+        text: 'No tienes permisos para crear usuarios.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return
+    }
+
+    resetFormData()
+    setModalVisible(true)
+  }, [resetFormData, canCrearUsuario, verificarAccionEnServidor])
+
+  const handleCerrarCrear = useCallback(() => {
+    setModalVisible(false)
+    resetFormData()
+  }, [resetFormData])
 
   const handleGuardarUsuario = async () => {
     const ok = await handleCrearUsuario(formData)
     if (ok) {
       setModalVisible(false)
-      setFormData({
-        nombres: '',
-        password: '',
-        usuario: '',
-        rol: '',
-        estado: 'Activo'
-      })
+      resetFormData()
     }
   }
 
@@ -351,19 +727,26 @@ export const useUsers = (options: { fetchAll?: boolean } = { fetchAll: true }) =
   }
 
   const handleAbrirEditar = async (item: any) => {
+    if (!canEditarUsuario) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Acceso Denegado',
+        text: 'No tienes permisos para editar este usuario.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return
+    }
     const u = item.raw || item
     const id = String(item.id || u.ID_USUARIO || '')
     const rawRol = u.ID_ROL ?? u.rol ?? item.Rol ?? ''
-    let rolVal = String(rawRol)
+    const rolVal = rawRol ? String(rawRol) : ''
 
-    const found = rolesList.find((r: any) => {
-      const rId = String(r.ID_ROL ?? r.id ?? '')
-      const nom = String(r.NOMBRE_ROL ?? r.nombre ?? r.name ?? '').toLowerCase().trim()
-      return rId === rolVal || nom === rolVal.toLowerCase().trim()
-    })
-    if (found) {
-      rolVal = String(found.ID_ROL ?? found.id)
-    }
+    const rawEstado = item.Estado ?? u.ESTADO_USUARIO ?? u.estado ?? 'Activo'
+    const estadoStr =
+      String(rawEstado).toLowerCase() === '1' || String(rawEstado).toLowerCase() === 'activo'
+        ? 'Activo'
+        : 'Inactivo'
 
     setEditFormData({
       id,
@@ -371,7 +754,7 @@ export const useUsers = (options: { fetchAll?: boolean } = { fetchAll: true }) =
       password: '',
       nombres: item.Nombres || u.NOMBRES_USUARIO || '',
       rol: rolVal,
-      estado: item.Estado || u.ESTADO_USUARIO || 'Activo',
+      estado: estadoStr,
     })
     setShowPassword(false)
     setModalEdit(true)
@@ -397,7 +780,7 @@ export const useUsers = (options: { fetchAll?: boolean } = { fetchAll: true }) =
       ? 'Activo'
       : 'Inactivo'
 
-  const items = activeUser
+  const profileItems = activeUser
     ? [
       {
         id: activeUser.ID_USUARIO || activeUser.id || 1,
@@ -409,6 +792,28 @@ export const useUsers = (options: { fetchAll?: boolean } = { fetchAll: true }) =
       },
     ]
     : []
+
+  const tableItems: UserTableItem[] = useMemo(() => {
+    return usuarios.map((u: AdminUser): UserTableItem => {
+      const rawPass = u.PASSWORD_USUARIO || u.password || u.contrasena || ''
+      return {
+        id: u.ID_USUARIO || u.id || 0,
+        Usuario: u.NICK_USUARIO || u.usuario || u.email || '',
+        Contraseña: rawPass,
+        Nombres: u.NOMBRES_USUARIO || u.nombres || u.name || 'No disponible',
+        Fecha_registro: u.FECHA_REGISTRO || u.fecha_registro || '',
+        Rol: getRolNombre(u.ID_ROL ?? u.rol, u),
+        Estado:
+          String(u.ESTADO_USUARIO ?? u.estado).toLowerCase() === '1' ||
+            String(u.ESTADO_USUARIO ?? u.estado).toLowerCase() === 'activo'
+            ? 'Activo'
+            : 'Inactivo',
+        raw: u,
+      }
+    })
+  }, [usuarios])
+
+  const items = options?.fetchAll === false ? profileItems : tableItems
 
   const handleGuardar = async () => {
     const current = user || getStoredUser()
@@ -456,20 +861,13 @@ export const useUsers = (options: { fetchAll?: boolean } = { fetchAll: true }) =
       setAuthSession(updatedUser, current?.token)
       dispatch(loginSuccess(updatedUser))
 
-      await Swal.mixin({
-        toast: true,
-        position: "top-end",
+      await Swal.fire({
+        icon: 'success',
+        title: 'Datos actualizados',
+        text: 'Los datos del usuario se guardaron correctamente.',
+        timer: 1800,
         showConfirmButton: false,
-        timer: 900,
-        timerProgressBar: true,
-        didOpen: (toast) => {
-          toast.onmouseenter = Swal.stopTimer;
-          toast.onmouseleave = Swal.resumeTimer;
-        }
-      }).fire({
-        icon: "success",
-        title: "Datos actualizados correctamente"
-      });
+      })
       setModalVisible(false)
     } catch (error) {
       console.error('Error actualizando usuario:', error)
@@ -483,34 +881,6 @@ export const useUsers = (options: { fetchAll?: boolean } = { fetchAll: true }) =
     }
   }
 
-  useEffect(() => {
-    let isMounted = true
-    const fetchUserData = async () => {
-      const current = user || getStoredUser()
-      if (!current) return
-      try {
-        const res = await perfil()
-        const fresh = res?.user || res?.cliente || res?.data || res
-        if (isMounted && fresh) {
-          const pass = fresh.PASSWORD_USUARIO || fresh.password || current?.PASSWORD_USUARIO || current?.password
-          const updatedUser: UserData = {
-            ...current,
-            ...fresh,
-            PASSWORD_USUARIO: pass,
-            password: pass,
-            token: current.token,
-          }
-          setAuthSession(updatedUser, current.token)
-          dispatch(loginSuccess(updatedUser))
-        }
-      } catch {
-      }
-    }
-    fetchUserData()
-    return () => {
-      isMounted = false
-    }
-  }, [dispatch])
 
   return {
     usuarios,
@@ -537,11 +907,15 @@ export const useUsers = (options: { fetchAll?: boolean } = { fetchAll: true }) =
     setEditFormData,
     fetchUsuarios,
     fetchRoles,
+    handleRecargar,
     handleCrearUsuario,
     handleActualizarUsuario,
     handleEliminarUsuario,
     handleGuardarEditar,
     handleGuardarUsuario,
+    handleAbrirCrear,
+    handleCerrarCrear,
+    resetFormData,
     handleAbrirEditar,
     cambiarEstadoUsuario,
     getRolNombre,
@@ -551,6 +925,11 @@ export const useUsers = (options: { fetchAll?: boolean } = { fetchAll: true }) =
     user: activeUser,
     activeUser,
     getStoredUser,
+    canCrearUsuario,
+    canGuardarUsuario,
+    canEditarUsuario,
+    canActualizarUsuario,
+    canEliminarUsuario,
   }
 }
 

@@ -3,9 +3,10 @@ import 'chart.js/auto'
 import { CChartPolarArea } from '@coreui/react-chartjs'
 import { CButton, CButtonGroup } from '@coreui/react-pro'
 import { getStyle } from '@coreui/utils'
+import { RangoEdadItem } from '@/models/dashboard/dashboard.model'
 
 export interface ChartPolarAreaExampleProps {
-  data?: any[]
+  data?: RangoEdadItem[]
   loading?: boolean
 }
 

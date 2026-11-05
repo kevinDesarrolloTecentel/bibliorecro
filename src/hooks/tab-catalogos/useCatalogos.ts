@@ -1,14 +1,15 @@
-
+import { useState, useEffect, useCallback } from 'react'
 import { ListarEstadoCivil } from '@/Service/tab/EstadoCivil'
 import { ListarGenero } from '@/Service/tab/Genero'
 import { ListarNacionalidad } from '@/Service/tab/Nacionalidad'
 import { listarTipoIdentificacion } from '@/Service/tab/TipoIdentificacion'
-import { useState, useEffect, useCallback } from 'react'
+import { CatalogoItem } from '@/models/tab/catalogo.model'
+import { TipoIdentificacion } from '@/models/tab/tipoIdentificacion.model'
+import { Nacionalidad } from '@/models/tab/nacionalidad.model'
+import { Genero } from '@/models/tab/genero.model'
+import { EstadoCivil } from '@/models/tab/estadoCivil.model'
 
-export interface CatalogoItem {
-  id: number | string
-  nombre: string
-}
+export type { CatalogoItem }
 
 export const useCatalogos = (autoFetch: boolean = true) => {
   const [loading, setLoading] = useState(false)
@@ -40,48 +41,48 @@ export const useCatalogos = (autoFetch: boolean = true) => {
       ])
 
       if (resTipos.status === 'fulfilled') {
-        const list = resTipos.value?.data || resTipos.value
+        const list = (resTipos.value?.data || resTipos.value) as TipoIdentificacion[]
         if (Array.isArray(list) && list.length > 0) {
           setTiposId(
-            list.map((item: any) => ({
-              id: item.ID_TIPOIDENTIFICACION,
-              nombre: item.NOMBRE_TIPOIDENTIFICACION
+            list.map((item) => ({
+              id: item.ID_TIPOIDENTIFICACION ?? (item as any).id ?? '',
+              nombre: item.NOMBRE_TIPOIDENTIFICACION ?? (item as any).nombre ?? '',
             })),
           )
         }
       }
 
       if (resNac.status === 'fulfilled') {
-        const list = resNac.value?.data || resNac.value
+        const list = (resNac.value?.data || resNac.value) as Nacionalidad[]
         if (Array.isArray(list) && list.length > 0) {
           setNacionalidades(
-            list.map((item: any) => ({
-              id: item.ID_NACIONALIDAD,
-              nombre: item.NOMBRE_NACIONALIDAD
+            list.map((item) => ({
+              id: item.ID_NACIONALIDAD ?? (item as any).id ?? '',
+              nombre: item.NOMBRE_NACIONALIDAD ?? (item as any).nombre ?? '',
             })),
           )
         }
       }
 
       if (resGen.status === 'fulfilled') {
-        const list = resGen.value?.data || resGen.value
+        const list = (resGen.value?.data || resGen.value) as Genero[]
         if (Array.isArray(list) && list.length > 0) {
           setGeneros(
-            list.map((item: any) => ({
-              id: item.ID_GENERO ?? item.id ?? item.ID,
-              nombre: item.NOMBRE_GENERO ?? item.nombre ?? item.genero,
+            list.map((item) => ({
+              id: item.ID_GENERO ?? (item as any).id ?? (item as any).ID ?? '',
+              nombre: item.NOMBRE_GENERO ?? (item as any).nombre ?? (item as any).genero ?? '',
             })),
           )
         }
       }
 
       if (resEst.status === 'fulfilled') {
-        const list = resEst.value?.data || resEst.value
+        const list = (resEst.value?.data || resEst.value) as EstadoCivil[]
         if (Array.isArray(list) && list.length > 0) {
           setEstadosCiviles(
-            list.map((item: any) => ({
-              id: item.ID_ESTADOCIVIL,
-              nombre: item.NOMBRE_ESTADOCIVIL,
+            list.map((item) => ({
+              id: item.ID_ESTADOCIVIL ?? (item as any).id ?? '',
+              nombre: item.NOMBRE_ESTADOCIVIL ?? (item as any).nombre ?? '',
             })),
           )
         }

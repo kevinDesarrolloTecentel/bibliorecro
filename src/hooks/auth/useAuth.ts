@@ -1,12 +1,11 @@
 import { useSelector, useDispatch } from 'react-redux'
-import { UserData } from '@/models/auth'
-import { clearAuthSession, decodeJWT, setAuthSession } from '@/utils/auth'
+import { UserData, LoginFormData } from '@/models/auth'
+import { clearAuthSession, setAuthSession } from '@/utils/auth'
 import { RootState } from '@/store'
-import { loginSuccess, logoutSuccess, loginSuccess as setLoginSuccess } from '@/authSlice'
+import { loginSuccess, logoutSuccess } from '@/authSlice'
 import { useNavigate } from 'react-router-dom'
 import Swal from 'sweetalert2'
-import { login } from '@/Service/amd/AdminUser'
-
+import { login } from '@/Service/adm/AdminUser'
 
 export const useAuth = () => {
   const dispatch = useDispatch()
@@ -26,7 +25,7 @@ export const useAuth = () => {
     }
   }
 
-  const handleLoginSubmit = async (data: { email: string; password: string; rememberMe?: boolean }) => {
+  const handleLoginSubmit = async (data: LoginFormData) => {
     try {
       const cleanNick = (data.email || '').trim()
       const cleanPassword = data.password || ''
@@ -37,113 +36,64 @@ export const useAuth = () => {
       })
 
       if (response && response.success === false) {
-        const errorMsg =
-          typeof response.error === 'string'
-            ? response.error
-            : typeof response.message === 'string'
-            ? response.message
-            : 'Credenciales inválidas'
-        throw new Error(errorMsg)
+        throw new Error(response.message || response.error || 'Credenciales inválidas')
       }
 
-      const rawUser = response?.user || response?.cliente || response?.usuario || response?.data?.user || response
-      const rawToken =
-        response?.token ||
-        response?.access_token ||
-        response?.accessToken ||
-        response?.authorization?.token ||
-        response?.authorisation?.token ||
-        response?.data?.token ||
-        response?.data?.access_token ||
-        response?.jwt ||
-        response?.api_token ||
-        (typeof response?.data === 'string' ? response.data : undefined)
+      const rawUser = response?.user || response?.data?.user
+      const rawToken = response?.token || response?.data?.token
+      const rawExpiresIn = Number(response?.expires_in || 3600)
 
-      let rawExpiresIn = response?.expires_in || response?.expiresIn
-      if (!rawExpiresIn && rawToken) {
-        const decoded = decodeJWT<{ exp?: number; iat?: number }>(rawToken)
-        if (decoded?.exp && decoded?.iat && decoded.exp > decoded.iat) {
-          rawExpiresIn = decoded.exp - decoded.iat
-        } else if (decoded?.exp) {
-          const diff = decoded.exp - Math.floor(Date.now() / 1000)
-          rawExpiresIn = diff > 0 ? diff : 3600
-        }
+      const rawEstado = rawUser?.ESTADO_USUARIO ?? rawUser?.estado ?? rawUser?.Estado
+      if (
+        rawEstado !== undefined &&
+        rawEstado !== null &&
+        (String(rawEstado) === '0' || String(rawEstado).toLowerCase() === 'inactivo' || rawEstado === false)
+      ) {
+        clearAuthSession()
+        await Swal.fire({
+          icon: 'error',
+          title: 'Usuario inactivo',
+          text: 'Tu usuario se encuentra inactivo. Comunícate con el administrador para activar tu cuenta.',
+          confirmButtonColor: '#dc3545',
+          confirmButtonText: 'Entendido',
+        })
+        return
       }
-      if (!rawExpiresIn) {
-        rawExpiresIn = 3600
-      }
-
-      const idUsuario = rawUser?.ID_USUARIO ?? rawUser?.id_usuario ?? rawUser?.id
-      let rolUsuario = rawUser?.ID_ROL ?? rawUser?.rol_id ?? rawUser?.rol
-      if (typeof rolUsuario === 'object' && rolUsuario !== null) {
-        rolUsuario = rolUsuario.ID_ROL ?? rolUsuario.id ?? rolUsuario.id_rol
-      }
-      if (!rolUsuario && Array.isArray(rawUser?.roles) && rawUser.roles.length > 0) {
-        const firstRole = rawUser.roles[0]
-        rolUsuario = typeof firstRole === 'object' ? (firstRole.ID_ROL ?? firstRole.id) : firstRole
-      }
-      const nombreRol =
-        rawUser?.NOMBRE_ROL ||
-        rawUser?.nombre_rol ||
-        (Array.isArray(rawUser?.roles) && (rawUser.roles[0]?.NOMBRE_ROL || rawUser.roles[0]?.nombre)) ||
-        (typeof rawUser?.rol === 'object' && rawUser?.rol !== null && (rawUser.rol?.NOMBRE_ROL || rawUser.rol?.nombre)) ||
-        (Number(rolUsuario) === 1 ? 'Administrador' : String(rolUsuario || ''))
-      const nickUsuario = rawUser?.NICK_USUARIO ?? rawUser?.nick_usuario ?? cleanNick
 
       const fullUserData: UserData = {
         ...rawUser,
-        ID_USUARIO: idUsuario,
-        NICK_USUARIO: nickUsuario,
-        NOMBRES_USUARIO: rawUser?.NOMBRE_USUARIO || rawUser?.nombres_usuario || rawUser?.name,
-        FECHA_REGISTRO: rawUser?.FECHA_REGISTRO || rawUser?.fecha_registro,
-        ID_ROL: rolUsuario,
-        NOMBRE_ROL: nombreRol,
-        ESTADO_USUARIO: rawUser?.ESTADO_USUARIO ?? rawUser?.estado,
+        ID_USUARIO: rawUser?.ID_USUARIO,
+        NICK_USUARIO: rawUser?.NICK_USUARIO || cleanNick,
+        NOMBRES_USUARIO: rawUser?.NOMBRES_USUARIO || '',
+        FECHA_REGISTRO: rawUser?.FECHA_REGISTRO || '',
+        ESTADO_USUARIO: rawUser?.ESTADO_USUARIO,
         expires_in: rawExpiresIn,
         token: rawToken,
         timestamp: Date.now(),
       }
-      delete (fullUserData as any).PASSWORD_USUARIO
-      delete (fullUserData as any).password
-      delete (fullUserData as any).contrasena
 
-      setAuthSession(fullUserData, rawToken, false, Number(rawExpiresIn))
-
-
+      setAuthSession(fullUserData, rawToken, Boolean(data.rememberMe), rawExpiresIn)
       dispatch(loginSuccess(fullUserData))
-
       navigate('/dashboard', { replace: true })
     } catch (error: any) {
-      console.error('Error detallado en login:', error)
+      console.error('Error al iniciar sesión:', error)
 
       let title = 'Error al iniciar sesión'
-      let text = 'Por favor verifica tus datos e intenta nuevamente.'
-
-      const resData = error?.response?.data
-      if (resData) {
-        if (typeof resData === 'string') {
-          text = resData
-        } else if (typeof resData.error === 'string') {
-          text = resData.error
-        } else if (typeof resData.message === 'string') {
-          text = resData.message
-        } else if (resData.error && typeof resData.error === 'object') {
-          const fieldErrors = Object.values(resData.error).flat().filter(Boolean)
-          if (fieldErrors.length > 0) {
-            text = fieldErrors.join(', ')
-          }
-        } else if (resData.errors && typeof resData.errors === 'object') {
-          const fieldErrors = Object.values(resData.errors).flat().filter(Boolean)
-          if (fieldErrors.length > 0) {
-            text = fieldErrors.join(', ')
-          }
-        }
-      } else if (error?.message) {
-        text = error.message
-      }
+      const text =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        error?.message ||
+        'Por favor verifica tus datos e intenta nuevamente.'
 
       const lowerText = text.toLowerCase()
-      if (lowerText.includes('no encontrado')) {
+      if (
+        lowerText.includes('inactiv') ||
+        lowerText.includes('bloquea') ||
+        lowerText.includes('desactiv') ||
+        error?.response?.status === 403
+      ) {
+        title = 'Usuario inactivo'
+      } else if (lowerText.includes('no encontrado')) {
         title = 'Usuario no encontrado'
       } else if (lowerText.includes('contrase') || lowerText.includes('password')) {
         title = 'Contraseña incorrecta'
@@ -157,19 +107,19 @@ export const useAuth = () => {
         title,
         text,
         icon: 'error',
-        confirmButtonText: 'Reintentar',
-        confirmButtonColor: '#e55353',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
       })
     }
   }
-
 
   return {
     user,
     isAuthenticated,
     logout,
-    loginSuccess: (userData: UserData) => dispatch(setLoginSuccess(userData)),
-    handleLoginSubmit
+    clearAuthSession,
+    loginSuccess: (userData: UserData) => dispatch(loginSuccess(userData)),
+    handleLoginSubmit,
   }
 }
 

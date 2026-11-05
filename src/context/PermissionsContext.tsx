@@ -1,12 +1,22 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from 'react'
-import { useLocation } from 'react-router-dom'
-import { useSelector } from 'react-redux'
-import { RootState } from '@/store'
-import { obtenerMisPermisos } from '@/Service/amd/permisosService'
-import { MisPermisosData } from '@/models/adm/permiso.model'
+
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+  useRef,
+} from 'react'
+import { useSelector, useDispatch } from 'react-redux'
+import type { RootState } from '@/store'
+import { loginSuccess } from '@/authSlice'
+import { obtenerMisPermisos } from '@/Service/adm/Permisos'
+import type { MisPermisosData } from '@/models/adm/permiso.model'
 
 interface PermissionsContextType {
   esAdmin: boolean
+  roles: any[]
   rutasPermitidas: Set<string>
   accionesPermitidas: Set<string>
   loadingPermisos: boolean
@@ -14,10 +24,12 @@ interface PermissionsContextType {
   canAccessPath: (path?: string) => boolean
   canDoAction: (codigoAccion: string) => boolean
   recargarPermisos: (silent?: boolean) => Promise<void>
+  verificarAccionEnServidor: (codigoAccion: string) => Promise<boolean>
 }
 
 const PermissionsContext = createContext<PermissionsContextType>({
   esAdmin: false,
+  roles: [],
   rutasPermitidas: new Set(),
   accionesPermitidas: new Set(),
   loadingPermisos: false,
@@ -25,19 +37,33 @@ const PermissionsContext = createContext<PermissionsContextType>({
   canAccessPath: () => false,
   canDoAction: () => false,
   recargarPermisos: async () => {},
+  verificarAccionEnServidor: async () => false,
 })
 
 interface CachedPermissions {
   esAdmin: boolean
+  roles: any[]
   rutas: string[]
   acciones: string[]
   timestamp: number
 }
 
 const PERMISOS_CACHE_KEY = 'biblio_permisos_cache'
+export const PERMISOS_EVENTO_LOCAL = 'biblio_permisos_actualizados_local'
+
+export const marcarCambioPermisos = () => {
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.removeItem('biblio_permisos_modificados')
+      clearCachedPermissions()
+      window.dispatchEvent(new Event(PERMISOS_EVENTO_LOCAL))
+    } catch { }
+  }
+}
 
 const getCachedPermissions = (): CachedPermissions | null => {
   if (typeof window === 'undefined') return null
+
   try {
     const raw = localStorage.getItem(PERMISOS_CACHE_KEY)
     if (!raw) return null
@@ -47,61 +73,115 @@ const getCachedPermissions = (): CachedPermissions | null => {
   }
 }
 
-const saveCachedPermissions = (esAdmin: boolean, rutas: Set<string>, acciones: Set<string>) => {
+const saveCachedPermissions = (
+  esAdmin: boolean,
+  roles: any[],
+  rutas: Set<string>,
+  acciones: Set<string>,
+) => {
   if (typeof window === 'undefined') return
+
   try {
     const payload: CachedPermissions = {
       esAdmin,
+      roles: roles || [],
       rutas: Array.from(rutas),
       acciones: Array.from(acciones),
       timestamp: Date.now(),
     }
-    localStorage.setItem(PERMISOS_CACHE_KEY, JSON.stringify(payload))
-  } catch (e) {
-    console.warn('[PermissionsContext] No se pudo guardar caché en localStorage:', e)
+
+    localStorage.setItem(
+      PERMISOS_CACHE_KEY,
+      JSON.stringify(payload),
+    )
+  } catch (error) {
+    console.warn(
+      '[PermissionsContext] No se pudo guardar caché:',
+      error,
+    )
   }
 }
 
 const clearCachedPermissions = () => {
   if (typeof window === 'undefined') return
+
   try {
     localStorage.removeItem(PERMISOS_CACHE_KEY)
+    localStorage.removeItem('biblio_permisos_modificados')
   } catch {}
 }
 
-export const PermissionsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const location = useLocation()
-  const prevPathRef = useRef<string>(location.pathname)
-  const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated)
-  const user = useSelector((state: RootState) => state.auth.user) as any
+export const PermissionsProvider: React.FC<{
+  children: React.ReactNode
+}> = ({ children }) => {
+  const dispatch = useDispatch()
+
+  const isAuthenticated = useSelector(
+    (state: RootState) => state.auth.isAuthenticated,
+  )
+
+  const user = useSelector(
+    (state: RootState) => state.auth.user,
+  ) as any
+
+  const userRef = useRef<any>(user)
+
+  useEffect(() => {
+    userRef.current = user
+  }, [user])
+
   const isUserAdmin = Boolean(
-    user && (
-      Boolean(user.ES_ADMINISTRADOR) ||
-      Number(user.ID_ROL ?? user.id_rol) === 1
-    )
+    user &&
+      (Boolean(user.ES_ADMINISTRADOR) ||
+        Number(user.ID_ROL) === 1 ||
+        user.ROLES?.some(
+          (r: any) =>
+            Number(r.ID_ROL) === 1 ||
+            String(r.NOMBRE_ROL).toUpperCase() === 'ADMINISTRADOR',
+        ) ||
+        user.IDS_ROLES?.includes(1)),
   )
 
-  // 1. Inicializar inmediatamente con el caché de localStorage si existe (intermediario instantáneo)
-  const cached = useMemo(() => (isAuthenticated ? getCachedPermissions() : null), [isAuthenticated])
-
-  const [esAdmin, setEsAdmin] = useState<boolean>(cached?.esAdmin || isUserAdmin || false)
-  const [rutasPermitidas, setRutasPermitidas] = useState<Set<string>>(
-    cached ? new Set(cached.rutas) : new Set(),
+  // Inicializar permisos desde caché
+  const cached = useMemo(
+    () => (isAuthenticated ? getCachedPermissions() : null),
+    [isAuthenticated],
   )
-  const [accionesPermitidas, setAccionesPermitidas] = useState<Set<string>>(
-    cached ? new Set(cached.acciones) : new Set(),
-  )
-  // Si ya tenemos permisos en localStorage o es admin, no mostramos spinner en absoluto
-  const [loadingPermisos, setLoadingPermisos] = useState<boolean>(!cached && !isUserAdmin && isAuthenticated)
-  const [permisosCargados, setPermisosCargados] = useState<boolean>(Boolean(cached) || isUserAdmin)
 
+  const [esAdmin, setEsAdmin] = useState<boolean>(
+    cached?.esAdmin ?? isUserAdmin ?? false,
+  )
+
+  const [roles, setRoles] = useState<any[]>(
+    cached?.roles ?? (user?.ROLES || []),
+  )
+
+  const [rutasPermitidas, setRutasPermitidas] = useState<
+    Set<string>
+  >(cached ? new Set(cached.rutas) : new Set())
+
+  const [accionesPermitidas, setAccionesPermitidas] = useState<
+    Set<string>
+  >(cached ? new Set(cached.acciones) : new Set())
+
+  const [loadingPermisos, setLoadingPermisos] = useState<boolean>(
+    !cached && isAuthenticated,
+  )
+
+  const [permisosCargados, setPermisosCargados] = useState<boolean>(
+    Boolean(cached),
+  )
+
+  // Evita consultas simultáneas
   const isFetchingRef = useRef(false)
 
+  // Obtener y actualizar permisos
   const cargarPermisos = useCallback(
     async (silent: boolean = false) => {
       if (!isAuthenticated) {
         setRutasPermitidas(new Set())
         setAccionesPermitidas(new Set())
+        setRoles([])
         setEsAdmin(false)
         setLoadingPermisos(false)
         setPermisosCargados(false)
@@ -109,12 +189,11 @@ export const PermissionsProvider: React.FC<{ children: React.ReactNode }> = ({ c
         return
       }
 
-      // Evitar múltiples llamadas simultáneas
       if (isFetchingRef.current) return
+
       isFetchingRef.current = true
 
-      // Solo mostrar spinner en la primerísima carga si NO tenemos caché previo ni somos admin
-      if (!silent && !getCachedPermissions() && !isUserAdmin) {
+      if (!silent && !getCachedPermissions()) {
         setLoadingPermisos(true)
       }
 
@@ -122,8 +201,19 @@ export const PermissionsProvider: React.FC<{ children: React.ReactNode }> = ({ c
         const res = await obtenerMisPermisos()
         const data: MisPermisosData = res?.data
 
-        const admin = Boolean(data?.ES_ADMINISTRADOR || Number(data?.ID_ROL) === 1)
-        setEsAdmin(admin)
+        const userRoles = data?.ROLES || []
+
+        const admin = Boolean(
+          data?.ES_ADMINISTRADOR ||
+            Number(data?.ID_ROL) === 1 ||
+            data?.IDS_ROLES?.includes(1) ||
+            userRoles.some(
+              (r: any) =>
+                Number(r.ID_ROL) === 1 ||
+                String(r.NOMBRE_ROL).toUpperCase() ===
+                  'ADMINISTRADOR',
+            ),
+        )
 
         const rutas = new Set<string>()
         const acciones = new Set<string>()
@@ -132,227 +222,236 @@ export const PermissionsProvider: React.FC<{ children: React.ReactNode }> = ({ c
           data.MODULOS.forEach((modulo) => {
             modulo.PANTALLAS?.forEach((pantalla) => {
               if (pantalla.PATH_PERMISO) {
-                const pathClean = pantalla.PATH_PERMISO.trim().toLowerCase().replace(/\/+$/, '') || '/'
+                const pathClean =
+                  pantalla.PATH_PERMISO
+                    .trim()
+                    .toLowerCase()
+                    .replace(/\/+$/, '') || '/'
+
                 rutas.add(pathClean)
               }
+
               pantalla.ACCIONES?.forEach((acc: any) => {
-                const codigo = typeof acc === 'string' ? acc : acc?.CODIGO_ACCION
-                if (codigo) acciones.add(codigo)
+                const codigo =
+                  typeof acc === 'string'
+                    ? acc
+                    : acc?.CODIGO_ACCION
+
+                if (codigo) {
+                  acciones.add(codigo)
+                }
               })
             })
           })
         }
 
-        setRutasPermitidas(rutas)
-        setAccionesPermitidas(acciones)
+        // Actualizar estado global de permisos (solo si cambiaron para evitar re-renderizados innecesarios)
+        setEsAdmin((prev) => (prev === admin ? prev : admin))
+        setRoles(userRoles)
+        setRutasPermitidas((prev) => {
+          if (prev.size === rutas.size && Array.from(rutas).every((r) => prev.has(r))) {
+            return prev
+          }
+          return rutas
+        })
+        setAccionesPermitidas((prev) => {
+          if (prev.size === acciones.size && Array.from(acciones).every((a) => prev.has(a))) {
+            return prev
+          }
+          return acciones
+        })
 
-        // Guardar en localStorage para que actúe como intermediario instantáneo
-        saveCachedPermissions(admin, rutas, acciones)
+        // Actualizar caché
+        saveCachedPermissions(
+          admin,
+          userRoles,
+          rutas,
+          acciones,
+        )
+
+        // Sincronizar estado de administrador con Redux
+        const currentUser = userRef.current
+
+        if (
+          currentUser &&
+          admin !== Boolean(currentUser.ES_ADMINISTRADOR)
+        ) {
+          dispatch(
+            loginSuccess({
+              ...currentUser,
+              ES_ADMINISTRADOR: admin,
+            }),
+          )
+        }
       } catch (error) {
-        console.error('[PermissionsContext] Error cargando permisos del usuario:', error)
+        console.error(
+          '[PermissionsContext] Error cargando permisos:',
+          error,
+        )
       } finally {
         isFetchingRef.current = false
         setLoadingPermisos(false)
         setPermisosCargados(true)
       }
     },
-    [isAuthenticated, isUserAdmin],
+    [isAuthenticated, dispatch],
   )
 
-  const rutasRef = useRef<Set<string>>(rutasPermitidas)
-  const accionesRef = useRef<Set<string>>(accionesPermitidas)
-  const esAdminRef = useRef<boolean>(esAdmin)
-  const permisosCargadosRef = useRef<boolean>(permisosCargados)
-  const isVerifyingRef = useRef<boolean>(false)
+  // Función estable para recargar desde App.tsx
+  const recargarPermisos = useCallback(
+    (silent: boolean = true) => cargarPermisos(silent),
+    [cargarPermisos],
+  )
 
-  useEffect(() => {
-    rutasRef.current = rutasPermitidas
-    accionesRef.current = accionesPermitidas
-    esAdminRef.current = esAdmin
-    permisosCargadosRef.current = permisosCargados
-  }, [rutasPermitidas, accionesPermitidas, esAdmin, permisosCargados])
-
-  // Verifica con el servidor si los permisos del rol actual cambiaron.
-  // Si cambiaron las rutas, acciones o nivel de admin, recarga la pestaña automáticamente.
-  const verificarCambiosYRecargar = useCallback(async () => {
-    if (!isAuthenticated || esAdminRef.current || !permisosCargadosRef.current) return
-    if (isVerifyingRef.current) return
-
-    isVerifyingRef.current = true
-    try {
-      const res = await obtenerMisPermisos()
-      const data: MisPermisosData = res?.data
-      if (!data) return
-
-      const admin = Boolean(data?.ES_ADMINISTRADOR || Number(data?.ID_ROL) === 1)
-      const rutas = new Set<string>()
-      const acciones = new Set<string>()
-
-      if (data?.MODULOS && Array.isArray(data.MODULOS)) {
-        data.MODULOS.forEach((modulo) => {
-          modulo.PANTALLAS?.forEach((pantalla) => {
-            if (pantalla.PATH_PERMISO) {
-              const pathClean = pantalla.PATH_PERMISO.trim().toLowerCase().replace(/\/+$/, '') || '/'
-              rutas.add(pathClean)
-            }
-            pantalla.ACCIONES?.forEach((acc: any) => {
-              const codigo = typeof acc === 'string' ? acc : acc?.CODIGO_ACCION
-              if (codigo) acciones.add(codigo)
-            })
-          })
-        })
-      }
-
-      // Comparar con el estado actual
-      const rutasIguales =
-        rutas.size === rutasRef.current.size &&
-        [...rutas].every((r) => rutasRef.current.has(r))
-
-      const accionesIguales =
-        acciones.size === accionesRef.current.size &&
-        [...acciones].every((a) => accionesRef.current.has(a))
-
-      const cambioDetectado = !rutasIguales || !accionesIguales || admin !== esAdminRef.current
-
-      if (cambioDetectado) {
-        saveCachedPermissions(admin, rutas, acciones)
-        window.location.reload()
-      }
-    } catch (e) {
-    } finally {
-      isVerifyingRef.current = false
-    }
-  }, [isAuthenticated])
-
-  useEffect(() => {
-    const fromPath = prevPathRef.current
-    if (fromPath !== location.pathname) {
-      prevPathRef.current = location.pathname
-      // No re-verificar permisos en la navegación hacia o desde el login
-      if (fromPath.includes('login') || location.pathname.includes('login')) {
-        return
-      }
-      if (isAuthenticated && !esAdminRef.current && permisosCargadosRef.current) {
-        verificarCambiosYRecargar()
-      }
-    }
-  }, [location.pathname, isAuthenticated, verificarCambiosYRecargar])
-
+  // Carga inicial al autenticar o cerrar sesión
   useEffect(() => {
     if (isAuthenticated) {
-      cargarPermisos(true)
+      void cargarPermisos(true)
+    } else {
+      void cargarPermisos()
+    }
+  }, [isAuthenticated, cargarPermisos])
+
+  // Escuchar cuando se actualizan permisos en la misma pestaña o desde otra pestaña
+  useEffect(() => {
+    if (!isAuthenticated) return
+
+    const alDetectarCambio = () => {
+      void cargarPermisos(true)
     }
 
-    const handleSync = () => {
-      if (esAdminRef.current) {
-        cargarPermisos(true)
-      } else {
-        verificarCambiosYRecargar()
+    const alCambiarStorage = (e: StorageEvent) => {
+      if (e.key === PERMISOS_CACHE_KEY) {
+        alDetectarCambio()
       }
-    }
-    window.addEventListener('biblio:permisos-actualizados', handleSync)
-
-    // BroadcastChannel para sincronizar entre pestañas del navegador instantáneamente
-    const channel = getSyncChannel()
-    const handleChannelMessage = (event: MessageEvent) => {
-      if (event.data === 'sync' || event.data === 'reload') {
-        if (!esAdminRef.current) {
-          verificarCambiosYRecargar()
-        } else {
-          cargarPermisos(true)
-        }
-      }
-    }
-    if (channel) {
-      channel.addEventListener('message', handleChannelMessage)
     }
 
-    // Storage event (sincronización entre ventanas y pestañas respaldada por localStorage)
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key === 'biblio_permisos_sync_event') {
-        if (!esAdminRef.current) {
-          verificarCambiosYRecargar()
-        } else {
-          cargarPermisos(true)
-        }
-      }
-    }
-    window.addEventListener('storage', handleStorage)
+    window.addEventListener(PERMISOS_EVENTO_LOCAL, alDetectarCambio)
+    window.addEventListener('storage', alCambiarStorage)
 
     return () => {
-      window.removeEventListener('biblio:permisos-actualizados', handleSync)
-      if (channel) {
-        channel.removeEventListener('message', handleChannelMessage)
-      }
-      window.removeEventListener('storage', handleStorage)
+      window.removeEventListener(PERMISOS_EVENTO_LOCAL, alDetectarCambio)
+      window.removeEventListener('storage', alCambiarStorage)
     }
-  }, [isAuthenticated, cargarPermisos, verificarCambiosYRecargar])
+  }, [isAuthenticated, cargarPermisos])
 
   const canAccessPath = useCallback(
     (path?: string): boolean => {
       if (!path) return true
-      if (esAdmin) return true
 
-      const clean = path.split('?')[0].trim().toLowerCase().replace(/\/+$/, '') || '/'
+      const clean =
+        path
+          .split('?')[0]
+          .trim()
+          .toLowerCase()
+          .replace(/\/+$/, '') || '/'
+
       return rutasPermitidas.has(clean)
     },
-    [esAdmin, rutasPermitidas],
+    [rutasPermitidas],
   )
 
   const canDoAction = useCallback(
     (codigoAccion: string): boolean => {
-      if (esAdmin) return true
       return accionesPermitidas.has(codigoAccion)
     },
-    [esAdmin, accionesPermitidas],
+    [accionesPermitidas],
+  )
+
+  const verificarAccionEnServidor = useCallback(
+    async (codigoAccion: string): Promise<boolean> => {
+      if (!isAuthenticated) return false
+
+      try {
+        const res = await obtenerMisPermisos()
+        const data: MisPermisosData = res?.data
+
+        const userRoles = data?.ROLES || []
+        const admin = Boolean(
+          data?.ES_ADMINISTRADOR ||
+            Number(data?.ID_ROL) === 1 ||
+            data?.IDS_ROLES?.includes(1) ||
+            userRoles.some(
+              (r: any) =>
+                Number(r.ID_ROL) === 1 ||
+                String(r.NOMBRE_ROL).toUpperCase() === 'ADMINISTRADOR',
+            ),
+        )
+
+        const rutas = new Set<string>()
+        const acciones = new Set<string>()
+
+        if (data?.MODULOS && Array.isArray(data.MODULOS)) {
+          data.MODULOS.forEach((modulo) => {
+            modulo.PANTALLAS?.forEach((pantalla) => {
+              if (pantalla.PATH_PERMISO) {
+                const pathClean =
+                  pantalla.PATH_PERMISO
+                    .trim()
+                    .toLowerCase()
+                    .replace(/\/+$/, '') || '/'
+                rutas.add(pathClean)
+              }
+
+              pantalla.ACCIONES?.forEach((acc: any) => {
+                const codigo =
+                  typeof acc === 'string' ? acc : acc?.CODIGO_ACCION
+                if (codigo) {
+                  acciones.add(codigo)
+                }
+              })
+            })
+          })
+        }
+
+        // Actualizar estados reactivos globales y caché
+        setEsAdmin(admin)
+        setRoles(userRoles)
+        setRutasPermitidas(rutas)
+        setAccionesPermitidas(acciones)
+        saveCachedPermissions(admin, userRoles, rutas, acciones)
+
+        return acciones.has(codigoAccion)
+      } catch (error) {
+        console.warn('[PermissionsContext] Error verificando acción en servidor:', error)
+        return accionesPermitidas.has(codigoAccion)
+      }
+    },
+    [isAuthenticated, accionesPermitidas],
   )
 
   const value = useMemo(
     () => ({
       esAdmin,
+      roles,
       rutasPermitidas,
       accionesPermitidas,
       loadingPermisos,
       permisosCargados,
       canAccessPath,
       canDoAction,
-      recargarPermisos: (silent: boolean = true) => cargarPermisos(silent),
+      recargarPermisos,
+      verificarAccionEnServidor,
     }),
-    [esAdmin, rutasPermitidas, accionesPermitidas, loadingPermisos, permisosCargados, canAccessPath, canDoAction, cargarPermisos],
+    [
+      esAdmin,
+      roles,
+      rutasPermitidas,
+      accionesPermitidas,
+      loadingPermisos,
+      permisosCargados,
+      canAccessPath,
+      canDoAction,
+      recargarPermisos,
+      verificarAccionEnServidor,
+    ],
   )
 
-  return <PermissionsContext.Provider value={value}>{children}</PermissionsContext.Provider>
+  return (
+    <PermissionsContext.Provider value={value}>
+      {children}
+    </PermissionsContext.Provider>
+  )
 }
 
 export const usePermissions = () => useContext(PermissionsContext)
-
-// Canal compartido persistente para que postMessage no sea cancelado antes de enviarse
-let syncChannel: BroadcastChannel | null = null
-const getSyncChannel = () => {
-  if (typeof window === 'undefined') return null
-  if (!syncChannel) {
-    try {
-      syncChannel = new BroadcastChannel('biblio_permisos_sync')
-    } catch {
-      syncChannel = null
-    }
-  }
-  return syncChannel
-}
-
-/**
- * Dispara una notificación global (en la misma pestaña y entre pestañas)
- * para que todos los componentes (Sidebar, ProtectedRoute, etc.) recarguen
- * sus permisos en tiempo real sin requerir F5.
- */
-export const notificarCambioPermisos = () => {
-  if (typeof window === 'undefined') return
-  window.dispatchEvent(new CustomEvent('biblio:permisos-actualizados'))
-  try {
-    const ch = getSyncChannel()
-    ch?.postMessage('sync')
-  } catch (e) {}
-  try {
-    localStorage.setItem('biblio_permisos_sync_event', Date.now().toString())
-  } catch (e) {}
-}

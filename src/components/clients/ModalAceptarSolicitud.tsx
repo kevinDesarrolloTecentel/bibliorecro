@@ -13,8 +13,7 @@ import {
 } from '@coreui/react-pro'
 import CIcon from '@coreui/icons-react'
 import { cilColorBorder, cilExitToApp } from '@coreui/icons'
-import { PersonaRenovacion } from '@/hooks/tab-persona/useRenovaciones'
-import { usePermissions } from '@/context/PermissionsContext'
+import { PersonaRenovacion } from '@/models/tab/persona.model'
 
 export interface ModalAceptarSolicitudProps {
   visible: boolean
@@ -24,6 +23,7 @@ export interface ModalAceptarSolicitudProps {
   setDetalleRenovacion: (val: string) => void
   onAceptar: () => void
   loading: boolean
+  canActivar?: boolean
 }
 
 const ModalAceptarSolicitud: React.FC<ModalAceptarSolicitudProps> = ({
@@ -34,8 +34,8 @@ const ModalAceptarSolicitud: React.FC<ModalAceptarSolicitudProps> = ({
   setDetalleRenovacion,
   onAceptar,
   loading,
+  canActivar = true,
 }) => {
-  const { canDoAction } = usePermissions()
   return (
     <CModal 
     size="lg"  
@@ -57,7 +57,7 @@ const ModalAceptarSolicitud: React.FC<ModalAceptarSolicitudProps> = ({
             <strong>Identificación:</strong> {solicitud?.IDENTIFICACION_PERSONA}
           </p>
           <p className="mb-1 text-secondary">
-            <strong>Tipo:</strong> {solicitud?.tipo_usuario === 'Renovacion' ? 'Renovación de carnet' : 'Nuevo registro'}
+            <strong>Tipo:</strong> {solicitud?.tipo_usuario === 'Renovacion' ? 'Renovación' : 'Nuevo'}
           </p>
         </div>
         <CForm className="row g-3">
@@ -74,11 +74,11 @@ const ModalAceptarSolicitud: React.FC<ModalAceptarSolicitudProps> = ({
         </CForm>
       </CModalBody>
       <CModalFooter>
-        <CButton color="danger" variant="outline" className='hover:text-white' onClick={onClose} disabled={loading}>
+        <CButton size="sm" color="danger" variant="outline" className="hover:text-white shadow-sm" onClick={onClose} disabled={loading}>
           <CIcon icon={cilExitToApp} className="me-1" /> Cerrar
         </CButton>
-        {canDoAction('btn_aceptar_solicitud') && (
-          <CButton color="success" variant="outline" className='hover:text-white' onClick={onAceptar} disabled={loading}>
+        {canActivar && (
+          <CButton size="sm" color="success" variant="outline" className="hover:text-white shadow-sm" onClick={onAceptar} disabled={loading}>
             {loading ? (
               <>
                 <CSpinner size="sm" className="me-1" />

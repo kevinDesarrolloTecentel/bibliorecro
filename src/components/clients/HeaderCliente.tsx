@@ -1,37 +1,42 @@
 
 import usePersonas from '@/hooks/tab-persona/usePersonas'
-import { cilReload, cilUserPlus } from '@coreui/icons'
+import { cilSync, cilUserPlus } from '@coreui/icons'
 import CIcon from '@coreui/icons-react'
 import { CButton } from '@coreui/react-pro'
-import { usePermissions } from '@/context/PermissionsContext'
-
 const HeaderCliente = ({ personaState }: { personaState: ReturnType<typeof usePersonas> }) => {
-  const { canDoAction } = usePermissions()
-
   return (
-    <div className="d-flex justify-content-end align-items-center mb-3 gap-2">
-      <CButton
-        color="secondary"
-        variant="outline"
-        disabled={personaState.loading}
-        className="hover:text-white d-flex align-items-center gap-1 shadow-sm"
-        onClick={() => personaState.handleRecargar()}
-        title="Recargar"
-      >
-        <CIcon icon={cilReload} className={`me-1 ${personaState.loading ? 'rotate-animation' : ''}`} />
-        <span>{personaState.loading ? 'Cargando...' : 'Recargar'}</span>
-      </CButton>
-      {canDoAction('btn_crear_usuario_gestion_usuario') && (
+    <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+      <div>
+        <h3 className="fw-bold mb-1">Usuarios Registrados</h3>
+        <p className="text-body-secondary mb-0">
+          Directorio de lectores registrados, control de estados de inscripción y sanciones.
+        </p>
+      </div>
+      <div className="d-flex align-items-center gap-2">
         <CButton
-          color="primary"
+          color="secondary"
           variant="outline"
-          className="hover:text-white d-flex align-items-center gap-2 shadow-sm"
-          onClick={() => personaState.setModalRegister(true)}
+          size="sm"
+          disabled={personaState.loading}
+          className="d-flex align-items-center gap-1 shadow-sm"
+          onClick={() => personaState.handleRecargar()}
+          title="Refrescar lista y reiniciar filtros"
         >
-          <CIcon icon={cilUserPlus} className="me-1" />
-          <span>Nuevo Usuario</span>
+          <CIcon icon={cilSync} className={`me-1 ${personaState.loading ? 'rotate-animation' : ''}`} />
+          <span>{personaState.loading ? 'Refrescando...' : 'Refrescar'}</span>
         </CButton>
-      )}
+        {personaState.canCrearUsuario && (
+          <CButton
+            color="success"
+            size="sm"
+            variant="outline"
+            className="hover:text-white shadow-sm" onClick={() => personaState.handleAbrirCrear ? personaState.handleAbrirCrear() : personaState.setModalRegister(true)}
+          >
+            <CIcon icon={cilUserPlus} className="me-1" />
+            <span>Nuevo Usuario</span>
+          </CButton>
+        )}
+      </div>
     </div>
   )
 }

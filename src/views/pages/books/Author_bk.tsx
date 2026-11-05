@@ -14,16 +14,15 @@ import {
   CSpinner,
 } from '@coreui/react-pro'
 import CIcon from '@coreui/icons-react'
-import { cilCheckCircle, cilInfo, cilPencil, cilPlus, cilSearch, cilTrash, cilUser, cilX } from '@coreui/icons'
+import { cilCheckCircle, cilInfo, cilPencil, cilPlus, cilSearch, cilSync, cilTrash, cilUser, cilX } from '@coreui/icons'
 import useAutor from '@/hooks/rco-libros/useAutor'
 import ModalAt from '@/components/details_bk/author'
-import { usePermissions } from '@/context/PermissionsContext'
 
 const Author: React.FC = () => {
   const autorHook = useAutor()
-  const { canDoAction } = usePermissions()
   const {
     handleOpen,
+    handleRecargar,
     autoresFiltrados,
     busquedaAutor,
     listaAutores,
@@ -36,9 +35,15 @@ const Author: React.FC = () => {
     totalPaginas,
     totalAutores,
     handlePageChange,
+    canCrearAutor,
+    canEditarAutor,
+    canEliminarAutor,
+    canVerInfoAutor,
   } = autorHook
 
   const handleToggleSelect = (autor: any) => {
+    if (!canVerInfoAutor) return
+
     const currentId = String(autorSeleccionado?.ID_AUTOR ?? autorSeleccionado?.id ?? '')
     const targetId = String(autor?.ID_AUTOR ?? autor?.id ?? '')
     if (currentId && currentId === targetId) {
@@ -60,17 +65,30 @@ const Author: React.FC = () => {
             Administra el catálogo de autores, busca y consulta sus detalles y obras registradas.
           </p>
         </div>
-        <div className="d-flex gap-2">
-          {canDoAction('btn_crear_autor') && (
+        <div className="d-flex align-items-center gap-2">
           <CButton
-            color="success"
+            color="secondary"
             variant="outline"
-            className="d-flex align-items-center gap-2 shadow-sm hover:text-white"
-            onClick={() => handleOpen()}
+            size="sm"
+            disabled={loadingAutores}
+            className="d-flex align-items-center gap-1 shadow-sm"
+            onClick={() => handleRecargar()}
+            title="Refrescar lista y reiniciar filtros"
           >
-            <CIcon icon={cilPlus} />
-            <span>Nuevo Autor</span>
+            <CIcon icon={cilSync} className={`me-1 ${loadingAutores ? 'rotate-animation' : ''}`} />
+            <span>{loadingAutores ? 'Refrescando...' : 'Refrescar'}</span>
           </CButton>
+          {canCrearAutor && (
+            <CButton
+              color="success"
+              variant="outline"
+              size="sm"
+              className="d-flex align-items-center gap-2 shadow-sm hover:text-white"
+              onClick={() => handleOpen()}
+            >
+              <CIcon icon={cilPlus} />
+              <span>Nuevo Autor</span>
+            </CButton>
           )}
         </div>
       </div>
@@ -137,15 +155,17 @@ const Author: React.FC = () => {
                       <CIcon icon={cilUser} size="xxl" className="opacity-25" />
                     </div>
                     <p className="mb-3">No hay autores registrados en el catálogo.</p>
-                    <CButton
-                      color="success"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleOpen()}
-                    >
-                      <CIcon icon={cilPlus} className="me-1" />
-                      Registrar primer autor
-                    </CButton>
+                    {canCrearAutor && (
+                      <CButton
+                        color="success"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleOpen()}
+                      >
+                        <CIcon icon={cilPlus} className="me-1" />
+                        Registrar primer autor
+                      </CButton>
+                    )}
                   </div>
                 ) : autoresFiltrados.length === 0 ? (
                   <div className="text-center text-muted py-5 small">
@@ -178,8 +198,15 @@ const Author: React.FC = () => {
                             : 'bg-body'
                             }`}
                           style={{
-                            cursor: 'pointer',
+                            cursor: canVerInfoAutor ? 'pointer' : 'default',
+                            borderColor: isSelected ? '#198754' : '#dee2e6',
                             transition: 'all 0.2s ease',
+                          }}
+                          onMouseEnter={(e) => {
+                            if (canVerInfoAutor && !isSelected) e.currentTarget.style.borderColor = '#198754'
+                          }}
+                          onMouseLeave={(e) => {
+                            if (canVerInfoAutor && !isSelected) e.currentTarget.style.borderColor = '#dee2e6'
                           }}
                         >
                           <div className="d-flex align-items-center gap-3">
@@ -238,22 +265,48 @@ const Author: React.FC = () => {
                 <CIcon icon={cilInfo} size="lg" style={{ color: '#0a9b05ff' }} />
                 <span>Detalle del Autor</span>
               </div>
-              {autorSeleccionado && (
+              <div className="d-flex align-items-center gap-1">
                 <CButton
                   color="secondary"
                   variant="ghost"
                   size="sm"
-                  className="py-0 px-2 text-muted"
-                  onClick={() => setAutorSeleccionado(null)}
-                  title="Deseleccionar autor"
+                  disabled={loadingAutores}
+                  className="p-1 text-muted"
+                  onClick={() => handleRecargar()}
+                  title="Refrescar y limpiar selección"
                 >
-                  <span className="small">Deseleccionar ✕</span>
+                  <CIcon icon={cilSync} className={loadingAutores ? 'rotate-animation' : ''} />
                 </CButton>
-              )}
+                {autorSeleccionado && (
+                  <CButton
+                    color="secondary"
+                    variant="ghost"
+                    size="sm"
+                    className="p-1 text-muted"
+                    onClick={() => setAutorSeleccionado(null)}
+                    title="Cerrar detalle"
+                  >
+                    <CIcon icon={cilX} />
+                  </CButton>
+                )}
+              </div>
             </CCardHeader>
 
             <CCardBody className="p-4 d-flex flex-column justify-content-between">
-              {autorSeleccionado ? (
+              {!canVerInfoAutor ? (
+                <div className="text-center py-5 my-auto text-muted">
+                  <div
+                    className="bg-body rounded-circle p-4 d-inline-flex align-items-center justify-content-center mb-3"
+                    style={{ width: '80px', height: '80px' }}
+                  >
+                    <CIcon icon={cilUser} size="xxl" className="text-danger opacity-50" />
+                  </div>
+                  <h6 className="fw-bold text-body mb-1">Información no disponible</h6>
+                  <p className="small text-muted mb-0 px-3">
+                    No cuentas con los permisos necesarios para visualizar la información y las acciones de este autor.
+                  </p>
+                </div>
+              ) : autorSeleccionado ? (
                 <div>
                   <div className="d-flex align-items-center gap-2 mb-3 text-success">
                     <CIcon icon={cilCheckCircle} size="lg" />
@@ -286,27 +339,29 @@ const Author: React.FC = () => {
                   </div>
 
                   <div className="d-flex gap-2 justify-content-end">
-                    {canDoAction('btn_eliminar_autor') && (
-                    <CButton
-                      color="danger"
-                      variant="outline"
-                      className="d-flex align-items-center gap-2 shadow-sm hover:text-white"
-                      onClick={() => handleElminiarAutor(autorSeleccionado)}
-                    >
-                      <CIcon icon={cilTrash} />
-                      <span>Eliminar Autor</span>
-                    </CButton>
+                    {canEliminarAutor && (
+                      <CButton
+                        color="danger"
+                        size="sm"
+                        variant="outline"
+                        className="d-flex align-items-center gap-2 shadow-sm hover:text-white"
+                        onClick={() => handleElminiarAutor(autorSeleccionado)}
+                      >
+                        <CIcon icon={cilTrash} />
+                        <span>Eliminar Autor</span>
+                      </CButton>
                     )}
-                    {canDoAction('btn_editar_autor') && (
-                    <CButton
-                      color="success"
-                      variant="outline"
-                      className="d-flex align-items-center gap-2 shadow-sm hover:text-white"
-                      onClick={() => handleOpen(autorSeleccionado)}
-                    >
-                      <CIcon icon={cilPencil} />
-                      <span>Editar Autor</span>
-                    </CButton>
+                    {canEditarAutor && (
+                      <CButton
+                        color="success"
+                        variant="outline"
+                        size="sm"
+                        className="d-flex align-items-center gap-2 shadow-sm hover:text-white"
+                        onClick={() => handleOpen(autorSeleccionado)}
+                      >
+                        <CIcon icon={cilPencil} />
+                        <span>Editar Autor</span>
+                      </CButton>
                     )}
                   </div>
                 </div>
@@ -319,22 +374,25 @@ const Author: React.FC = () => {
                     <CIcon
                       icon={cilUser}
                       size="xxl"
+                      className="text-secondary opacity-50"
                     />
                   </div>
                   <h6 className="fw-bold text-body mb-1">Ningún autor seleccionado</h6>
                   <p className="small text-muted mb-4 px-3">
-                    Selecciona un autor de la lista izquierda para consultar sus detalles o modificarlo.
+                    Selecciona un autor de la lista para consultar sus detalles o modificarlo.
                   </p>
-                  <CButton
-                    color="success"
-                    variant="outline"
-                    size="sm"
-                    className="d-inline-flex align-items-center gap-1 shadow-sm hover:text-white"
-                    onClick={() => handleOpen()}
-                  >
-                    <CIcon icon={cilPlus} />
-                    <span>Crear Nuevo Autor</span>
-                  </CButton>
+                  {canCrearAutor && (
+                    <CButton
+                      color="success"
+                      variant="outline"
+                      size="sm"
+                      className="d-inline-flex align-items-center gap-1 shadow-sm hover:text-white"
+                      onClick={() => handleOpen()}
+                    >
+                      <CIcon icon={cilPlus} />
+                      <span>Crear Nuevo Autor</span>
+                    </CButton>
+                  )}
                 </div>
               )}
             </CCardBody>

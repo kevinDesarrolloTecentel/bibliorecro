@@ -63,6 +63,15 @@ export interface UsuarioOption {
   nombre?: string
   apellido?: string
   estado?: string
+  tieneSancion?: boolean
+  sancion?: {
+    inicio?: string
+    fin?: string
+    detalle?: string
+    estado?: string | number
+    mensaje?: string
+  } | null
+  raw?: any
 }
 
 export interface PrestamosPaginadosResponse {

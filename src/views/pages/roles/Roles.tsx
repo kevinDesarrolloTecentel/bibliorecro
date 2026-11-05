@@ -1,9 +1,12 @@
-import { useState, useRef, useEffect } from 'react'
+import { useRef, useEffect } from 'react'
+import { motion } from 'framer-motion'
 import {
   CBadge,
   CButton,
   CCard,
   CCardBody,
+  CCardHeader,
+  CElementCover,
   CFormCheck,
   CSpinner,
 } from '@coreui/react-pro'
@@ -11,15 +14,14 @@ import CIcon from '@coreui/icons-react'
 import {
   cilPlus,
   cilShieldAlt,
+  cilSync,
+  cilOptions,
 } from '@coreui/icons'
 import ModalCreate from '@/components/roles/ModalCreate'
 import ModalRolActu from '@/components/roles/ModalRol'
 import ModalAccionesPantalla from '@/components/roles/ModalAccionesPantalla'
 import useRoles from '@/hooks/admin-roles/useRoles'
 import usePermisosMatriz from '@/hooks/admin-roles/usePermisosMatriz'
-import { Pantalla } from '@/models/adm/permiso.model'
-import { usePermissions } from '@/context/PermissionsContext'
-
 
 const getClusterStyle = (nombreModulo: string) => {
   const norm = (nombreModulo || '').toLowerCase()
@@ -87,22 +89,11 @@ const getClusterStyle = (nombreModulo: string) => {
 }
 
 export const Roles = () => {
-  const { canDoAction } = usePermissions()
-
   // 1. Hook de CRUD de Roles
   const userState = useRoles()
 
   // 2. Hook de Lógica Centralizada de la Matriz de Permisos
   const permisos = usePermisosMatriz(userState.roles, userState.fetchRoles)
-
-  // 3. Estado para el modal de acciones/botones de una pantalla
-  const [pantallaSeleccionada, setPantallaSeleccionada] = useState<Pantalla | null>(null)
-  const [modalAccionesVisible, setModalAccionesVisible] = useState<boolean>(false)
-
-  const handleAbrirAcciones = (pantalla: Pantalla) => {
-    setPantallaSeleccionada(pantalla)
-    setModalAccionesVisible(true)
-  }
 
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
@@ -131,55 +122,75 @@ export const Roles = () => {
       <ModalRolActu userState={userState} />
 
       <ModalAccionesPantalla
-        visible={modalAccionesVisible}
-        onClose={() => setModalAccionesVisible(false)}
-        pantalla={pantallaSeleccionada}
+        visible={permisos.modalAccionesVisible}
+        onClose={permisos.handleCerrarAcciones}
+        pantalla={permisos.pantallaSeleccionada}
         roles={userState.roles}
         allAcciones={permisos.allAcciones}
         isPermisoAsignado={permisos.isPermisoAsignado}
         isAccionAsignada={permisos.isAccionAsignada}
+        canModificarAcciones={permisos.canModificarAcciones}
         onToggleAccion={permisos.handleConfirmarCambioAccion}
-        onToggleTodasAcciones={permisos.handleConfirmarToggleTodasAcciones}
       />
 
-
-      <CCard className="mb-4 shadow-sm border-0">
-        <CCardBody className="p-3 px-4">
-          <div className="d-flex flex-wrap align-items-center justify-content-between gap-3">
-            {/* Título simple y limpio */}
-            <div className="d-flex align-items-center gap-2">
-              <div
-                className="rounded-3 p-2 d-flex align-items-center justify-content-center text-white"
-                style={{ backgroundColor: '#321fdb', width: '42px', height: '42px' }}
-              >
-                <CIcon icon={cilShieldAlt} size="xl" />
-              </div>
-              <h4 className="mb-0 fw-bold text-dark">Gestión de Roles y Permisos</h4>
-            </div>
-
-            <div>
-              {canDoAction('btn_crear_rol') && (
-                <CButton
-                  color="success"
-                  onClick={() => userState.setModalCrear(true)}
-                  style={{ color: 'white' }}
-                  className="d-flex align-items-center gap-2 px-3 py-2 fw-semibold shadow-sm"
-                >
-                  <CIcon icon={cilPlus} />
-                  <span>Nuevo Rol</span>
-                </CButton>
-              )}
-            </div>
-          </div>
-        </CCardBody>
-      </CCard>
+      {/* Encabezado estándar con el mismo diseño que Renovaciones y Reportes */}
+      <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+        <div>
+          <h3 className="fw-bold mb-1">Roles y Permisos</h3>
+          <p className="text-body-secondary mb-0">
+            Administración de roles y asignación de permisos por módulo y pantalla.
+          </p>
+        </div>
+        <div className="d-flex align-items-center gap-2">
+          <CButton
+            color="secondary"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              permisos.handleRefrescarTodo()
+            }}
+            disabled={userState.loading || permisos.loadingMatriz}
+            className="d-flex align-items-center gap-1 shadow-sm"
+            title="Refrescar lista y matriz de permisos"
+          >
+            <CIcon
+              icon={cilSync}
+              className={`me-1 ${userState.loading || permisos.loadingMatriz ? 'rotate-animation' : ''}`}
+            />
+            <span>{userState.loading || permisos.loadingMatriz ? 'Refrescando...' : 'Refrescar'}</span>
+          </CButton>
+          {userState.canCrearRol && (
+            <CButton
+              color="success"
+              size="sm"
+              onClick={userState.handleAbrirCrear}
+              variant="outline"
+              className="hover:text-white shadow-sm"            >
+              <CIcon icon={cilPlus} className="me-1" />
+              <span>Nuevo Rol</span>
+            </CButton>
+          )}
+        </div>
+      </div>
 
       <CCard className="shadow-sm border-0">
+        <CCardHeader className="bg-transparent py-3 d-flex justify-content-between align-items-center">
+          <span className="fw-semibold text-uppercase small">
+            Matriz de Permisos
+          </span>
+          <span className="text-body-secondary small">
+            Total roles registrados: <strong>{userState.roles.length}</strong>
+          </span>
+        </CCardHeader>
         <CCardBody className="p-0">
           {permisos.loadingMatriz ? (
-            <div className="text-center py-5">
-              <CSpinner color="primary" style={{ width: '3rem', height: '3rem' }} />
-              <div className="mt-3 fw-bold fs-5 text-dark">Cargando permisos...</div>
+            <div className="position-relative py-3 px-3" style={{ minHeight: '100px' }}>
+              <div className="text-body-secondary py-2 border-bottom">
+                Cargando permisos...
+              </div>
+              <CElementCover opacity={0.2} style={{ backgroundColor: 'transparent' }}>
+                <CSpinner variant="grow" color="primary" />
+              </CElementCover>
             </div>
           ) : permisos.errorPermisos || userState.errorMsg ? (
             <div className="text-center py-5 px-4">
@@ -222,9 +233,9 @@ export const Roles = () => {
                       style={{
                         width: '240px',
                         minWidth: '240px',
-                        backgroundColor: '#ffffff',
-                        borderRight: '2px solid #e2e8f0',
-                        borderBottom: '2px solid #e2e8f0',
+                        backgroundColor: 'var(--cui-body-bg)',
+                        borderRight: '2px solid var(--cui-border-color)',
+                        borderBottom: '2px solid var(--cui-border-color)',
                       }}
                     />
                     {permisos.catalogo.map((modulo) => {
@@ -250,7 +261,7 @@ export const Roles = () => {
                     })}
                   </tr>
 
-                  <tr style={{ backgroundColor: '#f8fafc' }}>
+                  <tr style={{ backgroundColor: 'var(--cui-tertiary-bg)' }}>
                     {permisos.catalogo.flatMap((modulo) =>
                       modulo.PANTALLAS.map((pantalla, pIdx) => {
                         const isLastInModulo = pIdx === modulo.PANTALLAS.length - 1
@@ -263,18 +274,23 @@ export const Roles = () => {
                             style={{
                               minWidth: '200px',
                               maxWidth: '240px',
+                              backgroundColor: 'var(--cui-tertiary-bg)',
                               borderRight: isLastInModulo
-                                ? '2px solid #e2e8f0'
-                                : '1px solid #f1f5f9',
-                              borderBottom: '2px solid #e2e8f0',
+                                ? '2px solid var(--cui-border-color)'
+                                : '1px solid var(--cui-border-color-translucent)',
+                              borderBottom: '2px solid var(--cui-border-color)',
                             }}
                           >
                             <div className="d-flex flex-column align-items-center gap-1">
-                              <span
-                                className="font-monospace fw-bold px-2 py-1 rounded text-truncate shadow-sm"
+                              <motion.span
+                                whileHover={permisos.canVerAcciones ? { scale: 1.05, y: -1 } : {}}
+                                whileTap={permisos.canVerAcciones ? { scale: 0.96 } : {}}
+                                className="font-monospace fw-bold px-2 py-1 rounded text-truncate shadow-sm d-inline-flex align-items-center gap-1"
                                 onClick={(e) => {
                                   e.stopPropagation()
-                                  handleAbrirAcciones(pantalla)
+                                  if (permisos.canVerAcciones) {
+                                    permisos.handleAbrirAcciones(pantalla)
+                                  }
                                 }}
                                 style={{
                                   fontSize: '0.78rem',
@@ -282,14 +298,20 @@ export const Roles = () => {
                                   color: style.tagText,
                                   maxWidth: '200px',
                                   border: '1px solid rgba(0,0,0,0.08)',
-                                  cursor: 'pointer',
+                                  cursor: permisos.canVerAcciones ? 'pointer' : 'default',
                                   userSelect: 'none',
-                                  transition: 'transform 0.12s ease, box-shadow 0.12s ease',
                                 }}
-                                title={`Haz clic para ver y configurar las acciones de ${pantalla.PATH_PERMISO}`}
+                                title={
+                                  permisos.canVerAcciones
+                                    ? `Haz clic para ver y configurar las acciones de ${pantalla.PATH_PERMISO}`
+                                    : pantalla.PATH_PERMISO
+                                }
                               >
-                                {pantalla.PATH_PERMISO}
-                              </span>
+                                <span>{pantalla.PATH_PERMISO}</span>
+                                {permisos.canVerAcciones && (
+                                  <CIcon icon={cilOptions} style={{ width: '10px', height: '10px', opacity: 0.7 }} />
+                                )}
+                              </motion.span>
                               <span
                                 className="fw-semibold text-secondary text-truncate"
                                 style={{ fontSize: '0.8rem', maxWidth: '200px', userSelect: 'none' }}
@@ -319,19 +341,19 @@ export const Roles = () => {
                           style={{
                             width: '240px',
                             minWidth: '240px',
-                            backgroundColor: '#ffffff',
-                            borderRight: '2px solid #e2e8f0',
-                            borderBottom: '1px solid #e2e8f0',
-                            cursor: (canDoAction('btn_actualizar_rol') || canDoAction('btn_eliminar_rol')) ? 'pointer' : 'default',
+                            backgroundColor: 'var(--cui-body-bg)',
+                            borderRight: '2px solid var(--cui-border-color)',
+                            borderBottom: '1px solid var(--cui-border-color)',
+                            cursor: userState.canEditarRol ? 'pointer' : 'default',
                             userSelect: 'none',
                           }}
                           onClick={() => {
-                            if (canDoAction('btn_actualizar_rol') || canDoAction('btn_eliminar_rol')) {
+                            if (userState.canEditarRol) {
                               userState.handleAbrirEditar(rol)
                             }
                           }}
                           title={
-                            (canDoAction('btn_actualizar_rol') || canDoAction('btn_eliminar_rol'))
+                            userState.canEditarRol
                               ? 'Haz clic para actualizar o eliminar este rol'
                               : nombreRol
                           }
@@ -339,7 +361,7 @@ export const Roles = () => {
                           <div className="d-flex align-items-center justify-content-between gap-2 p-1 rounded-2">
                             <div>
                               <div className="d-flex align-items-center gap-2">
-                                <span className="fw-bold text-dark fs-6">{nombreRol}</span>
+                                <span className="fw-bold text-body fs-6">{nombreRol}</span>
                                 {isModified && (
                                   <CBadge color="warning" className="text-dark py-1 px-2" style={{ fontSize: '0.68rem' }}>
                                     Modificado
@@ -347,13 +369,9 @@ export const Roles = () => {
                                 )}
                               </div>
                               <div className="d-flex align-items-center gap-2 mt-1">
-                                <CBadge
-                                  color={nivelRol === 1 ? 'danger' : 'info'}
-                                  className="px-2 py-0 text-white"
-                                  style={{ fontSize: '0.7rem' }}
-                                >
+                                <span className="text-secondary small">
                                   Nivel {nivelRol}
-                                </CBadge>
+                                </span>
                               </div>
                             </div>
                           </div>
@@ -370,26 +388,29 @@ export const Roles = () => {
                                 className="text-center align-middle py-3 px-2"
                                 style={{
                                   borderRight: isLastInModulo
-                                    ? '2px solid #e2e8f0'
-                                    : '1px solid #f1f5f9',
-                                  borderBottom: '1px solid #e2e8f0',
-                                  backgroundColor: isChecked ? 'rgba(50, 31, 219, 0.04)' : undefined,
+                                    ? '2px solid var(--cui-border-color)'
+                                    : '1px solid var(--cui-border-color-translucent)',
+                                  borderBottom: '1px solid var(--cui-border-color)',
+                                  backgroundColor: isChecked ? 'rgba(99, 102, 241, 0.12)' : undefined,
                                 }}
                               >
                                 <div className="d-flex justify-content-center align-items-center">
                                   <CFormCheck
                                     id={`perm-${rolId}-${pantalla.ID_PERMISO}`}
                                     checked={isChecked}
-                                    onChange={() =>
-                                      permisos.handleConfirmarCambioPermiso(
-                                        rolId,
-                                        nombreRol,
-                                        pantalla.ID_PERMISO,
-                                        pantalla.NOMBRE_PERMISO,
-                                      )
-                                    }
+                                    disabled={!permisos.canCheckboxPermisos}
+                                    onChange={() => {
+                                      if (permisos.canCheckboxPermisos) {
+                                        permisos.handleConfirmarCambioPermiso(
+                                          rolId,
+                                          nombreRol,
+                                          pantalla.ID_PERMISO,
+                                          pantalla.NOMBRE_PERMISO,
+                                        )
+                                      }
+                                    }}
                                     style={{
-                                      cursor: 'pointer',
+                                      cursor: permisos.canCheckboxPermisos ? 'pointer' : 'not-allowed',
                                       transform: 'scale(1.25)',
                                     }}
                                   />

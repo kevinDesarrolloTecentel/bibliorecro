@@ -1,96 +1,103 @@
-
 import useUsers from "@/hooks/adm-user/useUsers"
-import { cilExitToApp, cilUser } from "@coreui/icons"
+import { cilExitToApp, cilLockLocked, cilLockUnlocked, cilUser } from "@coreui/icons"
 import CIcon from "@coreui/icons-react"
-import { CButton, CCol, CForm, CFormInput, CFormSelect, CModal, CModalBody, CModalFooter, CModalHeader, CModalTitle, CSpinner } from "@coreui/react-pro"
+import { CButton, CCol, CForm, CFormInput, CInputGroup, CModal, CModalBody, CModalFooter, CModalHeader, CModalTitle, CSpinner } from "@coreui/react-pro"
 
-const Newuser = ({ userState }: { userState: ReturnType<typeof useUsers> }) => {
+interface NewuserProps {
+    userState: ReturnType<typeof useUsers>
+    onUserCreated?: () => void
+}
+
+const Newuser = ({ userState, onUserCreated }: NewuserProps) => {
+    const handleGuardar = async () => {
+        const ok = await userState.handleCrearUsuario(userState.formData)
+        if (ok) {
+            userState.setModalVisible(false)
+            userState.resetFormData()
+            if (onUserCreated) onUserCreated()
+        }
+    }
 
     return (
-        <>
-            <CModal visible={userState.modalVisible} onClose={() => userState.setModalVisible(false)}>
-                <CModalHeader>
-                    <CModalTitle>Ingreso de Nuevo Usuario</CModalTitle>
-                </CModalHeader>
-                <CModalBody>
-                    <CForm className="row g-3">
-                        <CCol md={6}>
+        <CModal visible={userState.modalVisible} onClose={userState.handleCerrarCrear}>
+            <CModalHeader>
+                <CModalTitle>Ingreso de Nuevo Usuario</CModalTitle>
+            </CModalHeader>
+            <CModalBody>
+                <CForm className="row g-3" autoComplete="off">
+                    <CCol md={6}>
+                        <CFormInput
+                            type="text"
+                            id="inputNuevoUsuario"
+                            name="nuevo_usuario_alias"
+                            autoComplete="off"
+                            label="Usuario"
+                            placeholder="Usuario"
+                            value={userState.formData.usuario}
+                            onChange={(e) => userState.setFormData({ ...userState.formData, usuario: e.target.value })}
+                        />
+                    </CCol>
+                    <CCol md={6}>
+                        <label className="form-label">Contraseña</label>
+                        <CInputGroup>
                             <CFormInput
-                                type="text"
-                                id="inputUsuario"
-                                label="Usuario"
-                                value={userState.formData.usuario}
-                                onChange={(e) => userState.setFormData({ ...userState.formData, usuario: e.target.value })}
-                            />
-                        </CCol>
-                        <CCol md={6}>
-                            <CFormInput
-                                type="password"
-                                id="inputPassword"
-                                label="Contraseña"
+                                type={userState.showPassword ? 'text' : 'password'}
+                                id="inputNuevaContrasena"
+                                name="nueva_contrasena_cuenta"
+                                autoComplete="new-password"
+                                placeholder="••••••••"
                                 value={userState.formData.password}
                                 onChange={(e) => userState.setFormData({ ...userState.formData, password: e.target.value })}
                             />
-                        </CCol>
-                        <CCol xs={12}>
-                            <CFormInput
-                                id="inputNombres"
-                                label="Nombres Completos"
-                                value={userState.formData.nombres}
-                                onChange={(e) => userState.setFormData({ ...userState.formData, nombres: e.target.value })}
-                            />
-                        </CCol>
-                        <CCol md={6}>
-                            <CFormSelect
-                                id="inputRol"
-                                label="Rol"
-                                value={userState.formData.rol}
-                                onChange={(e) => userState.setFormData({ ...userState.formData, rol: e.target.value })}
+                            <CButton
+                                type="button"
+                                color="secondary"
+                                variant="outline"
+                                onClick={() => userState.setShowPassword(!userState.showPassword)}
+                                title={userState.showPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
                             >
-                                <option value="">Elija un rol...</option>
-                                {userState.loadingRoles ? (
-                                    <option value="" disabled>Cargando roles...</option>
-                                ) : userState.rolesList.length > 0 ? (
-                                    userState.rolesList.map((r: any) => {
-                                        const id = String(r.ID_ROL ?? r.id ?? '')
-                                        const nombre = r.NOMBRE_ROL ?? r.nombre ?? r.name ?? `Rol ${id}`
-                                        return (
-                                            <option key={id} value={id}>
-                                                {nombre}
-                                            </option>
-                                        )
-                                    })
-                                ) : (
-                                    <option value="" disabled>No hay roles disponibles</option>
-                                )}
-                            </CFormSelect>
-                        </CCol>
-                        <CCol md={6}>
-                            <CFormSelect
-                                id="inputEstado"
-                                label="Estado"
-                                value={userState.formData.estado}
-                                onChange={(e) => userState.setFormData({ ...userState.formData, estado: e.target.value })}
-                            >
-                                <option value="Activo">Activo</option>
-                                <option value="Inactivo">Inactivo</option>
-                            </CFormSelect>
-                        </CCol>
-                    </CForm>
-                </CModalBody>
-                <CModalFooter>
-                    <CButton color="danger" variant="outline" className="hover:text-white" onClick={() => userState.setModalVisible(false)} disabled={userState.guardando}>
-                        <CIcon icon={cilExitToApp} className="me-1"/>
-                        Cerrar
-                    </CButton>
-                    <CButton color="success" variant="outline" className="hover:text-white" onClick={userState.handleGuardarUsuario} disabled={userState.guardando}>
+                                <CIcon icon={userState.showPassword ? cilLockUnlocked : cilLockLocked} />
+                            </CButton>
+                        </CInputGroup>
+                    </CCol>
+                    <CCol xs={12}>
+                        <CFormInput
+                            id="inputNuevoNombres"
+                            name="nuevo_usuario_nombres"
+                            autoComplete="off"
+                            label="Nombres Completos"
+                            placeholder="Nombre Completo"
+                            value={userState.formData.nombres}
+                            onChange={(e) => {
+                                const val = e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '')
+                                userState.setFormData({ ...userState.formData, nombres: val })
+                            }}
+                        />
+                    </CCol>
+                </CForm>
+            </CModalBody>
+            <CModalFooter>
+                <CButton size="sm" color="secondary" className="hover:text-white shadow-sm" variant="outline" onClick={userState.handleCerrarCrear} disabled={userState.guardando}>
+                    <CIcon icon={cilExitToApp} className="me-1"/>
+                    Cerrar
+                </CButton>
+                
+                {userState.canGuardarUsuario && (
+                    <CButton
+                        color="success"
+                        size="sm"
+                        variant="outline"
+                        className="hover:text-white shadow-sm"
+                        onClick={handleGuardar}
+                        disabled={userState.guardando}
+                    >
                         <CIcon icon={cilUser} className="me-1"/>
                         {userState.guardando ? <CSpinner size="sm" className="me-1" /> : null}
                         Guardar Usuario
                     </CButton>
-                </CModalFooter>
-            </CModal>
-        </>
+                )}
+            </CModalFooter>
+        </CModal>
     )
 }
 

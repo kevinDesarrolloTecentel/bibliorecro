@@ -1,111 +1,144 @@
+import { useState } from "react"
 import useUsers from "@/hooks/adm-user/useUsers"
-import { cilExitToApp, cilLockLocked, cilLockUnlocked, cilPenNib } from "@coreui/icons"
+import { cilExitToApp, cilLockLocked, cilLockUnlocked, cilPenNib, cilTrash } from "@coreui/icons"
 import CIcon from "@coreui/icons-react"
 import { CButton, CCol, CForm, CFormInput, CFormSelect, CInputGroup, CModal, CModalBody, CModalFooter, CModalHeader, CModalTitle, CSpinner } from "@coreui/react-pro"
-import { usePermissions } from "@/context/PermissionsContext"
 
-const ModalEdit = ({ userState }: { userState: ReturnType<typeof useUsers> }) => {
+interface ModalEditProps {
+    userState: ReturnType<typeof useUsers>
+    onUserChanged?: () => void
+}
 
-    const {canDoAction} = usePermissions()
+const ModalEdit = ({ userState, onUserChanged }: ModalEditProps) => {
+    const [actionLoading, setActionLoading] = useState<'actualizar' | 'eliminar' | null>(null)
+
+    const isBusy = userState.guardando || actionLoading !== null
+
+    const handleGuardar = async () => {
+        setActionLoading('actualizar')
+        try {
+            const ok = await userState.handleActualizarUsuario(userState.editFormData.id, userState.editFormData)
+            if (ok) {
+                userState.setModalEdit(false)
+                if (onUserChanged) onUserChanged()
+            }
+        } finally {
+            setActionLoading(null)
+        }
+    }
+
+    const handleEliminar = async () => {
+        setActionLoading('eliminar')
+        try {
+            const ok = await userState.handleEliminarUsuario(
+                userState.editFormData.id,
+                userState.editFormData.nombres || userState.editFormData.usuario
+            )
+            if (ok) {
+                userState.setModalEdit(false)
+                if (onUserChanged) onUserChanged()
+            }
+        } finally {
+            setActionLoading(null)
+        }
+    }
+
     return (
-        <>
-            <CModal visible={userState.modalEdit} onClose={() => userState.setModalEdit(false)}>
-                <CModalHeader>
-                    <CModalTitle>Actualización de Usuario</CModalTitle>
-                </CModalHeader>
-                <CModalBody>
-                    <CForm className="row g-3">
-                        <CCol md={6}>
+        <CModal visible={userState.modalEdit} onClose={() => userState.setModalEdit(false)}>
+            <CModalHeader>
+                <CModalTitle className="d-flex align-items-center">
+                    Actualizar o Eliminar Usuario
+                </CModalTitle>
+            </CModalHeader>
+            <CModalBody>
+                <CForm className="row g-3">
+                    <CCol md={6}>
+                        <CFormInput
+                            type="text"
+                            id="editUsuario"
+                            label="Usuario"
+                            disabled
+                            value={userState.editFormData.usuario}
+                            onChange={(e) => userState.setEditFormData({ ...userState.editFormData, usuario: e.target.value })}
+                        />
+                    </CCol>
+                    <CCol md={6}>
+                        <label className='form-label'>Contraseña</label>
+                        <CInputGroup>
                             <CFormInput
-                                type="text"
-                                id="editUsuario"
-                                label="Usuario"
-                                disabled
-                                value={userState.editFormData.usuario}
-                                onChange={(e) => userState.setEditFormData({ ...userState.editFormData, usuario: e.target.value })}
+                                type={userState.showPassword ? 'text' : 'password'}
+                                placeholder='Dejar en blanco para conservar'
+                                value={userState.editFormData.password}
+                                onChange={(e) => userState.setEditFormData({ ...userState.editFormData, password: e.target.value })}
                             />
-                        </CCol>
-                        <CCol md={6}>
-                            <label className='form-label'>Contraseña</label>
-                            <CInputGroup>
-                                <CFormInput
-                                    type={userState.showPassword ? 'text' : 'password'}
-                                    placeholder='Dejar en blanco para conservar'
-                                    value={userState.editFormData.password}
-                                    onChange={(e) => userState.setEditFormData({ ...userState.editFormData, password: e.target.value })}
-                                />
-                                <CButton
-                                    type='button'
-                                    color='secondary'
-                                    variant='outline'
-                                    onClick={() => userState.setShowPassword(!userState.showPassword)}
-                                    title={userState.showPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
-                                >
-                                    <CIcon icon={userState.showPassword ? cilLockUnlocked : cilLockLocked} />
-                                </CButton>
-                            </CInputGroup>
-                        </CCol>
-                        <CCol xs={12}>
-                            <CFormInput
-                                id="editNombres"
-                                label="Nombres Completos"
-                                value={userState.editFormData.nombres}
-                                onChange={(e) => userState.setEditFormData({ ...userState.editFormData, nombres: e.target.value })}
-                            />
-                        </CCol>
-                        <CCol md={6}>
-                            <CFormSelect
-                                id="editRol"
-                                label="Rol"
-                                value={userState.editFormData.rol}
-                                onChange={(e) => userState.setEditFormData({ ...userState.editFormData, rol: e.target.value })}
+                            <CButton
+                                type='button'
+                                color='secondary'
+                                variant='outline'
+                                onClick={() => userState.setShowPassword(!userState.showPassword)}
+                                title={userState.showPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
                             >
-                                <option value="">Elija un rol...</option>
-                                {userState.loadingRoles ? (
-                                    <option value="" disabled>Cargando roles...</option>
-                                ) : userState.rolesList.length > 0 ? (
-                                    userState.rolesList.map((r: any) => {
-                                        const id = String(r.ID_ROL ?? r.id ?? '')
-                                        const nombre = r.NOMBRE_ROL ?? r.nombre ?? r.name ?? `Rol ${id}`
-                                        return (
-                                            <option key={id} value={id}>
-                                                {nombre}
-                                            </option>
-                                        )
-                                    })
-                                ) : (
-                                    <option value="" disabled>No hay roles disponibles</option>
-                                )}
-                            </CFormSelect>
-                        </CCol>
-                        <CCol md={6}>
-                            <CFormSelect
-                                id="editEstado"
-                                label="Estado"
-                                value={userState.editFormData.estado}
-                                onChange={(e) => userState.setEditFormData({ ...userState.editFormData, estado: e.target.value })}
-                            >
-                                <option value="Activo">Activo</option>
-                                <option value="Inactivo">Inactivo</option>
-                            </CFormSelect>
-                        </CCol>
-                    </CForm>
-                </CModalBody>
-                <CModalFooter>
-                    <CButton color="danger" variant="outline"className="hover:text-white" onClick={() => userState.setModalEdit(false)} disabled={userState.guardando}>
-                        <CIcon icon={cilExitToApp} className="me-1"/>
-                        Cancelar
+                                <CIcon icon={userState.showPassword ? cilLockUnlocked : cilLockLocked} />
+                            </CButton>
+                        </CInputGroup>
+                    </CCol>
+                    <CCol xs={12}>
+                        <CFormInput
+                            id="editNombres"
+                            label="Nombres Completos"
+                            value={userState.editFormData.nombres}
+                            onChange={(e) => {
+                                const val = e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '')
+                                userState.setEditFormData({ ...userState.editFormData, nombres: val })
+                            }}
+                        />
+                    </CCol>
+                    <CCol xs={12}>
+                        <CFormSelect
+                            id="editEstado"
+                            label="Estado"
+                            value={userState.editFormData.estado}
+                            onChange={(e) => userState.setEditFormData({ ...userState.editFormData, estado: e.target.value })}
+                        >
+                            <option value="Activo">Activo</option>
+                            <option value="Inactivo">Inactivo</option>
+                        </CFormSelect>
+                    </CCol>
+                </CForm>
+            </CModalBody>
+            <CModalFooter>
+                <CButton size="sm" className="hover:text-white shadow-sm" color="secondary" variant="outline" onClick={() => userState.setModalEdit(false)} disabled={isBusy}>
+                    <CIcon icon={cilExitToApp} className="me-1" />
+                    Cerrar
+                </CButton>
+                {userState.canEliminarUsuario && (
+                    <CButton
+                        color="danger"
+                        variant="outline"
+                        size="sm"
+                        className="hover:text-white shadow-sm" onClick={handleEliminar}
+                        disabled={isBusy}
+                    >
+                        {actionLoading === 'eliminar' ? <CSpinner size="sm" className="me-1" /> : null}
+                        <CIcon icon={cilTrash} className="me-1" />
+                        Eliminar Usuario
                     </CButton>
-                    {canDoAction('btn_actualizar_usuario') && (
-                    <CButton color="success" variant="outline" className="hover:text-white" onClick={userState.handleGuardarEditar} disabled={userState.guardando}>
-                        {userState.guardando ? <CSpinner size="sm" className="me-1" /> : null}
-                        <CIcon icon={cilPenNib} className="me-1"/>
+                )}
+                {userState.canActualizarUsuario && (
+                    <CButton
+                        color="success"
+                        variant="outline"
+                        size="sm"
+                        className="hover:text-white shadow-sm" onClick={handleGuardar}
+                        disabled={isBusy}
+                    >
+                        {actionLoading === 'actualizar' ? <CSpinner size="sm" className="me-1" /> : null}
+                        <CIcon icon={cilPenNib} className="me-1" />
                         Actualizar Usuario
                     </CButton>
-                    )}
-                </CModalFooter>
-            </CModal>
-        </>
+                )}
+            </CModalFooter>
+        </CModal>
     )
 }
 

@@ -15,16 +15,16 @@ const Profile = React.lazy(() => import('./views/pages/profile/Profile'))
 
 // Admin
 const User = React.lazy(() => import('./views/pages/users/User'))
-const Roles = React.lazy(() => import('./views/pages/roles/Roles'))
+const PermisosRoles = React.lazy(() => import('./views/pages/roles/Roles'))
 
-// Clientes / Usuarios Lectores
+// Clientes
 const Cliente = React.lazy(() => import('./views/pages/clients/ClienteDs'))
 const Renovate = React.lazy(() => import('./views/pages/clients/Renovate'))
 
-// Libros / Biblioteca
+// Libros
 const Inventary = React.lazy(() => import('./views/pages/books/Inventary_bk'))
 const Loands = React.lazy(() => import('./views/pages/books/Loands_bk'))
-const BooksRT = React.lazy(() => import('./views/pages/books/Return_bk'))
+const BooksRT = React.lazy(() => import('./views/pages/books/Sanctioned_bk'))
 const Category = React.lazy(() => import('./views/pages/books/Category_bk'))
 const Editorial = React.lazy(() => import('./views/pages/books/Editorial_bk'))
 const Supplier = React.lazy(() => import('./views/pages/books/Supplier_bk'))
@@ -57,12 +57,12 @@ const routes: Route[] = [
     element: User,
   },
   {
-    path: '/administracion/roles',
-    name: 'Roles y Permisos',
-    element: Roles,
+    path: '/administracion/permisosyroles',
+    name: 'Permisos y Roles',
+    element: PermisosRoles,
   },
   {
-    path: '/administracion/perfil',
+    path: '/perfil',
     name: 'Perfil',
     element: Profile,
   },
@@ -80,43 +80,48 @@ const routes: Route[] = [
 
   {
     path: '/biblioteca/inventario',
-    name: 'Libros Inventario',
+    name: 'Inventario',
     element: Inventary,
   },
   {
     path: '/biblioteca/prestamos',
-    name: 'Libros en Prestamos',
+    name: 'Préstamos y Devoluciones',
     element: Loands,
   },
   {
+    path: '/biblioteca/sancionados',
+    name: 'Sancionados',
+    element: BooksRT,
+  },
+  {
     path: '/biblioteca/devoluciones',
-    name: 'Libros por Devolver',
+    name: 'Sancionados',
     element: BooksRT,
   },
 
   {
-    path: '/libro/categoria',
-    name: 'Libro Categoria',
+    path: '/libro/categorias',
+    name: 'Categoria',
     element: Category,
   },
   {
-    path: '/libro/editorial',
-    name: 'Libro Editorial',
+    path: '/libro/editoriales',
+    name: 'Editorial',
     element: Editorial,
   },
   {
-    path: '/libro/proveedor',
-    name: 'Libro Proveedor',
+    path: '/libro/proveedores',
+    name: 'Proveedor',
     element: Supplier,
   },
   {
-    path: '/libro/autor',
-    name: 'Libro Autor',
+    path: '/libro/autores',
+    name: 'Autor',
     element: Author,
   },
   {
-    path: '/libro/genero',
-    name: 'Libro Genero',
+    path: '/libro/generos',
+    name: 'Genero',
     element: Genre,
   },
 
@@ -127,7 +132,7 @@ const routes: Route[] = [
     element: RP_usu,
   },
   {
-    path: '/reportes/usuario',
+    path: '/reportes/usuarios',
     name: 'Reporte de Usuarios',
     element: RP_usu,
   },
@@ -142,14 +147,14 @@ const routes: Route[] = [
     element: RP_in,
   },
   {
-    path: '/reportes/tejuelo',
-    name: 'Impresión de Tejuelos',
+    path: '/reportes/tejuelos',
+    name: 'Reporte de Tejuelos',
     element: RP_tej,
   },
 
   { path: '/perfil', element: Profile },
   { path: '/usuarios', element: User },
-  { path: '/roles', element: Roles },
+  { path: '/permisosyroles', element: PermisosRoles },
   { path: '/clientes', element: Cliente },
   { path: '/renovacion-usuarios', element: Renovate },
   { path: '/inventariado', element: Inventary },
@@ -160,7 +165,7 @@ const routes: Route[] = [
   { path: '/proveedor', element: Supplier },
   { path: '/autor', element: Author },
   { path: '/generos', element: Genre },
-  { path: '/reporte-usuario', element: RP_usu },
+  { path: '/reporte-usuarios', element: RP_usu },
   { path: '/reporte-prestamos', element: RP_prest },
   { path: '/reporte-inventario', element: RP_in },
   { path: '/reporte-tejuelo', element: RP_tej },

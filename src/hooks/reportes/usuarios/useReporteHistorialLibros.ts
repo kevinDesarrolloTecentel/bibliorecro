@@ -1,24 +1,21 @@
 import { useState, useCallback } from 'react'
 import Swal from 'sweetalert2'
 
-import { STORAGE_BASE_URL } from '@/utils/imageUtils'
+import { STORAGE_BASE_URL, descargarArchivo } from '@/utils/imageUtils'
 import { listarPrestamosCedula } from '@/Service/rco/Prestamos'
+import { usePermissions } from '@/context/PermissionsContext'
 
-export { STORAGE_BASE_URL }
+export { STORAGE_BASE_URL, descargarArchivo }
 
-export interface PrestamoReporteItem {
-  ID_PRESTAMO?: number | string
-  NOMBRE_PERSONA?: string
-  APELLIDO_PERSONA?: string
-  ISBN_LIBROS?: string
-  TITULO_LIBROS?: string
-  NOMBRE_AUTOR?: string
-  PRECIO_LIBROS?: number | string
-  ESTADOINSCRIPCION_PERSONA?: number
-  [key: string]: any
-}
+import { PrestamoReporteItem } from '@/models/reportes/prestamos'
+
+export type { PrestamoReporteItem }
 
 export const useReporteHistorialLibrosUsuario = () => {
+  const { canDoAction, verificarAccionEnServidor } = usePermissions()
+  const canGenerarLibrosUsuario = canDoAction('btn_generar_libros_usuario')
+  const canDescargarLibrosUsuarios = canDoAction('btn_descargar_libros_usuarios')
+
   const [cedula, setCedula] = useState<string>('')
   const [libros, setLibros] = useState<PrestamoReporteItem[]>([])
   const [isLoading, setIsLoading] = useState<boolean>(false)
@@ -26,36 +23,55 @@ export const useReporteHistorialLibrosUsuario = () => {
   const [haBuscado, setHaBuscado] = useState<boolean>(false)
 
   const handleGetPrestamos = useCallback(async () => {
+    if (!canGenerarLibrosUsuario) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Acceso Denegado',
+        text: 'No tienes permisos para generar este reporte.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return
+    }
+
     const cleanCedula = cedula.trim()
     if (!cleanCedula) {
-      Swal.mixin({
-        toast: true,
-        position: 'top-end',
-        timer: 2500,
-        timerProgressBar: false,
-        showConfirmButton: false,
-      }).fire({
+      Swal.fire({
         icon: 'warning',
-        title: 'Por favor, ingrese el número de cédula.',
+        title: 'Campo requerido',
+        text: 'Por favor, ingrese el número de cédula.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
       })
       return
     }
 
     if (cleanCedula.length !== 10) {
-      Swal.mixin({
-        toast: true,
-        position: 'top-end',
-        timer: 2500,
-        timerProgressBar: false,
-        showConfirmButton: false,
-      }).fire({
+      Swal.fire({
         icon: 'warning',
-        title: 'La cédula debe contener exactamente 10 dígitos.',
+        title: 'Cédula inválida',
+        text: 'La cédula debe contener exactamente 10 dígitos.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
       })
       return
     }
 
     setIsLoading(true)
+
+    const tienePermiso = await verificarAccionEnServidor('btn_generar_libros_usuario')
+    if (!tienePermiso) {
+      setIsLoading(false)
+      Swal.fire({
+        icon: 'error',
+        title: 'Acceso Denegado',
+        text: 'No tienes permisos para generar este reporte.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return
+    }
+
     setHaBuscado(true)
     setLibros([])
     setExcelLink(null)
@@ -143,45 +159,76 @@ export const useReporteHistorialLibrosUsuario = () => {
           icon: 'info',
           title: 'Sin registros',
           text: 'No se encontraron préstamos registrados para la cédula ingresada.',
-          confirmButtonColor: '#0d6efd',
+          confirmButtonColor: '#044c8c',
+          confirmButtonText: 'Entendido',
         })
       }
     } catch (error: any) {
       console.error('Error al obtener historial de libros', error)
-      const isNotFound = error?.response?.status === 404
+      setLibros([])
+      setExcelLink(null)
+      const respData = error?.response?.data
+      const errStr = typeof respData === 'string' ? respData : JSON.stringify(respData || '')
+      const errorMsg = error?.response?.data?.message || error?.message || ''
+      const isNotFound =
+        error?.response?.status === 404 ||
+        (error?.response?.status === 500 && (errStr.includes('toArray() on null') || errStr.includes('PersonasExport'))) ||
+        errorMsg.toLowerCase().includes('no existe') ||
+        errorMsg.toLowerCase().includes('no se encontr') ||
+        errorMsg.toLowerCase().includes('sin registros') ||
+        errStr.toLowerCase().includes('no existe') ||
+        errStr.toLowerCase().includes('no se encontr')
 
       if (isNotFound) {
-        setLibros([])
-        setExcelLink(null)
         Swal.fire({
           icon: 'info',
-          title: 'Sin registros',
-          text: 'No se encontraron préstamos registrados para la cédula ingresada.',
-          confirmButtonColor: '#0d6efd',
+          title: 'Sin préstamos encontrados',
+          text:  'No se encontraron préstamos registrados para la cédula ingresada.',
+          confirmButtonColor: '#044c8c',
+          confirmButtonText: 'Entendido',
         })
       } else {
-        Swal.mixin({
-          toast: true,
-          position: 'top-end',
-          timer: 2500,
-          timerProgressBar: false,
-          showConfirmButton: false,
-        }).fire({
-          icon: 'warning',
-          title: 'Error!',
-          text: 'Hubo un problema al obtener los préstamos. Por favor, inténtelo de nuevo más tarde.',
+        Swal.fire({
+          icon: 'error',
+          title: 'Error al consultar',
+          text:  'Hubo un problema al obtener los préstamos. Por favor, inténtelo de nuevo más tarde.',
+          confirmButtonColor: '#dc3545',
+          confirmButtonText: 'Entendido',
         })
       }
     } finally {
       setIsLoading(false)
     }
-  }, [cedula])
+  }, [canGenerarLibrosUsuario, cedula])
 
-  const handleDescargarExcel = useCallback(() => {
-    if (excelLink) {
-      window.open(`${STORAGE_BASE_URL}/${excelLink}`, '_blank')
+  const handleDescargarExcel = useCallback(async () => {
+    if (!canDescargarLibrosUsuarios) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Acceso Denegado',
+        text: 'No tienes permisos para descargar este reporte.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return
     }
-  }, [excelLink])
+
+    const tienePermiso = await verificarAccionEnServidor('btn_descargar_libros_usuarios')
+    if (!tienePermiso) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Acceso Denegado',
+        text: 'No tienes permisos para descargar este reporte.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return
+    }
+
+    if (excelLink) {
+      await descargarArchivo(`${STORAGE_BASE_URL}/${excelLink}`)
+    }
+  }, [canDescargarLibrosUsuarios, excelLink, verificarAccionEnServidor])
 
   const handleReset = useCallback(() => {
     setCedula('')
@@ -200,6 +247,9 @@ export const useReporteHistorialLibrosUsuario = () => {
     handleGetPrestamos,
     handleDescargarExcel,
     handleReset,
+    canGenerarLibrosUsuario,
+    canDescargarLibrosUsuarios,
+    verificarAccionEnServidor,
   }
 }
 

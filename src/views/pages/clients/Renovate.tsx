@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
 import {
   CBadge,
   CButton,
@@ -11,57 +11,36 @@ import {
   CRow,
   CSmartPagination,
   CSmartTable,
-  CSpinner,
 } from '@coreui/react-pro'
 import CIcon from '@coreui/icons-react'
 import {
   cilCalendar,
   cilCheckCircle,
   cilDescription,
-  cilDollar,
   cilLocationPin,
   cilPencil,
   cilPhone,
   cilSync,
 } from '@coreui/icons'
-import {
-  useRenovaciones,
-  PersonaRenovacion,
-} from '@/hooks/tab-persona/useRenovaciones'
+import useRenovaciones from '@/hooks/tab-persona/useRenovaciones'
+import { PersonaRenovacion } from '@/models/tab/persona.model'
 import ModalAceptarSolicitud from '@/components/clients/ModalAceptarSolicitud'
 import Modal_Edit from '@/components/clients/Modal_Edit'
-import { getUserImageUrl, DEFAULT_RECREO_IMAGE } from '@/utils/imageUtils'
-import { formatFecha } from '@/hooks/tab-persona/useClienteDs'
-import { usePermissions } from '@/context/PermissionsContext'
-
-const ClienteAvatar = ({ src, nombre, apellido }: { src?: string; nombre?: string; apellido?: string }) => {
-  const [imgSrc, setImgSrc] = useState(src || DEFAULT_RECREO_IMAGE)
-
-  useEffect(() => {
-    setImgSrc(src || DEFAULT_RECREO_IMAGE)
-  }, [src])
-
-  return (
-    <img
-      src={imgSrc}
-      alt={`${nombre || ''} ${apellido || ''}`.trim()}
-      className="rounded-circle mb-2 shadow-sm border border-2 border-info bg-white"
-      style={{ width: '140px', height: '140px', objectFit: 'cover' }}
-      onError={() => {
-        if (imgSrc !== DEFAULT_RECREO_IMAGE) {
-          setImgSrc(DEFAULT_RECREO_IMAGE)
-        }
-      }}
-    />
-  )
-}
+import ClienteAvatar from '@/components/clients/ClienteAvatar'
+import { getUserImageUrl } from '@/utils/imageUtils'
+import { formatFecha } from '@/utils/dateUtils'
 
 const Renovate = () => {
-  const { canDoAction } = usePermissions()
   const {
-    personas,
     loading,
     submitting,
+    setSearchTerm,
+    setPaginaActual,
+    totalRegistros,
+    totalPaginas,
+    validActivePage,
+    paginatedItems,
+    getBadgeColor,
     visibleEditar,
     setVisibleEditar,
     visibleAceptar,
@@ -75,87 +54,78 @@ const Renovate = () => {
     handleAceptarSolicitud,
     details,
     toggleDetails,
+    canVerUsuario,
+    canAceptarSolicitud,
+    canMostrarInfo,
+    canActivarUsuario,
+    handleColumnFilterChange,
+    handleRecargar,
+    tableKey,
   } = useRenovaciones()
 
-  const [paginaActual, setPaginaActual] = useState<number>(1)
-  const [itemsPerPage] = useState<number>(10)
-  const [searchTerm, setSearchTerm] = useState<string>('')
-
-  const columns = [
-    {
-      key: 'cedula',
-      label: 'Cédula',
-      _style: { width: '14%' },
-    },
-    {
-      key: 'nombre',
-      label: 'Nombre',
-      _style: { width: '18%' },
-    },
-    {
-      key: 'apellido',
-      label: 'Apellido',
-      _style: { width: '18%' },
-    },
-    {
-      key: 'correo',
-      label: 'Email',
-      _style: { width: '22%' },
-    },
-    {
-      key: 'fechaNacimiento',
-      label: 'Fecha de Nacimiento',
-      _style: { width: '12%' },
-    },
-    {
-      key: 'fechaRegistro',
-      label: 'Fecha de Registro',
-      _style: { width: '12%' },
-    },
-    {
-      key: 'tipo',
-      label: 'Tipo',
-      _style: { width: '8%' },
-    },
-  ]
-
-  const getBadgeColor = (tipo?: string) => {
-    switch (tipo) {
-      case 'Renovacion':
-      case 'Renovación':
-        return 'danger'
-      case 'Nuevo':
-        return 'success'
-      default:
-        return 'info'
-    }
-  }
-
-  // Filtrado en cliente de todas las solicitudes
-  const filteredPersonas = useMemo(() => {
-    if (!searchTerm.trim()) return personas
-    const term = searchTerm.toLowerCase().trim()
-    return personas.filter((p) => {
-      const ced = String(p.IDENTIFICACION_PERSONA || '').toLowerCase()
-      const nom = String(p.NOMBRE_PERSONA || '').toLowerCase()
-      const ape = String(p.APELLIDO_PERSONA || '').toLowerCase()
-      const email = String(p.CORREO_PERSONA || '').toLowerCase()
-      return ced.includes(term) || nom.includes(term) || ape.includes(term) || email.includes(term)
-    })
-  }, [personas, searchTerm])
-
-  const totalRegistros = filteredPersonas.length
-  const totalPaginas = Math.max(1, Math.ceil(totalRegistros / itemsPerPage))
-  const validActivePage = Math.min(paginaActual, totalPaginas)
-
-  const paginatedItems = useMemo(() => {
-    const start = (validActivePage - 1) * itemsPerPage
-    return filteredPersonas.slice(start, start + itemsPerPage)
-  }, [filteredPersonas, validActivePage, itemsPerPage])
+  const columns = useMemo(
+    () => [
+      {
+        key: 'cedula',
+        label: 'Cédula',
+        _style: { width: '5%' },
+        filter: false,
+      },
+      {
+        key: 'nombre',
+        label: 'Nombre',
+        _style: { width: '12%' },
+        filter: false,
+      },
+      {
+        key: 'apellido',
+        label: 'Apellido',
+        _style: { width: '12%' },
+        filter: false,
+      },
+      {
+        key: 'correo',
+        label: 'Email',
+        _style: { width: '15%' },
+        filter: false,
+      },
+      {
+        key: 'fechaNacimiento',
+        label: 'Fecha de Nacimiento',
+        _style: { width: '12%' },
+        filter: false,
+      },
+      {
+        key: 'fechaRegistro',
+        label: 'Fecha de Registro',
+        _style: { width: '12%' },
+        filter: false,
+      },
+      {
+        key: 'tipo',
+        label: 'Tipo',
+        _style: { width: '7%' },
+        filter: (_values: unknown[], onChange: (val: string | number) => void, filterValue?: string | number) => (
+          <select
+            className="form-select form-select-sm"
+            value={String(filterValue || '')}
+            onChange={(e) => onChange(e.target.value)}
+            aria-label="Filtrar por tipo"
+          >
+            <option value="">Todo</option>
+            <option value="Nuevo">Nuevo</option>
+            <option value="Renovación">Renovación</option>
+          </select>
+        ),
+      },
+    ],
+    []
+  )
 
   return (
     <div className="pb-4">
-      <div className="d-flex justify-content-between align-items-center mb-4">
+      {/* Encabezado estándar unificado */}
+      <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
         <div>
           <h3 className="fw-bold mb-1">Solicitudes y Renovaciones</h3>
           <p className="text-body-secondary mb-0">
@@ -166,12 +136,13 @@ const Renovate = () => {
           color="secondary"
           variant="outline"
           size="sm"
-          onClick={fetchSolicitudes}
+          onClick={handleRecargar}
           disabled={loading}
-          className="d-flex align-items-center gap-2"
+          className="d-flex align-items-center gap-1 shadow-sm"
+          title="Refrescar solicitudes y reiniciar filtros"
         >
-          <CIcon icon={cilSync} />
-          <span>Refrescar</span>
+          <CIcon icon={cilSync} className={`me-1 ${loading ? 'rotate-animation' : ''}`} />
+          <span>{loading ? 'Refrescando...' : 'Refrescar'}</span>
         </CButton>
       </div>
 
@@ -181,24 +152,26 @@ const Renovate = () => {
             Listado de Solicitudes
           </span>
           <span className="text-body-secondary small">
-            Total pendientes / registrados: <strong>{personas.length}</strong>
+            Total pendientes / registrados: <strong>{totalRegistros}</strong>
           </span>
         </CCardHeader>
         <CCardBody className="p-0">
           <CSmartTable
-            clickableRows
+            key={tableKey}
+            clickableRows={canMostrarInfo}
             columns={columns}
             columnSorter
-            cleaner
+            columnFilter={{ external: true }}
+            onColumnFilterChange={(filtros: any) => handleColumnFilterChange(filtros)}
             loading={loading}
             items={paginatedItems}
             tableFilter={{ external: true }}
             tableFilterPlaceholder="Buscar por cédula, nombre, correo..."
             onTableFilterChange={(busqueda) => {
               setSearchTerm(busqueda || '')
-              setPaginaActual(1)
             }}
             onRowClick={(item: PersonaRenovacion) => {
+              if (!canMostrarInfo) return
               const id = item.ID_PERSONA ?? item.IDENTIFICACION_PERSONA
               if (id !== undefined && id !== null) {
                 toggleDetails(id)
@@ -206,11 +179,9 @@ const Renovate = () => {
             }}
             noItemsLabel={
               loading ? (
-                'Cargando solicitudes...'
+                'Cargando usuarios...'
               ) : (
-                <div className="d-flex justify-content-center py-3">
-                  <CSpinner color="primary" size="sm" variant="grow" />
-                </div>
+                'No se encontraron usuarios'
               )
             }
             scopedColumns={{
@@ -264,6 +235,7 @@ const Renovate = () => {
                 </td>
               ),
               details: (item: PersonaRenovacion) => {
+                if (!canMostrarInfo) return null
                 const rowId = item.ID_PERSONA ?? item.IDENTIFICACION_PERSONA
                 const isVisible =
                   (item.ID_PERSONA !== undefined && details.includes(item.ID_PERSONA)) ||
@@ -272,10 +244,6 @@ const Renovate = () => {
 
                 const fechaNac = formatFecha(item.FECHA_PERSONA)
                 const fechaReg = formatFecha(item.FECHAREGISTRO_PERSONA)
-                const costo =
-                  item.COSTO_INSCRIPCION !== undefined && item.COSTO_INSCRIPCION !== null && item.COSTO_INSCRIPCION !== ''
-                    ? `$${item.COSTO_INSCRIPCION}`
-                    : '$0.00'
                 const detalle = item.DETALLE_INSCRIPCION || item.DETALLE_PERSONA || 'Sin observaciones registradas'
                 const telefono = item.CELULAR_PERSONA || item.TELEFONO_PERSONA || 'No registrado'
                 const direccion = item.DIRECCION_PERSONA || 'No registrada'
@@ -360,28 +328,7 @@ const Renovate = () => {
                               </CCard>
                             </CCol>
 
-                            <CCol xs={12} sm={6} lg={4}>
-                              <CCard className="h-100 shadow-sm border-0 bg-body">
-                                <CCardBody className="p-3">
-                                  <span className="text-muted small d-block mb-1">Costo Inscripción</span>
-                                  <div className="d-flex align-items-center gap-1">
-                                    <CIcon
-                                      icon={cilDollar}
-                                      className={costo === '$0.00' ? 'text-secondary' : 'text-primary'}
-                                    />
-                                    <span
-                                      className={`badge bg-body rounded-pill border ${
-                                        costo === '$0.00' ? 'text-secondary' : 'text-primary'
-                                      }`}
-                                    >
-                                      {costo}
-                                    </span>
-                                  </div>
-                                </CCardBody>
-                              </CCard>
-                            </CCol>
-
-                            <CCol xs={12} sm={6} lg={4}>
+                            <CCol xs={12} sm={6} lg={6}>
                               <CCard className="h-100 shadow-sm border-0 bg-body">
                                 <CCardBody className="p-3">
                                   <span className="text-muted small d-block mb-1">Teléfono / Celular</span>
@@ -393,7 +340,7 @@ const Renovate = () => {
                               </CCard>
                             </CCol>
 
-                            <CCol xs={12} sm={6} lg={4}>
+                            <CCol xs={12} sm={6} lg={6}>
                               <CCard className="h-100 shadow-sm border-0 bg-body">
                                 <CCardBody className="p-3">
                                   <span className="text-muted small d-block mb-1">Dirección</span>
@@ -410,7 +357,7 @@ const Renovate = () => {
                             <CCol xs={12}>
                               <CCard className="shadow-sm border-0 bg-body">
                                 <CCardBody className="p-3">
-                                  <span className="text-muted small d-block mb-1">Detalle de Solicitud / Observaciones:</span>
+                                  <span className="text-muted small d-block mb-1">Descripción:</span>
                                   <div className="d-flex align-items-start gap-1">
                                     <CIcon icon={cilDescription} className="text-info mt-1 flex-shrink-0" />
                                     <span className="small text-body">{detalle}</span>
@@ -421,39 +368,41 @@ const Renovate = () => {
                           </CRow>
 
                           {/* Acciones dentro del detalle */}
-                          <div className="d-flex flex-wrap gap-2 justify-content-end mt-3 pt-2 border-top">
-                            {canDoAction('btn_editar_usuario_renovaciones') && (
-                            <CButton
-                              color="info"
-                              variant="outline"
-                              size="sm"
-                              className="d-flex align-items-center gap-1 px-3"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleAbrirEditar(item)
-                              }}
-                            >
-                              <CIcon icon={cilPencil} size="sm" />
-                              <span>Ver / Editar Solicitud</span>
-                            </CButton>
-                            )}
+                          {(canVerUsuario || (item.ESTADO_PERSONA === 0 && canAceptarSolicitud)) && (
+                            <div className="d-flex flex-wrap gap-2 justify-content-end mt-3 pt-2 border-top">
+                              {canVerUsuario && (
+                                <CButton
+                                  color="info"
+                                  variant="outline"
+                                  size="sm"
+                                  className="d-flex align-items-center gap-1 px-3"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleAbrirEditar(item)
+                                  }}
+                                >
+                                  <CIcon icon={cilPencil} size="sm" />
+                                  <span>Ver Datos</span>
+                                </CButton>
+                              )}
 
-                            {item.ESTADO_PERSONA === 0 && canDoAction('btn_aceptar_solicitud') && (
-                              <CButton
-                                color="warning"
-                                variant="outline"
-                                size="sm"
-                                className="d-flex align-items-center gap-1 px-3"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleAbrirAceptar(item)
-                                }}
-                              >
-                                <CIcon icon={cilCheckCircle} size="sm" />
-                                <span>Aceptar Solicitud</span>
-                              </CButton>
-                            )}
-                          </div>
+                              {item.ESTADO_PERSONA === 0 && canAceptarSolicitud && (
+                                <CButton
+                                  color="warning"
+                                  variant="outline"
+                                  size="sm"
+                                  className="d-flex align-items-center gap-1 px-3"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleAbrirAceptar(item)
+                                  }}
+                                >
+                                  <CIcon icon={cilCheckCircle} size="sm" />
+                                  <span>Aceptar Solicitud</span>
+                                </CButton>
+                              )}
+                            </div>
+                          )}
                         </CCol>
                       </CRow>
                     </div>
@@ -497,6 +446,7 @@ const Renovate = () => {
         setDetalleRenovacion={setDetalleRenovacion}
         onAceptar={handleAceptarSolicitud}
         loading={submitting}
+        canActivar={canActivarUsuario}
       />
 
       <Modal_Edit
@@ -504,6 +454,7 @@ const Renovate = () => {
         setVisible={setVisibleEditar}
         user={solicitudSeleccionada}
         onSuccess={fetchSolicitudes}
+        readOnly={true}
       />
     </div>
   )

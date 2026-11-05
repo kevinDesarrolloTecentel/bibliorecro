@@ -17,9 +17,7 @@ import {
 } from '@coreui/react-pro'
 import CIcon from '@coreui/icons-react'
 import {
-  cilBell,
   cilContrast,
-  cilEnvelopeOpen,
   cilMenu,
   cilMoon,
   cilSun,
@@ -62,20 +60,7 @@ const AppHeader = () => {
         </CHeaderNav>
         <CHeaderNav className="d-none d-md-flex ms-auto">
         </CHeaderNav>
-        <CHeaderNav className="ms-auto ms-md-0 d-flex align-items-center me-2 ">
-          <CNavItem>
-            <CNavLink href="#" className="px-2 me-3" style={{ cursor: 'pointer' }} title={t('Notificaciones')}>
-              <CIcon icon={cilBell} size="lg" />
-            </CNavLink>
-          </CNavItem>
-          <CNavItem>
-            <CNavLink href="#" className="px-2 me-2" style={{ cursor: 'pointer' }} title={t('Mensajes')}>
-              <CIcon icon={cilEnvelopeOpen} size="lg" />
-            </CNavLink>
-          </CNavItem>
-          <li className="nav-item py-1 d-flex align-items-center">
-            <div className="vr mx-2 text-body text-opacity-75" style={{ height: '32px' }}></div>
-          </li>
+        <CHeaderNav className="ms-auto d-flex align-items-center me-2">
           <CDropdown variant="nav-item" placement="bottom-end">
             <CDropdownToggle caret={false}>
               {colorMode === 'dark' ? (

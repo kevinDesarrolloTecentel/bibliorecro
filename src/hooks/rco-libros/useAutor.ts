@@ -2,6 +2,7 @@ import { Autor } from "@/models/rco/autor";
 import { ActualizarAutorLib, EliminarAutorLib, Autores, NuevoAutorLib } from "@/Service/rco/AutorLib";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Swal from "sweetalert2";
+import { usePermissions } from "@/context/PermissionsContext";
 
 export type AutorItem = Autor
 
@@ -14,14 +15,6 @@ export interface UseAutorProps {
   onAutorEliminado?: (id: number | string) => void
 }
 
-const Toast = Swal.mixin({
-  toast: true,
-  position: 'top-end',
-  timer: 2500,
-  timerProgressBar: false,
-  showConfirmButton: false
-})
-
 export const useAutor = ({
   autoFetch = true,
   visible: visibleProp,
@@ -31,6 +24,15 @@ export const useAutor = ({
   onAutorEliminado
 
 }: UseAutorProps = {}) => {
+  const { canDoAction, verificarAccionEnServidor } = usePermissions()
+
+  const canCrearAutor = canDoAction('btn_crear_autor')
+  const canGuardarAutor = canDoAction('btn_guardar_autor')
+  const canEditarAutor = canDoAction('btn_editar_autor')
+  const canActualizarAutor = canDoAction('btn_actualizar_autor')
+  const canEliminarAutor = canDoAction('btn_eliminar_autor')
+  const canVerInfoAutor = canDoAction('btn_ver_info_autor')
+
   const [internalVisible, setInternalVisible] = useState(false)
   const isControlled = typeof visibleProp === 'boolean'
   const isVisible = isControlled ? visibleProp : internalVisible
@@ -49,7 +51,7 @@ export const useAutor = ({
   const [nombreAutor, setNombreAutor] = useState('')
   const [guardando, setGuardadno] = useState(false)
 
-  const fetchAutores = useCallback(async (page: number = 1, searchQuery: string = '') => {
+  const fetchAutores = useCallback(async (page: number = 1, searchQuery: string = '', preserveSelection: boolean = true) => {
     setLoadingAutores(true)
     try {
       const q = searchQuery.trim()
@@ -80,17 +82,18 @@ export const useAutor = ({
       setTotalPaginas(Math.max(1, lastPage))
       setPaginaActual(page)
 
-      setAutorSeleccionado((prev) => {
-        if (!prev) return null
-        const prevId = String(prev.ID_AUTOR ?? prev.id)
-        const matched = parsedList.find((a) => String(a.ID_AUTOR ?? a.id) === prevId)
-        return matched || prev
-      })
+      if (preserveSelection) {
+        setAutorSeleccionado((prev) => {
+          if (!prev) return null
+          const prevId = String(prev.ID_AUTOR ?? prev.id)
+          const matched = parsedList.find((a) => String(a.ID_AUTOR ?? a.id) === prevId)
+          return matched || prev
+        })
+      } else {
+        setAutorSeleccionado(null)
+      }
     } catch (error: any) {
-      Toast.fire({
-        icon: 'error',
-        title: 'No se pudieron cargar los autores'
-      })
+      console.error('Error al cargar autores desde la API:', error)
     } finally {
       setLoadingAutores(false)
     }
@@ -119,12 +122,42 @@ export const useAutor = ({
     fetchAutores(newPage, busquedaAutor)
   }, [busquedaAutor, fetchAutores])
 
+  const handleRecargar = useCallback(async () => {
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current)
+    }
+    setBusquedaAutor('')
+    setPaginaActual(1)
+    setAutorSeleccionado(null)
+    await fetchAutores(1, '', false)
+  }, [fetchAutores])
+
   const handleOpen = useCallback(
     (autores?: Autor) => {
       if (autores) {
+        if (!canEditarAutor) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Acceso Denegado',
+            text: 'No tienes permisos para editar autores.',
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Entendido',
+          })
+          return
+        }
         setAutorEnEdicion(autores)
         setNombreAutor(autores.NOMBRE_AUTOR || '')
       } else {
+        if (!canCrearAutor) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Acceso Denegado',
+            text: 'No tienes permisos para crear autores.',
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Entendido',
+          })
+          return
+        }
         setAutorEnEdicion(null)
         setNombreAutor('')
       }
@@ -134,7 +167,8 @@ export const useAutor = ({
       } else {
         setInternalVisible(true)
       }
-    }, [setVisibleProp]
+    },
+    [setVisibleProp, canEditarAutor, canCrearAutor],
   )
 
   const handleClose = useCallback(() => {
@@ -155,12 +189,62 @@ export const useAutor = ({
       if (e) e.preventDefault()
 
       if (!nombreAutor.trim()) {
-        Toast.fire({
-          icon: 'error',
-          title: 'El nombre del autor es requerido'
+        Swal.fire({
+          icon: 'warning',
+          title: 'Campos requeridos',
+          text: 'Por favor ingrese el nombre del autor.',
+          confirmButtonColor: '#dc3545',
+          confirmButtonText: 'Entendido',
         })
         return
       }
+
+      if (autorEnEdicion) {
+        if (!canActualizarAutor) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Acceso Denegado',
+            text: 'No tienes permisos para actualizar el autor.',
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Entendido',
+          })
+          return
+        }
+        const tienePermiso = await verificarAccionEnServidor('btn_actualizar_autor')
+        if (!tienePermiso) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Acceso Denegado',
+            text: 'No tienes permisos para actualizar el autor.',
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Entendido',
+          })
+          return
+        }
+      } else {
+        if (!canGuardarAutor) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Acceso Denegado',
+            text: 'No tienes permisos para guardar nuevos autores.',
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Entendido',
+          })
+          return
+        }
+        const tienePermiso = await verificarAccionEnServidor('btn_guardar_autor')
+        if (!tienePermiso) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Acceso Denegado',
+            text: 'No tienes permisos para guardar nuevos autores.',
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Entendido',
+          })
+          return
+        }
+      }
+
       setGuardadno(true)
       try {
         const payload = {
@@ -171,15 +255,12 @@ export const useAutor = ({
           const id = autorEnEdicion.ID_AUTOR ?? autorEnEdicion.id
           await ActualizarAutorLib(id, payload)
 
-          Toast.mixin({
-            toast: true,
-            position: 'top-end',
-            timer: 2500,
-            timerProgressBar: false,
-            showConfirmButton: false
-          }).fire({
+          Swal.fire({
             icon: 'success',
-            title: 'Autor actualizado correctamente'
+            title: '¡Autor actualizado!',
+            text: 'El autor fue actualizado correctamente.',
+            timer: 1800,
+            showConfirmButton: false,
           })
           await fetchAutores(paginaActual, busquedaAutor)
           if (onAutorActualizado) {
@@ -191,15 +272,12 @@ export const useAutor = ({
         } else {
           const res = await NuevoAutorLib(payload)
 
-          Toast.mixin({
-            toast: true,
-            position: 'top-end',
-            timer: 2500,
-            timerProgressBar: false,
-            showConfirmButton: false
-          }).fire({
+          Swal.fire({
             icon: 'success',
-            title: 'Autor registrado correctamente'
+            title: '¡Autor registrado!',
+            text: 'El autor fue registrado correctamente.',
+            timer: 1800,
+            showConfirmButton: false,
           })
 
           await fetchAutores(1, '')
@@ -217,7 +295,7 @@ export const useAutor = ({
 
         handleClose()
       } catch (error: any) {
-        console.error('Error al guardar categoría:', error)
+        console.error('Error al guardar autor:', error)
         const errorMsg =
           error?.response?.data?.message ||
           error?.response?.data?.error ||
@@ -226,7 +304,8 @@ export const useAutor = ({
           icon: 'error',
           title: 'Error al guardar',
           text: errorMsg,
-          confirmButtonColor: '#0d6efd',
+          confirmButtonColor: '#dc3545',
+          confirmButtonText: 'Entendido',
         })
       } finally {
         setGuardadno(false)
@@ -235,20 +314,35 @@ export const useAutor = ({
     [
       nombreAutor,
       autorEnEdicion,
+      canActualizarAutor,
+      canGuardarAutor,
       fetchAutores,
       handleClose,
       onAutorActualizado,
       onAutorCreado,
+      paginaActual,
+      busquedaAutor,
     ]
   )
 
-  const handleElminiarAutor = useCallback (
-    async(autParam?: Autor)=>{
-      const aut = autParam || autorSeleccionado
-      if(!aut) return
+  const handleElminiarAutor = useCallback(
+    async (autParam?: Autor) => {
+      if (!canEliminarAutor) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Acceso Denegado',
+          text: 'No tienes permisos para eliminar autores.',
+          confirmButtonColor: '#dc3545',
+          confirmButtonText: 'Entendido',
+        })
+        return
+      }
 
-      const id =aut.ID_AUTOR ?? aut.id
-      if(!id) return
+      const aut = autParam || autorSeleccionado
+      if (!aut) return
+
+      const id = aut.ID_AUTOR ?? aut.id
+      if (!id) return
 
       const confirmResult = await Swal.fire({
         title: 'Eliminar autor',
@@ -261,43 +355,52 @@ export const useAutor = ({
         cancelButtonText: 'Cancelar'
       })
 
-      if(confirmResult.isConfirmed){
-        try{
-          await EliminarAutorLib(id)
-          Toast.mixin({
-            toast: true,
-            position:'top-end',
-            timer:2500,
-            timerProgressBar:false
-          }).fire({
-            icon:'success',
-            title:'Autor eliminado con exito'
+      if (confirmResult.isConfirmed) {
+        const tienePermiso = await verificarAccionEnServidor('btn_eliminar_autor')
+        if (!tienePermiso) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Acceso Denegado',
+            text: 'No tienes permisos para eliminar autores.',
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Entendido',
           })
-          if(
+          return
+        }
+
+        try {
+          await EliminarAutorLib(id)
+          Swal.fire({
+            icon: 'success',
+            title: '¡Autor eliminado!',
+            text: 'El autor fue eliminado con éxito.',
+            timer: 1800,
+            showConfirmButton: false,
+          })
+          if (
             autorSeleccionado && String(autorSeleccionado.ID_AUTOR ?? autorSeleccionado.id) === String(id)
-          ){
+          ) {
             setAutorSeleccionado(null)
           }
           await fetchAutores(paginaActual, busquedaAutor)
-          if(onAutorEliminado){
+          if (onAutorEliminado) {
             onAutorEliminado(id)
           }
-        }catch(error:any){
-          const msg =  'No se pudo eliminar al Autor seleccionado'
-          Swal.mixin({
-            toast:true,
-            position:'top-end',
-            timer:2500,
-            timerProgressBar:false,
-            showConfirmButton:false
-          }).fire({
-            icon:'error',
-            title: msg
+        } catch (error: any) {
+          const msg = 'No se pudo eliminar al autor seleccionado.'
+          Swal.fire({
+            icon: 'error',
+            title: 'Error al eliminar',
+            text: msg,
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Entendido',
           })
         }
       }
-    },[autorSeleccionado, fetchAutores, onAutorEliminado]
+    },
+    [autorSeleccionado, canEliminarAutor, fetchAutores, paginaActual, busquedaAutor, onAutorEliminado]
   )
+
   return {
     isVisible,
     isControlled,
@@ -320,10 +423,18 @@ export const useAutor = ({
     handleGuardarAutor,
     handleElminiarAutor,
     fetchAutores,
+    handleRecargar,
     paginaActual,
     totalPaginas,
     totalAutores,
     handlePageChange,
+    canCrearAutor,
+    canGuardarAutor,
+    canEditarAutor,
+    canActualizarAutor,
+    canEliminarAutor,
+    canVerInfoAutor,
+    verificarAccionEnServidor,
   }
 }
 

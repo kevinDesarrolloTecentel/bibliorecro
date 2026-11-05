@@ -1,4 +1,4 @@
-import apiClient, { BACKEND_API_BASE } from "../apiClient";
+import apiClient, { BACKEND_API_BASE } from "../ApiClient";
 
 const API_BASE_URL_PRESTAMOS = `${BACKEND_API_BASE}/v1/prestamos`;
 
@@ -34,8 +34,8 @@ export const listarPrestamos = async (params?: any) => {
 };
 
 export const listarPrestamosCedula = async (params?: any) => {
-        const { data } = await apiClient.get(`${API_BASE_URL_PRESTAMOS}/reporte-por-cedula`, { params });
-        return data;
+    const { data } = await apiClient.get(`${API_BASE_URL_PRESTAMOS}/reporte-por-cedula`, { params });
+    return data;
 };
 
 export const Pendientes = async (params?: any) => {

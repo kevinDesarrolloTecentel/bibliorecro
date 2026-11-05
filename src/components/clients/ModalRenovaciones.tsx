@@ -13,39 +13,92 @@ import {
   CModalTitle,
   CSpinner,
 } from '@coreui/react-pro'
-import apiClient, { BACKEND_API_BASE } from '@/Service/apiClient'
+import { AceptarInscripcionNew } from '@/Service/tab/Persona'
 import Swal from 'sweetalert2'
 import { usePermissions } from '@/context/PermissionsContext'
 
 export interface ModalRenovaProps {
   item: any
   onRenovado?: () => void
+  canRenovar?: boolean
+  canGuardarRenovacion?: boolean
 }
 
-const ModalRenova: React.FC<ModalRenovaProps> = ({ item, onRenovado }) => {
-  const { canDoAction } = usePermissions()
+const ModalRenova: React.FC<ModalRenovaProps> = ({
+  item,
+  onRenovado,
+  canRenovar = true,
+  canGuardarRenovacion = true,
+}) => {
+  const { verificarAccionEnServidor } = usePermissions()
   const [visible, setVisible] = useState(false)
   const [detalle, setDetalle] = useState('')
   const [loading, setLoading] = useState(false)
+
+  const handleClose = () => {
+    setDetalle('')
+    setVisible(false)
+  }
+
+  const handleOpen = () => {
+    setDetalle('')
+    setVisible(true)
+  }
+
+  React.useEffect(() => {
+    if (!visible) {
+      setDetalle('')
+    }
+  }, [visible])
 
   const esInactivo =
     item?.raw?.ESTADO_PERSONA === 0 ||
     String(item?.raw?.ESTADO_PERSONA) === '0' ||
     item?.estado === 'Inactivo'
 
-  if (!esInactivo || !canDoAction('btn_renovar_usuario_gestion_usuario')) {
+  if (!esInactivo || !canRenovar) {
     return null
   }
 
   const handleRenovarInscripcion = async () => {
+    if (!canGuardarRenovacion) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Acceso Denegado',
+        text: 'No tienes permisos para registrar renovaciones de usuarios.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return
+    }
+
+    const tienePermiso = await verificarAccionEnServidor('btn_guardar_renovacion_gestion_usuario')
+    if (!tienePermiso) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Acceso Denegado',
+        text: 'No tienes permisos para registrar renovaciones de usuarios.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return
+    }
+
     const idPersona = item.id || item.raw?.ID_PERSONA
-    const idInscripcion = item.raw?.ID_INSCRIPCION ?? item.id_inscripcion ?? ''
+    const idInscripcion =
+      item.id_inscripcion ??
+      item.raw?.ID_INSCRIPCION ??
+      item.raw?.inscripciones?.[0]?.ID_INSCRIPCION ??
+      item.inscripciones?.[0]?.ID_INSCRIPCION ??
+      ''
 
     if (!idPersona) {
       Swal.fire({
         icon: 'error',
-        title: 'Error',
+        title: 'Error de identificación',
         text: 'No se pudo identificar al usuario para la renovación.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
       })
       return
     }
@@ -53,7 +106,7 @@ const ModalRenova: React.FC<ModalRenovaProps> = ({ item, onRenovado }) => {
     setLoading(true)
 
     try {
-      await apiClient.post(`${BACKEND_API_BASE}/renoacionesNew`, {
+      await AceptarInscripcionNew({
         ID_PERSONA: idPersona,
         ID_INSCRIPCION: idInscripcion,
         DETALLE_RENOVACIONES: detalle.trim(),
@@ -64,9 +117,10 @@ const ModalRenova: React.FC<ModalRenovaProps> = ({ item, onRenovado }) => {
 
       await Swal.fire({
         icon: 'success',
-        title: '¡Éxito!',
-        text: 'Inscripción renovada con éxito.',
-        confirmButtonColor: '#04833c',
+        title: '¡Inscripción renovada!',
+        text: 'La inscripción se renovó correctamente.',
+        timer: 1800,
+        showConfirmButton: false,
       })
 
       if (onRenovado) {
@@ -80,8 +134,10 @@ const ModalRenova: React.FC<ModalRenovaProps> = ({ item, onRenovado }) => {
         'Hubo un error al renovar la inscripción.'
       Swal.fire({
         icon: 'error',
-        title: 'Error!',
+        title: 'Error al renovar',
         text: msg,
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
       })
     } finally {
       setLoading(false)
@@ -93,8 +149,9 @@ const ModalRenova: React.FC<ModalRenovaProps> = ({ item, onRenovado }) => {
       <CButton
         color="warning"
         variant="outline"
-        className="hover:text-white d-flex align-items-center gap-1 shadow-sm"
-        onClick={() => setVisible(true)}
+        size="sm"
+        className="hover:text-white shadow-sm"
+        onClick={handleOpen}
       >
         <CIcon icon={cilSync} />
         <span>Renovar</span>
@@ -105,7 +162,7 @@ const ModalRenova: React.FC<ModalRenovaProps> = ({ item, onRenovado }) => {
         alignment="center"
         backdrop="static"
         visible={visible}
-        onClose={() => setVisible(false)}
+        onClose={handleClose}
       >
         <CModalHeader>
           <CModalTitle>Renovar Inscripción</CModalTitle>
@@ -138,30 +195,32 @@ const ModalRenova: React.FC<ModalRenovaProps> = ({ item, onRenovado }) => {
           <CButton
             color="danger"
             variant="outline"
-            className='hover:text-white'
-            onClick={() => setVisible(false)}
+            size="sm"
+            className="hover:text-white shadow-sm" onClick={handleClose}
             disabled={loading}
           >
             <CIcon icon={cilExitToApp} className="me-1" /> Cerrar
           </CButton>
-          <CButton
-            color="success"
-            variant="outline"
-            className='hover:text-white'
-            onClick={handleRenovarInscripcion}
-            disabled={loading}
-          >
-            {loading ? (
-              <>
-                <CSpinner size="sm" className="me-1" />
-                <span>Renovando...</span>
-              </>
-            ) : (
-              <>
-                <CIcon icon={cilSave} className="me-1" /> Guardar Renovación
-              </>
-            )}
-          </CButton>
+          {canGuardarRenovacion && (
+            <CButton
+              color="success"
+              size="sm"
+              variant="outline"
+              className="hover:text-white shadow-sm" onClick={handleRenovarInscripcion}
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <CSpinner size="sm" className="me-1" />
+                  <span>Renovando...</span>
+                </>
+              ) : (
+                <>
+                  <CIcon icon={cilSave} className="me-1" /> Guardar Renovación
+                </>
+              )}
+            </CButton>
+          )}
         </CModalFooter>
       </CModal>
     </>

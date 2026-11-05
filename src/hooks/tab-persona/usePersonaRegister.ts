@@ -11,6 +11,7 @@ import {
 import usePersonas from './usePersonas'
 import { initialPersona, Persona } from '@/models/tab/persona.model'
 import { PersonasNueva } from '@/Service/tab/Persona'
+import { parseDatePickerValue } from '@/utils/dateUtils'
 
 export const initialRegisterFormData: Persona = initialPersona
 
@@ -33,6 +34,9 @@ export const usePersonaRegister = ({
       : personaState
         ? personaState.modalRegister
         : false
+
+  // Permiso heredado del hook orquestador usePersonas
+  const canGuardar = personaState ? personaState.canGuardarUsuario : true
 
   const [formData, setFormData] = useState<Persona>(initialPersona)
   const [errors, setErrors] = useState<FormErrors>({})
@@ -71,6 +75,24 @@ export const usePersonaRegister = ({
     }
   }
 
+  const handleDateChange = (date: Date | string | null) => {
+    const finalValue = parseDatePickerValue(date)
+    setFormData((prev) => ({ ...prev, FECHA_PERSONA: finalValue }))
+
+    if (errors.FECHA_PERSONA || touched.FECHA_PERSONA) {
+      const fieldError = validatePersonaField('FECHA_PERSONA', finalValue)
+      setErrors((prev) => {
+        const updated = { ...prev }
+        if (fieldError) {
+          updated.FECHA_PERSONA = fieldError
+        } else {
+          delete updated.FECHA_PERSONA
+        }
+        return updated
+      })
+    }
+  }
+
   const handleBlur = (name: string) => {
     setTouched((prev) => ({ ...prev, [name]: true }))
     const fieldError = validatePersonaField(name, (formData as any)[name], {
@@ -101,6 +123,17 @@ export const usePersonaRegister = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!canGuardar) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Acceso Denegado',
+        text: 'No tienes permisos para registrar usuarios.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return
+    }
 
     const { isValid, errors: validationErrors } = validateAllPersonaRegister(
       formData,
@@ -156,7 +189,7 @@ export const usePersonaRegister = ({
       formDataToSend.append('CORREO_PERSONA', formData.CORREO_PERSONA?.trim() || '')
       formDataToSend.append('DIRECCION_PERSONA', formData.DIRECCION_PERSONA?.trim() || '')
       formDataToSend.append('DETALLE_PERSONA', formData.DETALLE_PERSONA?.trim() || '')
-      formDataToSend.append('DETALLE_INSCRIPCION', formData.DETALLE_INSCRIPCION?.trim() || 'Inscripción de usuario')
+      formDataToSend.append('DETALLE_INSCRIPCION', formData.DETALLE_PERSONA?.trim() || 'Inscripción de usuario')
       const today = new Date()
       const fechaHoy = today.toISOString().split('T')[0]
       const nextYear = new Date(today)
@@ -186,20 +219,13 @@ export const usePersonaRegister = ({
       }
 
       if (ok) {
-        Swal.mixin({
-          toast: true,
-          position: "top-end",
+        Swal.fire({
+          icon: 'success',
+          title: '¡Usuario registrado!',
+          text: 'El usuario se registró exitosamente en el sistema.',
+          timer: 1800,
           showConfirmButton: false,
-          timer: 2500,
-          timerProgressBar: true,
-          didOpen: (toast) => {
-            toast.onmouseenter = Swal.stopTimer;
-            toast.onmouseleave = Swal.resumeTimer;
-          }
-        }).fire({
-          icon: "success",
-          title: "Usuario registrado correctamente"
-        });
+        })
         handleClose()
         if (onSuccess) {
           onSuccess()
@@ -215,6 +241,8 @@ export const usePersonaRegister = ({
         icon: 'error',
         title: 'Error de Registro',
         text: errorMsg,
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
       })
     } finally {
       setLoading(false)
@@ -270,12 +298,14 @@ export const usePersonaRegister = ({
     generos,
     estadosCiviles,
     handleChange,
+    handleDateChange,
     handleBlur,
     handleClose,
     handleSubmit,
     previewFoto,
     setPreviewFoto,
     handleFotoChange,
+    canGuardar,
   }
 }
 

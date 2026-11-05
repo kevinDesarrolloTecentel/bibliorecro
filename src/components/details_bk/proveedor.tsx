@@ -40,7 +40,9 @@ const ModalPv: React.FC<ModalProveedorProps> = (props) => {
     handleGuardarProveedor,
     nombreProveedor,
     setNombreProveedor,
-    guardando
+    guardando,
+    canGuardarProveedor,
+    canActualizarProveedor,
   } = hook
 
   return (
@@ -90,30 +92,59 @@ const ModalPv: React.FC<ModalProveedorProps> = (props) => {
         </CModalBody>
 
         <CModalFooter className="bg-body d-flex justify-content-between align-items-center">
-          <CButton color="danger" variant="outline" className='hover:text-white' onClick={handleClose} disabled={guardando}>
+          <CButton size="sm" color="danger" variant="outline" className="hover:text-white shadow-sm" onClick={handleClose} disabled={guardando}>
             <CIcon icon={cilExitToApp} className="me-1" />
             Cancelar
           </CButton>
-          <CButton
-            color="success"
-            variant='outline'
-            type="submit"
-            form="formModalProveedor"
-            disabled={guardando || !nombreProveedor.trim()}
-            className="hover:text-white d-flex align-items-center gap-1 shadow-sm"
-          >
-            {guardando ? (
-              <>
-                <CSpinner size="sm" className="me-1" />
-                Guardando...
-              </>
-            ) : (
-              <>
-                <CIcon icon={cilSave} className="me-1" />
-                {proveedorEnEdicion ? 'Actualizar Proveedor' : 'Guardar Proveedor'}
-              </>
-            )}
-          </CButton>
+          {proveedorEnEdicion ? (
+            canActualizarProveedor && (
+              <CButton
+                color="success"
+                variant='outline'
+                type="submit"
+                size="sm"
+                form="formModalProveedor"
+                disabled={guardando || !nombreProveedor.trim()}
+                className="hover:text-white shadow-sm"
+              >
+                {guardando ? (
+                  <>
+                    <CSpinner size="sm" className="me-1" />
+                    Actualizando...
+                  </>
+                ) : (
+                  <>
+                    <CIcon icon={cilSave} className="me-1" />
+                    Actualizar Proveedor
+                  </>
+                )}
+              </CButton>
+            )
+          ) : (
+            canGuardarProveedor && (
+              <CButton
+                color="success"
+                variant='outline'
+                size="sm"
+                type="submit"
+                form="formModalProveedor"
+                disabled={guardando || !nombreProveedor.trim()}
+                className="hover:text-white shadow-sm"
+              >
+                {guardando ? (
+                  <>
+                    <CSpinner size="sm" className="me-1" />
+                    Guardando...
+                  </>
+                ) : (
+                  <>
+                    <CIcon icon={cilSave} className="me-1" />
+                    Guardar Proveedor
+                  </>
+                )}
+              </CButton>
+            )
+          )}
         </CModalFooter>
       </CModal>
     </>

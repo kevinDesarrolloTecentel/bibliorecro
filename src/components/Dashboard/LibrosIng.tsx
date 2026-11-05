@@ -1,6 +1,7 @@
 import React from 'react'
 import { CRow, CCol } from '@coreui/react-pro'
-import { useLibrosIng, LibroIngresoItem } from '@/hooks/dashboard/useLibrosIng'
+import { useLibrosIng } from '@/hooks/dashboard/useLibrosIng'
+import { LibroIngresoItem } from '@/models/dashboard/dashboard.model'
 import LibrosIngFiltros from './LibrosIngFiltros'
 import LibrosIngTabla from './LibrosIngTabla'
 
@@ -11,6 +12,8 @@ export interface LibrosIngProps {
   loading?: boolean
   exportando?: boolean
   haBuscado?: boolean
+  canBuscar?: boolean
+  canExportar?: boolean
   onDateChange?: (val: Date | string | null, field: 'desde' | 'hasta') => void
   onBuscarReporte?: () => void
   onExportarExcel?: () => void
@@ -28,6 +31,8 @@ const LibIng: React.FC<LibrosIngProps> = (props) => {
   const onDateChange = props.onDateChange ?? hookData.handleDateChange
   const onBuscar = props.onBuscarReporte ?? hookData.handleBuscarReporte
   const onExportar = props.onExportarExcel ?? hookData.handleExportarExcel
+  const canBuscar = props.canBuscar ?? hookData.canBuscar ?? true
+  const canExportar = props.canExportar ?? hookData.canExportar ?? true
 
   return (
     <CRow className="g-4">
@@ -38,6 +43,8 @@ const LibIng: React.FC<LibrosIngProps> = (props) => {
           loading={loading}
           exportando={exportando}
           hasData={libros.length > 0}
+          canBuscar={canBuscar}
+          canExportar={canExportar}
           onDateChange={onDateChange}
           onBuscar={onBuscar}
           onExportar={onExportar}

@@ -24,9 +24,9 @@ export const AppSidebarNav = ({ items }: { items: NavItem[] }) => {
                 <span className="nav-icon-bullet"></span>
               </span>
             )}
-        {name && name}
+        {name && <span className="nav-text">{name}</span>}
         {badge && (
-          <CBadge color={badge.color} className="ms-auto">
+          <CBadge color={badge.color} className="ms-auto nav-badge">
             {badge.text}
           </CBadge>
         )}

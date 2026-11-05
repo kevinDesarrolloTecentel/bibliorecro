@@ -8,7 +8,12 @@ const AppFooter = () => {
         <span className="ms-1">&copy; 2026 <strong> CC EL RECREO.</strong> <p>Todos los derechos reservados.</p></span>
       </div>
       <div className="text-center mb-3">
-        <a className='fw-bold text-decoration-none text-gray-400 powered-by' href="https://es-la.facebook.com/ccelrecreo/">
+        <a
+          className='fw-bold text-decoration-none text-gray-400 powered-by'
+          href="https://es-la.facebook.com/Tecentel/"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
           <span className="me-1"><strong> Powered By </strong></span>
           <div className="className">
             <span style={{ color: "rgba(4, 84, 134, 1)" }}><i><b>TECE</b></i></span>
@@ -19,17 +24,17 @@ const AppFooter = () => {
       <div className='text-center text-md-end'>
         <ul className='list-unstyled list-inline'>
           <li className="list-inline-item">
-            <a href="https://es-la.facebook.com/ccelrecreo/">
+            <a href="https://es-la.facebook.com/ccelrecreo/" target="_blank" rel="noopener noreferrer">
               <CIcon icon={cibFacebook} size='lg' style={{ color: "rgb(55, 184, 204)" }} />
             </a>
           </li>
           <li className="list-inline-item">
-            <a href="https://www.instagram.com/ccelrecreo/?hl=es-la">
+            <a href="https://www.instagram.com/ccelrecreo/?hl=es-la" target="_blank" rel="noopener noreferrer">
               <CIcon icon={cibInstagram} size='lg' style={{ color: "rgb(55, 184, 204)" }} />
             </a>
           </li>
           <li className="list-inline-item">
-            <a href="https://x.com/elrecreoquito?lang=en">
+            <a href="https://x.com/elrecreoquito?lang=en" target="_blank" rel="noopener noreferrer">
               <CIcon icon={cibTwitter} size='lg' style={{ color: "rgb(55, 184, 204)" }} />
             </a>
           </li>
