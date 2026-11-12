@@ -3,7 +3,7 @@
  */
 
 
-export interface FormErrors {
+  export interface FormErrors {
   [key: string]: string | undefined
 }
 
@@ -133,6 +133,17 @@ export const validatePersonaField = (
       if (!value && !extraContext?.file) {
         return 'La foto del usuario es requerida.'
       }
+      if (extraContext?.file instanceof File) {
+        const file = extraContext.file
+        const validExtensions = ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'gif']
+        const ext = (file.name.split('.').pop() || '').toLowerCase()
+        if (!file.type.startsWith('image/') || !validExtensions.includes(ext)) {
+          return 'Solo se permiten archivos de imagen (.jpg, .jpeg, .png, .webp).'
+        }
+        if (file.size > 5 * 1024 * 1024) {
+          return 'El tamaño de la imagen no debe superar los 5MB.'
+        }
+      }
       return undefined
 
     default:
@@ -140,9 +151,7 @@ export const validatePersonaField = (
   }
 }
 
-/**
- * Valida todos los campos del formulario de registro de usuario
- */
+//valida todos los campos del formulario de registro de usuarios
 export const validateAllPersonaRegister = (
   formData: any,
   fotoFile?: File | null

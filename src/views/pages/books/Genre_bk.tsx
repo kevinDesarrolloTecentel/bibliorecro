@@ -49,7 +49,7 @@ const Genre = () => {
             <CIcon icon={cilNewspaper} size="lg" style={{ color: '#1C69A8' }} />
             <span>Gestión de Géneros</span>
           </h4>
-          <p className="text-muted small mb-0">Gestiona el catálogo de los Géneros</p>
+          <p className="text-muted small mb-0">Administra el catálogo de los géneros.</p>
         </div>
         <div className="d-flex align-items-center gap-2">
           <CButton
@@ -83,7 +83,7 @@ const Genre = () => {
           <CCard className="h-100 border shadow-sm">
             <CCardHeader className="bg-body d-flex align-items-center justify-content-between py-2">
               <div className="d-flex align-items-center gap-2 fw-semibold text-body">
-                <CIcon icon={cilNoteAdd} size="lg" style={{ color: '#1C69A8' }} />
+                <CIcon icon={cilNoteAdd} style={{ color: '#1C69A8' }} />
                 <span>Catálogo de Géneros</span>
               </div>
               <div className="d-flex align-items-center gap-2">
@@ -185,8 +185,8 @@ const Genre = () => {
                 <span className="text-muted small">
                   Página <strong> {paginaActual} </strong> de <strong> {totalPaginas}</strong> ({totalFiltrados} géneros)
                 </span>
-                <CSmartPagination size="sm" activePage={paginaActual} pages={totalPaginas} onActivePageChange={handlePageChange}/>
-                </div>
+                <CSmartPagination size="sm" activePage={paginaActual} pages={totalPaginas} onActivePageChange={handlePageChange} />
+              </div>
             </CCardBody>
           </CCard>
         </CCol>
@@ -196,31 +196,6 @@ const Genre = () => {
               <div className="d-flex align-items-center gap-2 fw-semibold text-body">
                 <CIcon icon={cilNotes} />
                 <span>Detalle del Género</span>
-              </div>
-              <div className="d-flex align-items-center gap-1">
-                <CButton
-                  color="secondary"
-                  variant="ghost"
-                  size="sm"
-                  disabled={loadingGeneros}
-                  className="p-1 text-muted"
-                  onClick={() => handleRecargar()}
-                  title="Refrescar y limpiar selección"
-                >
-                  <CIcon icon={cilSync} className={loadingGeneros ? 'rotate-animation' : ''} />
-                </CButton>
-                {generoSeleccionado && (
-                  <CButton
-                    color="secondary"
-                    variant="ghost"
-                    size="sm"
-                    className="p-1 text-muted"
-                    onClick={() => setGeneroSeleccionado(null)}
-                    title="Cerrar detalle"
-                  >
-                    <CIcon icon={cilX} />
-                  </CButton>
-                )}
               </div>
             </CCardHeader>
             <CCardBody className="p-4 d-flex flex-column justify-content-between">
@@ -260,46 +235,59 @@ const Genre = () => {
                       </div>
                     </div>
                   </div>
-                  <div className=" d-flex justify-content-end gap-2">
-                    {canEliminarGenero && (
-                      <CButton
-                        color="danger"
-                        variant="outline"
-                        size="sm"
-                        className="d-flex align-items-center gap-2 shadow-sm hover:text-white"
-                        onClick={() => handleEliminarGnerol(generoSeleccionado)}>
-                        <CIcon icon={cilTrash} />
-                        <span>Eliminar Género</span>
-                      </CButton>
-                    )}
-                    {canEditarGenero && (
-                      <CButton
-                        color="success"
-                        variant="outline"
-                        size="sm"
-                        className="d-flex align-items-center gap-2 shadow-sm hover:text-white"
-                        onClick={() => handleOpen(generoSeleccionado)}>
-                        <CIcon icon={cilPenNib} />
-                        <span>Editar Género</span>
-                      </CButton>
+                  <div className="d-flex flex-wrap gap-2 justify-content-end align-items-center mt-3 pt-2 border-top">
+                    {canEliminarGenero || canEditarGenero ? (
+                      <>
+                        {canEliminarGenero && (
+                          <CButton
+                            color="danger"
+                            variant="outline"
+                            size="sm"
+                            className="d-flex align-items-center gap-2 shadow-sm hover:text-white"
+                            onClick={() => handleEliminarGnerol(generoSeleccionado)}>
+                            <CIcon icon={cilTrash} />
+                            <span>Eliminar Género</span>
+                          </CButton>
+                        )}
+                        {canEditarGenero && (
+                          <CButton
+                            color="success"
+                            variant="outline"
+                            size="sm"
+                            className="d-flex align-items-center gap-2 shadow-sm hover:text-white"
+                            onClick={() => handleOpen(generoSeleccionado)}>
+                            <CIcon icon={cilPenNib} />
+                            <span>Editar Género</span>
+                          </CButton>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-danger small fw-semibold py-1">
+                        No tienes acceso a las acciones de géneros.
+                      </span>
                     )}
                   </div>
                 </div>
               ) : (
-                <div className=" text-center py-5 my-auto text-muted">
-                  <div className="bg-light rounded-circle p-4 d-inline-flex align-items-center justify-content-center mb-3"
-                    style={{ width: '80px', height: '80px' }}>
+                <div className="text-center py-5 my-auto text-muted">
+                  <div
+                    className="bg-body rounded-circle p-4 d-inline-flex align-items-center justify-content-center mb-3"
+                    style={{ width: '80px', height: '80px' }}
+                  >
                     <CIcon icon={cilPenNib} size="xxl" className="text-secondary opacity-50" />
                   </div>
                   <h6 className="fw-bold text-body mb-1">Ningún Género Seleccionado</h6>
-                  <p className="small text-muted mb-4 px-3">Selecciona un género de la lista </p>
+                  <p className="small text-muted mb-4 px-3">
+                    Selecciona un género de la lista para consultar sus detalles o modificarlo.
+                  </p>
                   {canCrearGenero && (
                     <CButton
                       color="primary"
                       variant="outline"
                       size="sm"
                       className="d-inline-flex align-items-center gap-1 shadow-sm hover:text-white"
-                      onClick={() => handleOpen()}>
+                      onClick={() => handleOpen()}
+                    >
                       <CIcon icon={cilPlus} />
                       <span>Crear nuevo Género</span>
                     </CButton>

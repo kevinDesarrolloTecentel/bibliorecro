@@ -100,7 +100,7 @@ export const PersonasNuevasReport = async (params?: any) => {
 };
 export const PersonasNuevasDiaMesAnoReport = PersonasNuevasReport;
 
-// 6. Reporte de Historial de Libros por Usuario (Reexport/retrocompatibilidad)
+// 6. Reporte de Historial de Libros por Usuario
 import { listarPrestamosCedula } from '../rco/Prestamos';
 export const PersonasHistorialLibrosReport = listarPrestamosCedula;
 export const PrestamosReportPorUsuario = listarPrestamosCedula;

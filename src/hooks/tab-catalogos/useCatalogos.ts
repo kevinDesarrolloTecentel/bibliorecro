@@ -11,27 +11,63 @@ import { EstadoCivil } from '@/models/tab/estadoCivil.model'
 
 export type { CatalogoItem }
 
-export const useCatalogos = (autoFetch: boolean = true) => {
-  const [loading, setLoading] = useState(false)
-  const [tiposId, setTiposId] = useState<CatalogoItem[]>([
+export interface CatalogosPersonaData {
+  tiposId: CatalogoItem[]
+  nacionalidades: CatalogoItem[]
+  generos: CatalogoItem[]
+  estadosCiviles: CatalogoItem[]
+}
+
+const defaultCatalogos: CatalogosPersonaData = {
+  tiposId: [
     { id: 1, nombre: 'Cédula' },
     { id: 2, nombre: 'Pasaporte' },
-  ])
-  const [nacionalidades, setNacionalidades] = useState<CatalogoItem[]>([
+  ],
+  nacionalidades: [
     { id: 1, nombre: 'Ecuatoriana' },
     { id: 2, nombre: 'Extranjera' },
-  ])
-  const [generos, setGeneros] = useState<CatalogoItem[]>([
+  ],
+  generos: [
     { id: 1, nombre: 'Masculino' },
     { id: 2, nombre: 'Femenino' },
-  ])
-  const [estadosCiviles, setEstadosCiviles] = useState<CatalogoItem[]>([
+  ],
+  estadosCiviles: [
     { id: 1, nombre: 'Soltero/a' },
     { id: 2, nombre: 'Casado/a' },
-  ])
+  ],
+}
 
-  const fetchCatalogos = useCallback(async () => {
-    setLoading(true)
+let cachedCatalogos: CatalogosPersonaData | null = null
+let pendingCatalogosPromise: Promise<CatalogosPersonaData> | null = null
+const listeners = new Set<() => void>()
+
+const notifyListeners = () => {
+  listeners.forEach((listener) => {
+    try {
+      listener()
+    } catch (e) {
+      console.error('Error al notificar listener de catálogos persona:', e)
+    }
+  })
+}
+
+export const clearCatalogosPersonaCache = () => {
+  cachedCatalogos = null
+  pendingCatalogosPromise = null
+  notifyListeners()
+}
+
+export const fetchCatalogosPersonaData = async (
+  forceRefresh: boolean = false,
+): Promise<CatalogosPersonaData> => {
+  if (!forceRefresh && cachedCatalogos) {
+    return cachedCatalogos
+  }
+  if (!forceRefresh && pendingCatalogosPromise) {
+    return pendingCatalogosPromise
+  }
+
+  pendingCatalogosPromise = (async () => {
     try {
       const [resTipos, resNac, resGen, resEst] = await Promise.allSettled([
         listarTipoIdentificacion(),
@@ -40,72 +76,97 @@ export const useCatalogos = (autoFetch: boolean = true) => {
         ListarEstadoCivil(),
       ])
 
+      const data: CatalogosPersonaData = {
+        tiposId: cachedCatalogos?.tiposId || defaultCatalogos.tiposId,
+        nacionalidades: cachedCatalogos?.nacionalidades || defaultCatalogos.nacionalidades,
+        generos: cachedCatalogos?.generos || defaultCatalogos.generos,
+        estadosCiviles: cachedCatalogos?.estadosCiviles || defaultCatalogos.estadosCiviles,
+      }
+
       if (resTipos.status === 'fulfilled') {
         const list = (resTipos.value?.data || resTipos.value) as TipoIdentificacion[]
         if (Array.isArray(list) && list.length > 0) {
-          setTiposId(
-            list.map((item) => ({
-              id: item.ID_TIPOIDENTIFICACION ?? (item as any).id ?? '',
-              nombre: item.NOMBRE_TIPOIDENTIFICACION ?? (item as any).nombre ?? '',
-            })),
-          )
+          data.tiposId = list.map((item) => ({
+            id: item.ID_TIPOIDENTIFICACION ?? (item as any).id ?? '',
+            nombre: item.NOMBRE_TIPOIDENTIFICACION ?? (item as any).nombre ?? '',
+          }))
         }
       }
 
       if (resNac.status === 'fulfilled') {
         const list = (resNac.value?.data || resNac.value) as Nacionalidad[]
         if (Array.isArray(list) && list.length > 0) {
-          setNacionalidades(
-            list.map((item) => ({
-              id: item.ID_NACIONALIDAD ?? (item as any).id ?? '',
-              nombre: item.NOMBRE_NACIONALIDAD ?? (item as any).nombre ?? '',
-            })),
-          )
+          data.nacionalidades = list.map((item) => ({
+            id: item.ID_NACIONALIDAD ?? (item as any).id ?? '',
+            nombre: item.NOMBRE_NACIONALIDAD ?? (item as any).nombre ?? '',
+          }))
         }
       }
 
       if (resGen.status === 'fulfilled') {
         const list = (resGen.value?.data || resGen.value) as Genero[]
         if (Array.isArray(list) && list.length > 0) {
-          setGeneros(
-            list.map((item) => ({
-              id: item.ID_GENERO ?? (item as any).id ?? (item as any).ID ?? '',
-              nombre: item.NOMBRE_GENERO ?? (item as any).nombre ?? (item as any).genero ?? '',
-            })),
-          )
+          data.generos = list.map((item) => ({
+            id: item.ID_GENERO ?? (item as any).id ?? (item as any).ID ?? '',
+            nombre: item.NOMBRE_GENERO ?? (item as any).nombre ?? (item as any).genero ?? '',
+          }))
         }
       }
 
       if (resEst.status === 'fulfilled') {
         const list = (resEst.value?.data || resEst.value) as EstadoCivil[]
         if (Array.isArray(list) && list.length > 0) {
-          setEstadosCiviles(
-            list.map((item) => ({
-              id: item.ID_ESTADOCIVIL ?? (item as any).id ?? '',
-              nombre: item.NOMBRE_ESTADOCIVIL ?? (item as any).nombre ?? '',
-            })),
-          )
+          data.estadosCiviles = list.map((item) => ({
+            id: item.ID_ESTADOCIVIL ?? (item as any).id ?? '',
+            nombre: item.NOMBRE_ESTADOCIVIL ?? (item as any).nombre ?? '',
+          }))
         }
       }
-    } catch (error) {
-      console.error('Error al cargar catálogos:', error)
+
+      cachedCatalogos = data
+      notifyListeners()
+      return data
+    } catch (err) {
+      console.error('Error al cargar catálogos de persona:', err)
+      return cachedCatalogos || defaultCatalogos
     } finally {
-      setLoading(false)
+      pendingCatalogosPromise = null
+    }
+  })()
+
+  return pendingCatalogosPromise
+}
+
+export const useCatalogos = (autoFetch: boolean = true) => {
+  const [, setTick] = useState(0)
+
+  useEffect(() => {
+    const update = () => setTick((t) => t + 1)
+    listeners.add(update)
+    return () => {
+      listeners.delete(update)
     }
   }, [])
 
-  useEffect(() => {
-    if (autoFetch) {
-      fetchCatalogos()
+  const fetchCatalogos = useCallback(async (forceRefresh: boolean = false) => {
+    if (!forceRefresh && cachedCatalogos) {
+      return cachedCatalogos
     }
-  }, [autoFetch, fetchCatalogos])
+    return fetchCatalogosPersonaData(forceRefresh)
+  }, [])
+
+  useEffect(() => {
+    if (autoFetch && !cachedCatalogos && !pendingCatalogosPromise) {
+      fetchCatalogosPersonaData()
+    }
+  }, [autoFetch])
 
   return {
-    tiposId,
-    nacionalidades,
-    generos,
-    estadosCiviles,
-    loading,
+    tiposId: cachedCatalogos?.tiposId || defaultCatalogos.tiposId,
+    nacionalidades: cachedCatalogos?.nacionalidades || defaultCatalogos.nacionalidades,
+    generos: cachedCatalogos?.generos || defaultCatalogos.generos,
+    estadosCiviles: cachedCatalogos?.estadosCiviles || defaultCatalogos.estadosCiviles,
+    loading: !cachedCatalogos,
     fetchCatalogos,
   }
 }

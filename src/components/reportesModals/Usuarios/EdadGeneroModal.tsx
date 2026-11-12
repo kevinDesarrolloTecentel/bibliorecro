@@ -3,6 +3,7 @@ import {
   useReporteUsuariosEdadGenero,
   PersonaReporteItem,
 } from '@/hooks/reportes/usuarios/useReporteEdadGenero'
+import { formatFecha } from '@/utils/dateUtils'
 import {
   cilCloudDownload,
   cilExitToApp,
@@ -32,6 +33,12 @@ import {
 export interface EGModalProps {
   visible: boolean
   setVisible: (visible: boolean) => void
+}
+
+const formatFechaDisplay = (fecha?: string | null): string => {
+  if (!fecha) return '-'
+  const res = formatFecha(fecha)
+  return res === 'No registrada' ? '-' : res
 }
 
 const EGModal: React.FC<EGModalProps> = ({ visible, setVisible }) => {
@@ -67,17 +74,49 @@ const EGModal: React.FC<EGModalProps> = ({ visible, setVisible }) => {
   }
 
   const tableItems = useMemo(() => {
-    return usuarios.map((item) => ({
-      ...item,
-      cedula: item.IDENTIFICACION_PERSONA || '',
-      nombre: item.NOMBRE_PERSONA || '',
-      apellido: item.APELLIDO_PERSONA || '',
-      fechaNacimiento: item.FECHA_PERSONA
-        ? new Date(item.FECHA_PERSONA).toLocaleDateString()
-        : '',
-      edad: item.EDAD_PERSONA !== undefined && item.EDAD_PERSONA !== null ? String(item.EDAD_PERSONA) : '',
-      correo: item.CORREO_PERSONA || '',
-    }))
+    return usuarios.map((item: PersonaReporteItem) => {
+      const nombres = item.NOMBRE_PERSONA?.trim() || ''
+      const apellidos = item.APELLIDO_PERSONA?.trim() || ''
+      const identificacion = item.IDENTIFICACION_PERSONA?.trim() || ''
+      const correo = item.CORREO_PERSONA?.trim() || ''
+      const edad = item.EDAD_PERSONA !== undefined && item.EDAD_PERSONA !== null ? String(item.EDAD_PERSONA) : ''
+      const genero = item.NOMBRE_GENERO?.trim() || ''
+      const fechaNacimiento = formatFechaDisplay(item.FECHA_PERSONA || (item as any).FECHA_NACIMIENTO_PERSONA || (item as any).fecha_nacimiento)
+      const inicioInscripcion = formatFechaDisplay(item.FECHAINICIO_INSCRIPCION)
+      const finInscripcion = formatFechaDisplay(item.FECHAFIN_INSCRIPCION)
+
+      // Costo de inscripción
+      const costoNum = Number(item.COSTO_INSCRIPCION)
+      const costoInscripcion = !isNaN(costoNum)
+        ? `$${costoNum.toFixed(2)}`
+        : item.COSTO_INSCRIPCION
+          ? `$${item.COSTO_INSCRIPCION}`
+          : '$0.00'
+
+      // Estado de inscripción
+      let estadoInscripcion = 'Inactiva'
+      const estStr = String(item.ESTADO_INSCRIPCION ?? '').trim().toLowerCase()
+      if (estStr === '1' || estStr === 'true' || estStr === 'activa' || estStr === 'activo') {
+        estadoInscripcion = 'Activa'
+      } else if (estStr && estStr !== '0' && estStr !== 'false' && estStr !== 'inactiva' && estStr !== 'inactivo') {
+        estadoInscripcion = String(item.ESTADO_INSCRIPCION)
+      }
+
+      return {
+        ...item,
+        nombres,
+        apellidos,
+        identificacion,
+        correo,
+        edad,
+        genero,
+        fechaNacimiento,
+        inicioInscripcion,
+        finInscripcion,
+        costoInscripcion,
+        estadoInscripcion,
+      }
+    })
   }, [usuarios])
 
   const esRangoInvalido = Boolean(
@@ -86,34 +125,59 @@ const EGModal: React.FC<EGModalProps> = ({ visible, setVisible }) => {
 
   const columns = [
     {
-      key: 'cedula',
-      label: 'Cédula',
-      _style: { width: '15%' },
+      key: 'nombres',
+      label: 'Nombres',
+      _style: { minWidth: '150px' },
     },
     {
-      key: 'nombre',
-      label: 'Nombre',
-      _style: { width: '18%' },
+      key: 'apellidos',
+      label: 'Apellidos',
+      _style: { minWidth: '150px' },
     },
     {
-      key: 'apellido',
-      label: 'Apellido',
-      _style: { width: '18%' },
+      key: 'identificacion',
+      label: 'Identificación',
+      _style: { minWidth: '150px' },
     },
     {
-      key: 'fechaNacimiento',
-      label: 'Fecha de Nacimiento',
-      _style: { width: '15%' },
+      key: 'correo',
+      label: 'Correo electrónico',
+      _style: { minWidth: '150px' },
     },
     {
       key: 'edad',
       label: 'Edad',
-      _style: { width: '10%' },
+      _style: { minWidth: '80px' },
     },
     {
-      key: 'correo',
-      label: 'Correo',
-      _style: { width: '24%' },
+      key: 'genero',
+      label: 'Género',
+      _style: { minWidth: '110px' },
+    },
+    {
+      key: 'fechaNacimiento',
+      label: 'Fecha de nacimiento',
+      _style: { minWidth: '130px' },
+    },
+    {
+      key: 'inicioInscripcion',
+      label: 'Inicio de inscripción',
+      _style: { minWidth: '135px' },
+    },
+    {
+      key: 'finInscripcion',
+      label: 'Fin de inscripción',
+      _style: { minWidth: '135px' },
+    },
+    {
+      key: 'costoInscripcion',
+      label: 'Costo de inscripción',
+      _style: { minWidth: '125px' },
+    },
+    {
+      key: 'estadoInscripcion',
+      label: 'Estado de inscripción',
+      _style: { minWidth: '135px' },
     },
   ]
 
@@ -122,10 +186,12 @@ const EGModal: React.FC<EGModalProps> = ({ visible, setVisible }) => {
       size="xl"
       scrollable
       visible={visible}
-      onClose={handleClose}
+      onClose={() => {
+        if (!isLoading) handleClose()
+       }}
       backdrop="static"
     >
-      <CModalHeader closeButton>
+      <CModalHeader closeButton = {!isLoading}>
         <CModalTitle className="d-flex align-items-center gap-2">
           <span>Usuarios por Rango de Edad y Género</span>
         </CModalTitle>
@@ -252,59 +318,105 @@ const EGModal: React.FC<EGModalProps> = ({ visible, setVisible }) => {
               columnSorter
               items={tableItems}
               itemsPerPage={60}
+              loading={isLoading}
               pagination
               tableFilter={haBuscado && !isLoading && usuarios.length > 0}
               tableFilterLabel="Buscar:"
               tableFilterPlaceholder="Buscar en la tabla..."
               cleaner
               noItemsLabel={
-                haBuscado
+                isLoading
+                  ? 'Cargando usuarios...'
+                  : haBuscado
                   ? 'No se encontraron usuarios registrados con los filtros seleccionados'
                   : 'Seleccione un Rango de Edad y el Género para la consulta'
               }
               scopedColumns={{
-                cedula: (item: PersonaReporteItem) => (
+                nombres: (item: any) => (
+                  <td>
+                    <span className="font-monospace small">
+                      {item.nombres || item.NOMBRE_PERSONA || '-'}
+                    </span>
+                  </td>
+                ),
+                apellidos: (item: any) => (
+                  <td>
+                    <span className="font-monospace small">
+                      {item.apellidos || item.APELLIDO_PERSONA || '-'}
+                    </span>
+                  </td>
+                ),
+                identificacion: (item: any) => (
                   <td>
                     <span className="font-monospace small text-muted badge bg-body border">
-                      {item.IDENTIFICACION_PERSONA}
+                      {item.identificacion || item.IDENTIFICACION_PERSONA || '-'}
                     </span>
                   </td>
                 ),
-                nombre: (item: PersonaReporteItem) => (
+                correo: (item: any) => (
                   <td>
-                    <span className='font-monospace small'>
-                      {item.NOMBRE_PERSONA}
+                    <span className="font-monospace small badge bg-body border text-muted">
+                      {item.correo || item.CORREO_PERSONA || '-'}
                     </span>
                   </td>
                 ),
-                apellido: (item: PersonaReporteItem) => (
-                  <td>
-                    <span className='font-monospace small'>{item.APELLIDO_PERSONA}</span>
-                  </td>
-                ),
-                fechaNacimiento: (item: PersonaReporteItem) => (
-                  <td>
-                    <span className='font-monospace small badge bg-body border text-primary'>
-                      {item.FECHA_PERSONA
-                        ? new Date(item.FECHA_PERSONA).toLocaleDateString()
-                        : '-'}
-                    </span>
-                  </td>
-                ),
-                edad: (item: PersonaReporteItem) => (
+                edad: (item: any) => (
                   <td>
                     <span className="badge bg-body border text-primary font-monospace">
-                      {item.EDAD_PERSONA ?? '-'}
+                      {item.edad || '-'}
                     </span>
                   </td>
                 ),
-                correo: (item: PersonaReporteItem) => (
+                genero: (item: any) => (
                   <td>
-                    <span className='font-monospace badge bg-body border text-muted'>
-                      {item.CORREO_PERSONA}
+                    <span className="font-monospace small">
+                      {item.genero || item.NOMBRE_GENERO || '-'}
                     </span>
                   </td>
                 ),
+                fechaNacimiento: (item: any) => (
+                  <td>
+                    <span className="font-monospace small badge bg-body border text-primary">
+                      {item.fechaNacimiento || formatFechaDisplay(item.FECHA_PERSONA || item.FECHA_NACIMIENTO_PERSONA || item.fecha_nacimiento)}
+                    </span>
+                  </td>
+                ),
+                inicioInscripcion: (item: any) => (
+                  <td>
+                    <span className="font-monospace small badge bg-body border text-info">
+                      {item.inicioInscripcion || formatFechaDisplay(item.FECHAINICIO_INSCRIPCION)}
+                    </span>
+                  </td>
+                ),
+                finInscripcion: (item: any) => (
+                  <td>
+                    <span className="font-monospace small badge bg-body border text-info">
+                      {item.finInscripcion || formatFechaDisplay(item.FECHAFIN_INSCRIPCION)}
+                    </span>
+                  </td>
+                ),
+                costoInscripcion: (item: any) => (
+                  <td>
+                    <span className="font-monospace small text-success fw-semibold">
+                      {item.costoInscripcion}
+                    </span>
+                  </td>
+                ),
+                estadoInscripcion: (item: any) => {
+                  const esActiva = item.estadoInscripcion === 'Activa'
+                  return (
+                    <td>
+                      <span
+                        className={`badge font-monospace ${esActiva
+                            ? 'bg-success-subtle text-success border border-success-subtle'
+                            : 'bg-danger-subtle text-danger border border-danger-subtle'
+                          }`}
+                      >
+                        {item.estadoInscripcion}
+                      </span>
+                    </td>
+                  )
+                },
               }}
               tableProps={{
                 responsive: true,
@@ -330,6 +442,7 @@ const EGModal: React.FC<EGModalProps> = ({ visible, setVisible }) => {
             size="sm"
             className="hover:text-white shadow-sm"
             onClick={handleClose}
+            disabled={isLoading}
           >
             <CIcon icon={cilExitToApp} className="me-1" />
             Cerrar
@@ -350,7 +463,7 @@ const EGModal: React.FC<EGModalProps> = ({ visible, setVisible }) => {
               }
             >
               <CIcon icon={cilCloudDownload} className="me-1" />
-              Descargar
+              Descargar Excel
             </CButton>
           )}
 

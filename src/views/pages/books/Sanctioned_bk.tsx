@@ -64,12 +64,12 @@ const Sanctioned_bk: React.FC = () => {
 
   const columns = useMemo(
     () => [
-      { key: 'Cedula', label: 'Cédula', _style: { width: '14%' }, filter: false  },
+      { key: 'Cedula', label: 'Cédula', _style: { width: '14%' }, filter: false },
       { key: 'Nombres', label: 'Nombres', _style: { width: '18%' }, filter: false },
       { key: 'Apellidos', label: 'Apellidos', _style: { width: '18%' }, filter: false },
       { key: 'Celular', label: 'Celular', _style: { width: '12%' }, filter: false },
       { key: 'status', label: 'Sanción', _style: { width: '13%' }, filter: false },
-            {
+      {
         key: 'estado',
         label: 'Estado',
         _style: { width: '9%' },
@@ -109,12 +109,14 @@ const Sanctioned_bk: React.FC = () => {
 
   return (
     <div className="pb-4">
-      {/* Encabezado unificado */}
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
         <div>
-          <h3 className="fw-bold mb-1">Gestión de Sancionados</h3>
+          <h3 className="fw-bold mb-1 text-body d-flex align-items-center gap-2">
+            <CIcon icon={cilWarning} size="lg" style={{ color: '#dc3545' }} />
+            <span>Gestión de Sancionados</span>
+          </h3>
           <p className="text-body-secondary mb-0">
-            Registro oficial de usuarios que cuentan con sanciones activas en el sistema.
+            Registro de usuarios que cuentan con sanciones activas.
           </p>
         </div>
         <CButton
@@ -133,11 +135,12 @@ const Sanctioned_bk: React.FC = () => {
 
       <CCard className="shadow-sm border-0">
         <CCardHeader className="bg-transparent py-3 d-flex justify-content-between align-items-center">
-          <span className="fw-semibold text-uppercase small">
-            Listado de Usuarios Sancionados
+          <span className="fw-semibold text-uppercase small d-inline-flex align-items-center gap-2">
+            <CIcon icon={cilWarning} style={{ color: '#dc3545' }} />
+            <span>Listado de Usuarios Sancionados</span>
           </span>
           <span className="text-body-secondary small">
-            Total sancionados: <strong>{totalRegistros}</strong>
+            Total recibidos: <strong>{totalRegistros}</strong>
           </span>
         </CCardHeader>
 
@@ -409,52 +412,56 @@ const Sanctioned_bk: React.FC = () => {
                           </CRow>
 
                           {/* Botones de acción: Quitar Sanción y Sancionar de por vida */}
-                          <div className="d-flex flex-wrap gap-2 justify-content-end mt-3 pt-2 border-top">
+                          <div className="d-flex flex-wrap gap-2 justify-content-end align-items-center mt-3 pt-2 border-top">
                             {esDePorVida ? (
                               <div className="d-flex align-items-center gap-2 text-danger fw-semibold small bg-danger bg-opacity-10 px-3 py-2 rounded-2 border border-danger border-opacity-25 shadow-sm">
                                 <CIcon icon={cilBan} size="sm" />
                                 <span>Usuario inhabilitado permanentemente</span>
                               </div>
-                            ) : (
-                              <>
-                                {canQuitarSancion && (
-                                  <CButton
-                                    color="success"
-                                    variant="outline"
-                                    size="sm"
-                                    className="d-flex align-items-center gap-1 shadow-sm px-3"
-                                    disabled={procesando}
-                                    onClick={() => handleQuitarSancion(item)}
-                                  >
-                                    {procesando ? (
-                                      <CSpinner size="sm" />
-                                    ) : (
-                                      <CIcon icon={cilCheck} size="sm" />
-                                    )}
-                                    <span>Quitar Sanción</span>
-                                  </CButton>
-                                )}
+                            ) :  canQuitarSancion || canSancionarDePorVida ? (
+                                <>
+                                  {canQuitarSancion && (
+                                    <CButton
+                                      color="success"
+                                      variant="outline"
+                                      size="sm"
+                                      className="d-flex align-items-center gap-1 shadow-sm px-3"
+                                      disabled={procesando}
+                                      onClick={() => handleQuitarSancion(item)}
+                                    >
+                                      {procesando ? (
+                                        <CSpinner size="sm" />
+                                      ) : (
+                                        <CIcon icon={cilCheck} size="sm" />
+                                      )}
+                                      <span>Quitar Sanción</span>
+                                    </CButton>
+                                  )}
 
-                                {canSancionarDePorVida && (
-                                  <CButton
-                                    color="danger"
-                                    variant="outline"
-                                    size="sm"
-                                    className="d-flex align-items-center gap-1 shadow-sm px-3"
-                                    disabled={procesando}
-                                    onClick={() => handleAbrirModalSancionPermanente(item)}
-                                  >
-                                    {procesando ? (
-                                      <CSpinner size="sm" />
-                                    ) : (
-                                      <CIcon icon={cilBan} size="sm" />
-                                    )}
-                                    <span>Sancionar de por vida</span>
-                                  </CButton>
-                                )}
-                              </>
+                                  {canSancionarDePorVida && (
+                                    <CButton
+                                      color="danger"
+                                      variant="outline"
+                                      size="sm"
+                                      className="d-flex align-items-center gap-1 shadow-sm px-3"
+                                      disabled={procesando}
+                                      onClick={() => handleAbrirModalSancionPermanente(item)}
+                                    >
+                                      {procesando ? (
+                                        <CSpinner size="sm" />
+                                      ) : (
+                                        <CIcon icon={cilBan} size="sm" />
+                                      )}
+                                      <span>Sancionar de por vida</span>
+                                    </CButton>
+                                  )}
+                                </>
+                                ) : (
+                                <span className="text-danger small fw-semibold py-1">
+                                No tienes acceso a las acciones de sancionados.
+                                </span>
                             )}
-                          </div>
+                              </div>
                         </CCol>
                       </CRow>
                     </div>

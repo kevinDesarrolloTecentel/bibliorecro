@@ -17,6 +17,7 @@ import type { MisPermisosData } from '@/models/adm/permiso.model'
 interface PermissionsContextType {
   esAdmin: boolean
   roles: any[]
+  modulos: any[]
   rutasPermitidas: Set<string>
   accionesPermitidas: Set<string>
   loadingPermisos: boolean
@@ -30,6 +31,7 @@ interface PermissionsContextType {
 const PermissionsContext = createContext<PermissionsContextType>({
   esAdmin: false,
   roles: [],
+  modulos: [],
   rutasPermitidas: new Set(),
   accionesPermitidas: new Set(),
   loadingPermisos: false,
@@ -43,6 +45,7 @@ const PermissionsContext = createContext<PermissionsContextType>({
 interface CachedPermissions {
   esAdmin: boolean
   roles: any[]
+  modulos?: any[]
   rutas: string[]
   acciones: string[]
   timestamp: number
@@ -50,6 +53,13 @@ interface CachedPermissions {
 
 const PERMISOS_CACHE_KEY = 'biblio_permisos_cache'
 export const PERMISOS_EVENTO_LOCAL = 'biblio_permisos_actualizados_local'
+
+export const normalizePath = (p?: string): string => {
+  if (!p) return '/'
+  let clean = p.split('?')[0].trim().toLowerCase()
+  if (!clean.startsWith('/')) clean = '/' + clean
+  return clean.replace(/\/+$/, '') || '/'
+}
 
 export const marcarCambioPermisos = () => {
   if (typeof window !== 'undefined') {
@@ -78,6 +88,7 @@ const saveCachedPermissions = (
   roles: any[],
   rutas: Set<string>,
   acciones: Set<string>,
+  modulos?: any[],
 ) => {
   if (typeof window === 'undefined') return
 
@@ -85,6 +96,7 @@ const saveCachedPermissions = (
     const payload: CachedPermissions = {
       esAdmin,
       roles: roles || [],
+      modulos: modulos || [],
       rutas: Array.from(rutas),
       acciones: Array.from(acciones),
       timestamp: Date.now(),
@@ -156,6 +168,10 @@ export const PermissionsProvider: React.FC<{
     cached?.roles ?? (user?.ROLES || []),
   )
 
+  const [modulos, setModulos] = useState<any[]>(
+    cached?.modulos || [],
+  )
+
   const [rutasPermitidas, setRutasPermitidas] = useState<
     Set<string>
   >(cached ? new Set(cached.rutas) : new Set())
@@ -172,8 +188,26 @@ export const PermissionsProvider: React.FC<{
     Boolean(cached),
   )
 
-  // Evita consultas simultáneas
+  // Evita consultas simultáneas y saturación
   const isFetchingRef = useRef(false)
+  const lastFetchTimeRef = useRef(0)
+  const lastVerificacionTimeRef = useRef(0)
+
+  // Aplicar caché directamente al estado de React
+  const aplicarCache = useCallback((): boolean => {
+    const c = getCachedPermissions()
+    if (c && Array.isArray(c.rutas)) {
+      setEsAdmin(Boolean(c.esAdmin))
+      setRoles(c.roles || [])
+      setModulos(c.modulos || [])
+      setRutasPermitidas(new Set(c.rutas))
+      setAccionesPermitidas(new Set(c.acciones || []))
+      setPermisosCargados(true)
+      setLoadingPermisos(false)
+      return true
+    }
+    return false
+  }, [])
 
   // Obtener y actualizar permisos
   const cargarPermisos = useCallback(
@@ -182,6 +216,7 @@ export const PermissionsProvider: React.FC<{
         setRutasPermitidas(new Set())
         setAccionesPermitidas(new Set())
         setRoles([])
+        setModulos([])
         setEsAdmin(false)
         setLoadingPermisos(false)
         setPermisosCargados(false)
@@ -189,9 +224,15 @@ export const PermissionsProvider: React.FC<{
         return
       }
 
+      const now = Date.now()
+      if (silent && permisosCargados && (now - lastFetchTimeRef.current < 2000)) {
+        return
+      }
+
       if (isFetchingRef.current) return
 
       isFetchingRef.current = true
+      lastFetchTimeRef.current = now
 
       if (!silent && !getCachedPermissions()) {
         setLoadingPermisos(true)
@@ -199,7 +240,8 @@ export const PermissionsProvider: React.FC<{
 
       try {
         const res = await obtenerMisPermisos()
-        const data: MisPermisosData = res?.data
+        const raw: any = res?.data || (res as any)?.permisos || res
+        const data: MisPermisosData = (raw?.data || raw?.permisos || raw) as MisPermisosData
 
         const userRoles = data?.ROLES || []
 
@@ -222,13 +264,7 @@ export const PermissionsProvider: React.FC<{
           data.MODULOS.forEach((modulo) => {
             modulo.PANTALLAS?.forEach((pantalla) => {
               if (pantalla.PATH_PERMISO) {
-                const pathClean =
-                  pantalla.PATH_PERMISO
-                    .trim()
-                    .toLowerCase()
-                    .replace(/\/+$/, '') || '/'
-
-                rutas.add(pathClean)
+                rutas.add(normalizePath(pantalla.PATH_PERMISO))
               }
 
               pantalla.ACCIONES?.forEach((acc: any) => {
@@ -248,6 +284,7 @@ export const PermissionsProvider: React.FC<{
         // Actualizar estado global de permisos (solo si cambiaron para evitar re-renderizados innecesarios)
         setEsAdmin((prev) => (prev === admin ? prev : admin))
         setRoles(userRoles)
+        setModulos(data?.MODULOS || [])
         setRutasPermitidas((prev) => {
           if (prev.size === rutas.size && Array.from(rutas).every((r) => prev.has(r))) {
             return prev
@@ -267,6 +304,7 @@ export const PermissionsProvider: React.FC<{
           userRoles,
           rutas,
           acciones,
+          data?.MODULOS || [],
         )
 
         // Sincronizar estado de administrador con Redux
@@ -306,22 +344,31 @@ export const PermissionsProvider: React.FC<{
   // Carga inicial al autenticar o cerrar sesión
   useEffect(() => {
     if (isAuthenticated) {
-      void cargarPermisos(true)
+      aplicarCache()
+      // Al logearse, los permisos ya se cargaron desde la respuesta del login.
+      // La consulta periódica/al navegar a cada módulo se maneja en SincronizadorPermisos.
     } else {
-      void cargarPermisos()
+      setRutasPermitidas(new Set())
+      setAccionesPermitidas(new Set())
+      setRoles([])
+      setModulos([])
+      setEsAdmin(false)
+      setLoadingPermisos(false)
+      setPermisosCargados(false)
     }
-  }, [isAuthenticated, cargarPermisos])
+  }, [isAuthenticated, aplicarCache])
 
   // Escuchar cuando se actualizan permisos en la misma pestaña o desde otra pestaña
   useEffect(() => {
     if (!isAuthenticated) return
 
     const alDetectarCambio = () => {
+      aplicarCache()
       void cargarPermisos(true)
     }
 
     const alCambiarStorage = (e: StorageEvent) => {
-      if (e.key === PERMISOS_CACHE_KEY) {
+      if (e.key === PERMISOS_CACHE_KEY || e.key === 'biblio_permisos_modificados') {
         alDetectarCambio()
       }
     }
@@ -333,18 +380,17 @@ export const PermissionsProvider: React.FC<{
       window.removeEventListener(PERMISOS_EVENTO_LOCAL, alDetectarCambio)
       window.removeEventListener('storage', alCambiarStorage)
     }
-  }, [isAuthenticated, cargarPermisos])
+  }, [isAuthenticated, aplicarCache, cargarPermisos])
 
   const canAccessPath = useCallback(
     (path?: string): boolean => {
       if (!path) return true
 
-      const clean =
-        path
-          .split('?')[0]
-          .trim()
-          .toLowerCase()
-          .replace(/\/+$/, '') || '/'
+      const clean = normalizePath(path)
+
+      if (clean === '/') {
+        return true
+      }
 
       return rutasPermitidas.has(clean)
     },
@@ -362,9 +408,18 @@ export const PermissionsProvider: React.FC<{
     async (codigoAccion: string): Promise<boolean> => {
       if (!isAuthenticated) return false
 
+      // Si se verificó hace menos de 2.5 segundos, responder con el estado actual para evitar saturar PHP
+      const now = Date.now()
+      if (now - lastVerificacionTimeRef.current < 2500 && accionesPermitidas.size > 0) {
+        return accionesPermitidas.has(codigoAccion)
+      }
+
+      lastVerificacionTimeRef.current = now
+
       try {
         const res = await obtenerMisPermisos()
-        const data: MisPermisosData = res?.data
+        const raw: any = res?.data || (res as any)?.permisos || res
+        const data: MisPermisosData = (raw?.data || raw?.permisos || raw) as MisPermisosData
 
         const userRoles = data?.ROLES || []
         const admin = Boolean(
@@ -385,12 +440,7 @@ export const PermissionsProvider: React.FC<{
           data.MODULOS.forEach((modulo) => {
             modulo.PANTALLAS?.forEach((pantalla) => {
               if (pantalla.PATH_PERMISO) {
-                const pathClean =
-                  pantalla.PATH_PERMISO
-                    .trim()
-                    .toLowerCase()
-                    .replace(/\/+$/, '') || '/'
-                rutas.add(pathClean)
+                rutas.add(normalizePath(pantalla.PATH_PERMISO))
               }
 
               pantalla.ACCIONES?.forEach((acc: any) => {
@@ -424,6 +474,7 @@ export const PermissionsProvider: React.FC<{
     () => ({
       esAdmin,
       roles,
+      modulos,
       rutasPermitidas,
       accionesPermitidas,
       loadingPermisos,
@@ -436,6 +487,7 @@ export const PermissionsProvider: React.FC<{
     [
       esAdmin,
       roles,
+      modulos,
       rutasPermitidas,
       accionesPermitidas,
       loadingPermisos,

@@ -94,10 +94,11 @@ const LibSistemaModal: React.FC<LibSistemaProps> = ({ visible, setVisible }) => 
       size="xl"
       scrollable
       visible={visible}
-      onClose={handleClose}
-      backdrop="static"
+      onClose={() => {
+        if (!isLoading) handleClose()
+      }} backdrop="static"
     >
-      <CModalHeader closeButton>
+      <CModalHeader closeButton={!isLoading}>
         <CModalTitle className="d-flex align-items-center gap-2">
           <span>Reporte de Libros en el Sistema</span>
         </CModalTitle>
@@ -172,14 +173,17 @@ const LibSistemaModal: React.FC<LibSistemaProps> = ({ visible, setVisible }) => 
               tableFilter={haBuscado && !isLoading && libros.length > 0}
               tableFilterLabel="Buscar:"
               tableFilterPlaceholder="Buscar libro por título, ISBN..."
+              loading={isLoading}
               cleaner
               items={tableItems}
               itemsPerPage={60}
               pagination
               noItemsLabel={
-                haBuscado
-                  ? 'No se encontraron libros en el sistema'
-                  : 'Haga clic en Generar para cargar los libros del sistema'
+                isLoading
+                  ? 'Cargando libros del sistema...'
+                  : haBuscado
+                    ? 'No se encontraron libros en el sistema'
+                    : 'Haga clic en Generar para cargar los libros del sistema'
               }
               scopedColumns={{
                 isbn: (item: any) => (
@@ -228,6 +232,7 @@ const LibSistemaModal: React.FC<LibSistemaProps> = ({ visible, setVisible }) => 
             size="sm"
             className="hover:text-white shadow-sm"
             onClick={handleClose}
+            disabled={isLoading}
           >
             <CIcon icon={cilExitToApp} className="me-1" />
             Cerrar

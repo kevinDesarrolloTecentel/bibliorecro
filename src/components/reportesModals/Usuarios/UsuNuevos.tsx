@@ -122,10 +122,11 @@ const UsuNuevoModal: React.FC<useNuevosProps> = ({ visible, setVisible }) => {
       size="xl"
       scrollable
       visible={visible}
-      onClose={handleClose}
-      backdrop="static"
+      onClose={() => {
+        if (!isLoading) handleClose()
+      }} backdrop="static"
     >
-      <CModalHeader closeButton>
+      <CModalHeader closeButton={!isLoading}>
         <CModalTitle className="d-flex align-items-center gap-2">
           <span>Nuevos Usuarios por Mes y Día</span>
         </CModalTitle>
@@ -263,14 +264,17 @@ const UsuNuevoModal: React.FC<useNuevosProps> = ({ visible, setVisible }) => {
               tableFilter={haBuscado && !isLoading && usuarios.length > 0}
               tableFilterLabel="Buscar:"
               tableFilterPlaceholder="Buscar en la tabla..."
+              loading={isLoading}
               cleaner
               items={tableItems}
               itemsPerPage={60}
               pagination
               noItemsLabel={
-                haBuscado
-                  ? 'No se encontraron nuevos usuarios para la fecha seleccionada'
-                  : 'Seleccione una fecha y haga clic en Generar para ver el reporte'
+                isLoading
+                  ? 'Cargando nuevos usuarios...'
+                  : haBuscado
+                    ? 'No se encontraron nuevos usuarios para la fecha seleccionada'
+                    : 'Seleccione una fecha y haga clic en Generar para ver el reporte'
               }
               scopedColumns={{
                 cedula: (item: any) => (
@@ -323,7 +327,7 @@ const UsuNuevoModal: React.FC<useNuevosProps> = ({ visible, setVisible }) => {
           Mostrando <strong>{usuarios.length}</strong> registro(s)
         </div>
         <div className="d-flex gap-2">
-          <CButton size="sm" color="danger" variant="outline" className="hover:text-white shadow-sm" onClick={handleClose}>
+          <CButton size="sm" color="danger" variant="outline" className="hover:text-white shadow-sm" onClick={handleClose} disabled={isLoading}>
             <CIcon icon={cilExitToApp} className="me-1" />
             Cerrar
           </CButton>

@@ -1,6 +1,6 @@
 import { useState } from "react"
 import useRoles from "@/hooks/admin-roles/useRoles"
-import { cilExitToApp, cilPenNib, cilTrash } from "@coreui/icons"
+import { cilExitToApp, cilPenNib, cilTrash, cilPencil} from "@coreui/icons"
 import CIcon from "@coreui/icons-react"
 import { CButton, CCol, CForm, CFormInput, CModal, CModalBody, CModalFooter, CModalHeader, CModalTitle, CSpinner } from "@coreui/react-pro"
 
@@ -41,8 +41,9 @@ const ModalRolActu = ({ userState }: { userState: ReturnType<typeof useRoles> })
     return (
         <CModal visible={userState.modalEditar} onClose={userState.handleCerrarEditar}>
             <CModalHeader>
-                <CModalTitle className="d-flex align-items-center">
-                    Actualizar o Eliminar Rol
+                <CModalTitle className="mb-1 text-body d-flex align-items-center gap-2">
+                    <CIcon icon={cilPencil} size="lg" className="text-body" />
+                    <span>Actualizar o Eliminar Rol</span>
                 </CModalTitle>
             </CModalHeader>
             <CModalBody>
@@ -73,7 +74,7 @@ const ModalRolActu = ({ userState }: { userState: ReturnType<typeof useRoles> })
             </CModalBody>
             <CModalFooter>
                 <CButton size="sm" className="hover:text-white shadow-sm" color="secondary" variant="outline" onClick={userState.handleCerrarEditar} disabled={isBusy}>
-                    <CIcon icon={cilExitToApp} className="me-1"/>
+                    <CIcon icon={cilExitToApp} className="me-1" />
                     Cerrar
                 </CButton>
                 {userState.canEliminarRol && (
@@ -86,7 +87,7 @@ const ModalRolActu = ({ userState }: { userState: ReturnType<typeof useRoles> })
                         disabled={isBusy}
                     >
                         {actionLoading === 'eliminar' ? <CSpinner size="sm" className="me-1" /> : null}
-                        <CIcon icon={cilTrash} className="me-1"/>
+                        <CIcon icon={cilTrash} className="me-1" />
                         Eliminar Rol
                     </CButton>
                 )}
@@ -100,7 +101,7 @@ const ModalRolActu = ({ userState }: { userState: ReturnType<typeof useRoles> })
                         variant="outline"
                     >
                         {actionLoading === 'actualizar' ? <CSpinner size="sm" className="me-1" /> : null}
-                        <CIcon icon={cilPenNib} className="me-1"/>
+                        <CIcon icon={cilPenNib} className="me-1" />
                         Actualizar Rol
                     </CButton>
                 )}

@@ -21,6 +21,7 @@ import {
   cilPencil,
   cilPhone,
   cilSync,
+  cilTask
 } from '@coreui/icons'
 import useRenovaciones from '@/hooks/tab-persona/useRenovaciones'
 import { PersonaRenovacion } from '@/models/tab/persona.model'
@@ -68,19 +69,19 @@ const Renovate = () => {
       {
         key: 'cedula',
         label: 'Cédula',
-        _style: { width: '5%' },
+        _style: { width: '6%' },
         filter: false,
       },
       {
         key: 'nombre',
         label: 'Nombre',
-        _style: { width: '12%' },
+        _style: { width: '10%' },
         filter: false,
       },
       {
         key: 'apellido',
         label: 'Apellido',
-        _style: { width: '12%' },
+        _style: { width: '10%' },
         filter: false,
       },
       {
@@ -124,12 +125,16 @@ const Renovate = () => {
 
   return (
     <div className="pb-4">
-      {/* Encabezado estándar unificado */}
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
         <div>
-          <h3 className="fw-bold mb-1">Solicitudes y Renovaciones</h3>
+          <h3 className="fw-bold mb-1 text-body d-flex align-items-center gap-2">
+            <CIcon icon={cilTask} size="lg" style={{ color: '#27a142ff' }} />
+            <span>
+              Solicitudes y Renovaciones
+            </span>
+          </h3>
           <p className="text-body-secondary mb-0">
-            Aprobación, verificación y gestión de solicitudes de registro y renovación de usuarios.
+            Gestión de solicitudes de registro y renovación de usuarios.
           </p>
         </div>
         <CButton
@@ -148,7 +153,8 @@ const Renovate = () => {
 
       <CCard className="shadow-sm border-0">
         <CCardHeader className="bg-transparent py-3 d-flex justify-content-between align-items-center">
-          <span className="fw-semibold text-uppercase small">
+          <span className="fw-semibold text-uppercase small d-inline-flex align-items-center gap-2">
+            <CIcon icon={cilTask} style={{ color: '#27a142ff' }} />
             Listado de Solicitudes
           </span>
           <span className="text-body-secondary small">
@@ -368,7 +374,7 @@ const Renovate = () => {
                           </CRow>
 
                           {/* Acciones dentro del detalle */}
-                          {(canVerUsuario || (item.ESTADO_PERSONA === 0 && canAceptarSolicitud)) && (
+                          {(canVerUsuario || (item.ESTADO_PERSONA === 0 && canAceptarSolicitud)) ? (
                             <div className="d-flex flex-wrap gap-2 justify-content-end mt-3 pt-2 border-top">
                               {canVerUsuario && (
                                 <CButton
@@ -402,6 +408,10 @@ const Renovate = () => {
                                 </CButton>
                               )}
                             </div>
+                          ) : (
+                            <span className="text-danger small fw-semibold d-inline-flex align-items-center py-1">                                  
+                            No tienes acceso a las acciones de usuario.
+                            </span>
                           )}
                         </CCol>
                       </CRow>

@@ -61,7 +61,6 @@ export const useReporteNuevosUsuarios = () => {
       return
     }
 
-    setHaBuscado(true)
     setUsuarios([])
     setExcelLink(null)
 
@@ -69,12 +68,7 @@ export const useReporteNuevosUsuarios = () => {
       const params: Record<string, any> = {
         mesRegistro,
         anoRegistro,
-        anio: anoRegistro,
-        mes: mesRegistro,
-      }
-      if (diaRegistro) {
-        params.diaRegistro = diaRegistro
-        params.dia = diaRegistro
+        diaRegistro,
       }
 
       const data = await PersonasNuevasReport(params)
@@ -93,7 +87,11 @@ export const useReporteNuevosUsuarios = () => {
           (a: PersonaReporteItem, b: PersonaReporteItem) => (a.EDAD_PERSONA || 0) - (b.EDAD_PERSONA || 0),
         )
         setUsuarios(ordenados)
-        setExcelLink(data?.excel_path || null)
+
+        const rutaExcel: string | null = data?.excel?.nombre || data?.excel_path || null
+        setExcelLink(rutaExcel)        
+        setHaBuscado(true)
+
 
         if (ordenados.length === 0) {
           Swal.fire({
@@ -106,6 +104,8 @@ export const useReporteNuevosUsuarios = () => {
         }
       }
     } catch (error: any) {
+      setHaBuscado(true)
+
       console.error('Error al obtener nuevos usuarios', error)
       setUsuarios([])
       setExcelLink(null)
@@ -127,7 +127,7 @@ export const useReporteNuevosUsuarios = () => {
         Swal.fire({
           icon: 'info',
           title: 'Sin nuevos usuarios',
-          text:  'No se encontraron nuevos usuarios registrados en la fecha seleccionada.',
+          text: 'No se encontraron nuevos usuarios registrados en la fecha seleccionada.',
           confirmButtonColor: '#044c8c',
           confirmButtonText: 'Entendido',
         })
@@ -135,7 +135,7 @@ export const useReporteNuevosUsuarios = () => {
         Swal.fire({
           icon: 'error',
           title: 'Error al consultar',
-          text:  'Hubo un problema al obtener los nuevos usuarios.',
+          text: 'Hubo un problema al obtener los nuevos usuarios.',
           confirmButtonColor: '#dc3545',
           confirmButtonText: 'Entendido',
         })
@@ -170,7 +170,7 @@ export const useReporteNuevosUsuarios = () => {
     }
 
     if (excelLink) {
-      await descargarArchivo(`${STORAGE_BASE_URL}/${excelLink}`)
+     await descargarArchivo(`${STORAGE_BASE_URL}/personas/${excelLink}`)
     }
   }, [canDescargarNuevosUsuarios, excelLink, verificarAccionEnServidor])
 

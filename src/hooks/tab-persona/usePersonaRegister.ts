@@ -11,7 +11,7 @@ import {
 import usePersonas from './usePersonas'
 import { initialPersona, Persona } from '@/models/tab/persona.model'
 import { PersonasNueva } from '@/Service/tab/Persona'
-import { parseDatePickerValue } from '@/utils/dateUtils'
+import { parseDatePickerValue, formatFecha, calcularEdad } from '@/utils/dateUtils'
 
 export const initialRegisterFormData: Persona = initialPersona
 
@@ -43,8 +43,9 @@ export const usePersonaRegister = ({
   const [touched, setTouched] = useState<{ [key: string]: boolean }>({})
   const [loading, setLoading] = useState(false)
   const [previewFoto, setPreviewFoto] = useState<string | null>(null)
+  const [datePickerKey, setDatePickerKey] = useState<number>(0)
 
-  const { tiposId, nacionalidades, generos, estadosCiviles, loading: loadingCatalogos } = useCatalogos(isVisible)
+  const { tiposId, nacionalidades, generos, estadosCiviles, loading: loadingCatalogos } = useCatalogos(true)
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -56,7 +57,7 @@ export const usePersonaRegister = ({
     if (name === 'IDENTIFICACION_PERSONA' || name === 'TELEFONO_PERSONA' || name === 'CELULAR_PERSONA') {
       finalValue = filterOnlyDigits(value, 10)
     } else if (name === 'NOMBRE_PERSONA' || name === 'APELLIDO_PERSONA') {
-      finalValue = filterOnlyLetters(value)
+      finalValue = filterOnlyLetters(value).toUpperCase()
     }
 
     setFormData((prev) => ({ ...prev, [name]: finalValue }))
@@ -75,9 +76,48 @@ export const usePersonaRegister = ({
     }
   }
 
-  const handleDateChange = (date: Date | string | null) => {
+  const handleDateChange = async (date: Date | string | null) => {
     const finalValue = parseDatePickerValue(date)
-    setFormData((prev) => ({ ...prev, FECHA_PERSONA: finalValue }))
+    if (!finalValue) {
+      setFormData((prev) => ({ ...prev, FECHA_PERSONA: '', EDAD_PERSONA: '' }))
+      return
+    }
+
+    if (finalValue === formData.FECHA_PERSONA) return
+
+    const age = calcularEdad(finalValue)
+    const fechaDisplay = formatFecha(finalValue)
+    const isPresentYear = age === 0 || finalValue.startsWith(String(new Date().getFullYear()))
+
+    const result = await Swal.fire({
+      title: '¿Está seguro de la fecha ingresada?',
+      html: isPresentYear
+        ? `<div style="text-align: center; font-size: 0.95rem;">
+             <p class="mb-2">Ha seleccionado la fecha: <strong>${fechaDisplay}</strong></p>
+             <div style="background-color: #fff3cd; color: #856404; padding: 12px; border-radius: 6px; border: 1px solid #ffeeba; margin: 12px 0; text-align: left;">
+               <strong>¡Atención!</strong> Con esta fecha el usuario tendrá <strong>0 años</strong>.
+             </div>
+           </div>`
+        : `<div style="text-align: center; font-size: 0.95rem;">
+             <p class="mb-2">Ha seleccionado la fecha: <strong>${fechaDisplay}</strong></p>
+             <p class="mb-2" style="font-size: 1.1rem;">Edad: <strong style="color: #044c8c;">${age} ${age === 1 ? 'año' : 'años'}</strong></p>
+           </div>`,
+      icon: isPresentYear ? 'warning' : 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#044c8c',
+      cancelButtonColor: '#6c757d',
+      confirmButtonText: 'Sí, aceptar',
+      cancelButtonText: 'Cancelar',
+      allowOutsideClick: false,
+      focusConfirm: true,
+    })
+
+    if (!result.isConfirmed) {
+      setDatePickerKey((k) => k + 1)
+      return
+    }
+
+    setFormData((prev) => ({ ...prev, FECHA_PERSONA: finalValue, EDAD_PERSONA: String(age) }))
 
     if (errors.FECHA_PERSONA || touched.FECHA_PERSONA) {
       const fieldError = validatePersonaField('FECHA_PERSONA', finalValue)
@@ -114,6 +154,7 @@ export const usePersonaRegister = ({
     setFormData(initialPersona)
     setErrors({})
     setTouched({})
+    setDatePickerKey(0)
     if (setVisible) {
       setVisible(false)
     } else if (personaState) {
@@ -182,8 +223,8 @@ export const usePersonaRegister = ({
       formDataToSend.append('ID_NACIONALIDAD', String(formData.ID_NACIONALIDAD || ''))
       formDataToSend.append('ID_ESTADOCIVIL', String(formData.ID_ESTADOCIVIL || ''))
       formDataToSend.append('IDENTIFICACION_PERSONA', formData.IDENTIFICACION_PERSONA.trim())
-      formDataToSend.append('NOMBRE_PERSONA', formData.NOMBRE_PERSONA.trim())
-      formDataToSend.append('APELLIDO_PERSONA', formData.APELLIDO_PERSONA.trim())
+      formDataToSend.append('NOMBRE_PERSONA', formData.NOMBRE_PERSONA.trim().toUpperCase())
+      formDataToSend.append('APELLIDO_PERSONA', formData.APELLIDO_PERSONA.trim().toUpperCase())
       formDataToSend.append('TELEFONO_PERSONA', formData.TELEFONO_PERSONA?.trim() || '')
       formDataToSend.append('CELULAR_PERSONA', formData.CELULAR_PERSONA?.trim() || '')
       formDataToSend.append('CORREO_PERSONA', formData.CORREO_PERSONA?.trim() || '')
@@ -252,13 +293,20 @@ export const usePersonaRegister = ({
   const handleFotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      if (!file.type.startsWith('image/')) {
+      const validExtensions = ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'gif']
+      const ext = (file.name.split('.').pop() || '').toLowerCase()
+
+      if (!file.type.startsWith('image/') || !validExtensions.includes(ext)) {
         Swal.fire({
           icon: 'warning',
           title: 'Formato no permitido',
-          text: 'Por favor seleccione un archivo de imagen (PNG, JPG, JPEG, etc.).',
+          text: 'Por favor seleccione un archivo de imagen válido (.jpg, .jpeg, .png, .webp).',
+          confirmButtonColor: '#3085d6',
         })
         e.target.value = ''
+        setPreviewFoto(null)
+        setFormData((prev) => ({ ...prev, FOTO_PERSONA: '' }))
+        setErrors((prev) => ({ ...prev, FOTO_PERSONA: 'Solo se permiten archivos de imagen (.jpg, .jpeg, .png, .webp).' }))
         return
       }
       if (file.size > 5 * 1024 * 1024) {
@@ -266,8 +314,12 @@ export const usePersonaRegister = ({
           icon: 'warning',
           title: 'Imagen demasiado grande',
           text: 'El tamaño de la imagen no debe superar los 5MB.',
+          confirmButtonColor: '#3085d6',
         })
         e.target.value = ''
+        setPreviewFoto(null)
+        setFormData((prev) => ({ ...prev, FOTO_PERSONA: '' }))
+        setErrors((prev) => ({ ...prev, FOTO_PERSONA: 'El tamaño de la imagen no debe superar los 5MB.' }))
         return
       }
 
@@ -306,6 +358,7 @@ export const usePersonaRegister = ({
     setPreviewFoto,
     handleFotoChange,
     canGuardar,
+    datePickerKey,
   }
 }
 

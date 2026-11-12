@@ -16,6 +16,8 @@ import {
   cilShieldAlt,
   cilSync,
   cilOptions,
+
+
 } from '@coreui/icons'
 import ModalCreate from '@/components/roles/ModalCreate'
 import ModalRolActu from '@/components/roles/ModalRol'
@@ -136,7 +138,10 @@ export const Roles = () => {
       {/* Encabezado estándar con el mismo diseño que Renovaciones y Reportes */}
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
         <div>
-          <h3 className="fw-bold mb-1">Roles y Permisos</h3>
+          <h3 className="fw-bold mb-1 text-body d-flex align-items-center gap-2">
+            <CIcon icon={cilShieldAlt} size="lg" style={{ color: '#2a0adcff' }} />
+            <span>Roles y Permisos</span>
+          </h3>
           <p className="text-body-secondary mb-0">
             Administración de roles y asignación de permisos por módulo y pantalla.
           </p>
@@ -175,8 +180,9 @@ export const Roles = () => {
 
       <CCard className="shadow-sm border-0">
         <CCardHeader className="bg-transparent py-3 d-flex justify-content-between align-items-center">
-          <span className="fw-semibold text-uppercase small">
-            Matriz de Permisos
+          <span className="fw-semibold text-uppercase small d-inline-flex align-items-center gap-2">
+            <CIcon icon={cilShieldAlt} style={{ color: '#2a0adcff' }} />
+             <span>Matriz de Permisos</span>
           </span>
           <span className="text-body-secondary small">
             Total roles registrados: <strong>{userState.roles.length}</strong>

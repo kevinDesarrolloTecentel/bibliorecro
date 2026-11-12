@@ -6,6 +6,11 @@ export interface PersonaReporteItem {
   FECHA_PERSONA?: string
   EDAD_PERSONA?: any
   CORREO_PERSONA?: string
+  NOMBRE_GENERO?: string
+  FECHAINICIO_INSCRIPCION?: string
+  FECHAFIN_INSCRIPCION?: string
+  COSTO_INSCRIPCION?: string | number
+  ESTADO_INSCRIPCION?: number | string
   ESTADOINSCRIPCION_PERSONA?: number
   TELEFONO_PERSONA?: string
   CELULAR_PERSONA?: string

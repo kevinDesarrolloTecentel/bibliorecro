@@ -23,8 +23,12 @@ export const ReporteIngesosPDF = async (params?: any) => {
   return data;
 };
 
-export const listarLibros = async (params?: any) => {
-  const { data } = await apiClient.get(`${API_BASE_URL_LIBROS}/librosC`, { params });
+export const listarLibros = async (params?: any, config?: any) => {
+  const { data } = await apiClient.get(`${API_BASE_URL_LIBROS}/librosC`, {
+    params,
+    timeout: 180000,
+    ...config,
+  });
   return data;
 };
 

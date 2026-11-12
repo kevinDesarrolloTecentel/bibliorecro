@@ -3,6 +3,7 @@ import {
   useReporteUsuariosActivos,
   PersonaReporteItem,
 } from '@/hooks/reportes/usuarios/useReportActivas'
+import { formatFecha } from '@/utils/dateUtils'
 import {
   cilCloudDownload,
   cilExitToApp,
@@ -33,6 +34,12 @@ export interface UsuActModalProps {
   setVisible: (visible: boolean) => void
 }
 
+const formatFechaDisplay = (fecha?: string | null): string => {
+  if (!fecha) return '-'
+  const res = formatFecha(fecha)
+  return res === 'No registrada' ? '-' : res
+}
+
 const UsuActModal: React.FC<UsuActModalProps> = ({ visible, setVisible }) => {
   const [tableKey, setTableKey] = useState<number>(0)
 
@@ -61,43 +68,104 @@ const UsuActModal: React.FC<UsuActModalProps> = ({ visible, setVisible }) => {
   }
 
   const tableItems = useMemo(() => {
-    return usuarios.map((item: PersonaReporteItem) => ({
-      ...item,
-      cedula: item.IDENTIFICACION_PERSONA || '',
-      nombre: item.NOMBRE_PERSONA || '',
-      apellido: item.APELLIDO_PERSONA || '',
-      fechaNacimiento: item.FECHA_PERSONA
-        ? new Date(item.FECHA_PERSONA).toLocaleDateString()
-        : '-',
-      correo: item.CORREO_PERSONA || '',
-    }))
+    return usuarios.map((item: PersonaReporteItem) => {
+      const nombres = item.NOMBRE_PERSONA?.trim() || ''
+      const apellidos = item.APELLIDO_PERSONA?.trim() || ''
+      const identificacion = item.IDENTIFICACION_PERSONA?.trim() || ''
+      const correo = item.CORREO_PERSONA?.trim() || ''
+      const edad = item.EDAD_PERSONA !== undefined && item.EDAD_PERSONA !== null ? String(item.EDAD_PERSONA) : ''
+      const genero = item.NOMBRE_GENERO?.trim() || ''
+      const fechaNacimiento = formatFechaDisplay(item.FECHA_PERSONA || (item as any).FECHA_NACIMIENTO_PERSONA || (item as any).fecha_nacimiento)
+      const inicioInscripcion = formatFechaDisplay(item.FECHAINICIO_INSCRIPCION)
+      const finInscripcion = formatFechaDisplay(item.FECHAFIN_INSCRIPCION)
+
+      // Costo de inscripción
+      const costoNum = Number(item.COSTO_INSCRIPCION)
+      const costoInscripcion = !isNaN(costoNum)
+        ? `$${costoNum.toFixed(2)}`
+        : item.COSTO_INSCRIPCION
+          ? `$${item.COSTO_INSCRIPCION}`
+          : '$0.00'
+
+      // Estado de inscripción
+      let estadoInscripcion = 'Inactiva'
+      const estStr = String(item.ESTADO_INSCRIPCION ?? '').trim().toLowerCase()
+      if (estStr === '1' || estStr === 'true' || estStr === 'activa' || estStr === 'activo') {
+        estadoInscripcion = 'Activa'
+      }
+
+      return {
+        ...item,
+        nombres,
+        apellidos,
+        identificacion,
+        correo,
+        edad,
+        genero,
+        fechaNacimiento,
+        inicioInscripcion,
+        finInscripcion,
+        costoInscripcion,
+        estadoInscripcion,
+      }
+    })
   }, [usuarios])
 
   const columns = [
     {
-      key: 'cedula',
-      label: 'Cédula',
-      _style: { width: '18%' },
+      key: 'nombres',
+      label: 'Nombres',
+      _style: { minWidth: '150px' },
     },
     {
-      key: 'nombre',
-      label: 'Nombre',
-      _style: { width: '22%' },
+      key: 'apellidos',
+      label: 'Apellidos',
+      _style: { minWidth: '150px' },
     },
     {
-      key: 'apellido',
-      label: 'Apellido',
-      _style: { width: '22%' },
-    },
-    {
-      key: 'fechaNacimiento',
-      label: 'Fecha de Nacimiento',
-      _style: { width: '18%' },
+      key: 'identificacion',
+      label: 'Identificación',
+      _style: { minWidth: '150px' },
     },
     {
       key: 'correo',
-      label: 'Correo Electrónico',
-      _style: { width: '20%' },
+      label: 'Correo electrónico',
+      _style: { minWidth: '150px' },
+    },
+    {
+      key: 'edad',
+      label: 'Edad',
+      _style: { minWidth: '80px' },
+    },
+    {
+      key: 'genero',
+      label: 'Género',
+      _style: { minWidth: '110px' },
+    },
+    {
+      key: 'fechaNacimiento',
+      label: 'Fecha de nacimiento',
+      _style: { minWidth: '130px' },
+    },
+    {
+      key: 'inicioInscripcion',
+      label: 'Inicio de inscripción',
+      _style: { minWidth: '135px' },
+    },
+    {
+      key: 'finInscripcion',
+      label: 'Fin de inscripción',
+      _style: { minWidth: '135px' },
+    },
+    {
+      key: 'costoInscripcion',
+      label: 'Costo de inscripción',
+      _style: { minWidth: '125px' },
+    },
+    {
+      key: 'estadoInscripcion',
+      label: 'Estado de inscripción',
+      _style: { minWidth: '135px' },
     },
   ]
 
@@ -106,10 +174,11 @@ const UsuActModal: React.FC<UsuActModalProps> = ({ visible, setVisible }) => {
       size="xl"
       scrollable
       visible={visible}
-      onClose={handleClose}
-      backdrop="static"
+      onClose={() => {
+        if (!isLoading) handleClose()
+      }} backdrop="static"
     >
-      <CModalHeader closeButton>
+      <CModalHeader closeButton={!isLoading}>
         <CModalTitle className="d-flex align-items-center gap-2">
           <span>Reporte de Usuarios Activos</span>
         </CModalTitle>
@@ -227,52 +296,106 @@ const UsuActModal: React.FC<UsuActModalProps> = ({ visible, setVisible }) => {
               columnSorter
               items={tableItems}
               itemsPerPage={60}
+              loading={isLoading}
               pagination
               tableFilter={haBuscado && !isLoading && usuarios.length > 0}
               tableFilterLabel="Buscar:"
               tableFilterPlaceholder="Buscar en la tabla..."
               cleaner
               noItemsLabel={
-                haBuscado
-                  ? `No se encontraron usuarios activos para el año ${anoRegistro || ''}`
-                  : 'Seleccione un año para generar el reporte'
+                isLoading
+                  ? 'Cargando usuarios activos...'
+                  : haBuscado
+                    ? `No se encontraron usuarios activos para el año ${anoRegistro || ''}`
+                    : 'Seleccione un año para generar el reporte'
               }
               scopedColumns={{
-                cedula: (item: any) => (
+                nombres: (item: any) => (
+                  <td>
+                    <span className="font-monospace small">
+                      {item.nombres || item.NOMBRE_PERSONA || '-'}
+                    </span>
+                  </td>
+                ),
+                apellidos: (item: any) => (
+                  <td>
+                    <span className="font-monospace small">
+                      {item.apellidos || item.APELLIDO_PERSONA || '-'}
+                    </span>
+                  </td>
+                ),
+                identificacion: (item: any) => (
                   <td>
                     <span className="font-monospace small text-muted badge bg-body border">
-                      {item.IDENTIFICACION_PERSONA || item.cedula}
+                      {item.identificacion || item.IDENTIFICACION_PERSONA || '-'}
                     </span>
                   </td>
                 ),
-                nombre: (item: any) => (
+                correo: (item: any) => (
                   <td>
-                    <span className="font-monospace small">
-                      {item.NOMBRE_PERSONA || item.nombre}
+                    <span className="font-monospace small badge bg-body border text-muted">
+                      {item.correo || item.CORREO_PERSONA || '-'}
                     </span>
                   </td>
                 ),
-                apellido: (item: any) => (
+                edad: (item: any) => (
+                  <td>
+                    <span className="badge bg-body border text-primary font-monospace">
+                      {item.edad !== undefined && item.edad !== '' ? item.edad : '-'}
+                    </span>
+                  </td>
+                ),
+                genero: (item: any) => (
                   <td>
                     <span className="font-monospace small">
-                      {item.APELLIDO_PERSONA || item.apellido}
+                      {item.genero || item.NOMBRE_GENERO || '-'}
                     </span>
                   </td>
                 ),
                 fechaNacimiento: (item: any) => (
                   <td>
                     <span className="font-monospace small badge bg-body border text-primary">
-                      {item.fechaNacimiento || (item.FECHA_PERSONA ? new Date(item.FECHA_PERSONA).toLocaleDateString() : '-')}
+                      {item.fechaNacimiento || formatFechaDisplay(item.FECHA_PERSONA)}
                     </span>
                   </td>
                 ),
-                correo: (item: any) => (
+                inicioInscripcion: (item: any) => (
                   <td>
-                    <span className="font-monospace badge bg-body border text-muted">
-                      {item.CORREO_PERSONA || item.correo}
+                    <span className="font-monospace small badge bg-body border text-info">
+                      {item.inicioInscripcion || formatFechaDisplay(item.FECHAINICIO_INSCRIPCION)}
                     </span>
                   </td>
                 ),
+                finInscripcion: (item: any) => (
+                  <td>
+                    <span className="font-monospace small badge bg-body border text-info">
+                      {item.finInscripcion || formatFechaDisplay(item.FECHAFIN_INSCRIPCION)}
+                    </span>
+                  </td>
+                ),
+                costoInscripcion: (item: any) => (
+                  <td>
+                    <span className="font-monospace small text-success fw-semibold">
+                      {item.costoInscripcion}
+                    </span>
+                  </td>
+                ),
+                estadoInscripcion: (item: any) => {
+                  const esActiva = item.estadoInscripcion === 'Activa'
+                  return (
+                    <td>
+                      <span
+                        className={`badge font-monospace ${
+                          esActiva
+                            ? 'bg-success-subtle text-success border border-success-subtle'
+                            : 'bg-danger-subtle text-danger border border-danger-subtle'
+                        }`}
+                      >
+                        {item.estadoInscripcion}
+                      </span>
+                    </td>
+                  )
+                },
               }}
               tableProps={{
                 responsive: true,
@@ -298,6 +421,7 @@ const UsuActModal: React.FC<UsuActModalProps> = ({ visible, setVisible }) => {
             variant="outline"
             className="hover:text-white shadow-sm"
             onClick={handleClose}
+            disabled={isLoading}
           >
             <CIcon icon={cilExitToApp} className="me-1" />
             Cerrar
@@ -318,7 +442,7 @@ const UsuActModal: React.FC<UsuActModalProps> = ({ visible, setVisible }) => {
               }
             >
               <CIcon icon={cilCloudDownload} className="me-1" />
-              Descargar
+              Descargar Excel
             </CButton>
           )}
 

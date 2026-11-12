@@ -55,7 +55,7 @@ const ModalPv: React.FC<ModalProveedorProps> = (props) => {
         backdrop="static"
       >
         <CModalHeader closeButton className="bg-body">
-          <CModalTitle id="ModalProveedor" className="d-flex align-items-center gap-2 fs-5 fw-bold text-dark">
+          <CModalTitle id="ModalProveedor" className="d-flex align-items-center gap-2 fs-5 fw-bold text-body">
             <CIcon icon={cilTruck} size="lg" className="text-primary" />
             <span>{proveedorEnEdicion ? 'Editar Información del Proveedor' : 'Registrar Nuevo Proveedor'}</span>
           </CModalTitle>

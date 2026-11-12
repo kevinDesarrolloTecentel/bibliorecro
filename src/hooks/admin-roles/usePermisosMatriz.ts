@@ -357,17 +357,6 @@ export const usePermisosMatriz = (rolesList: any[] = [], fetchRoles?: () => Prom
         ? currentList.filter((id) => id !== idPermiso)
         : [...currentList, idPermiso]
 
-      if (nuevasPantallas.length === 0) {
-        Swal.fire({
-          icon: 'warning',
-          title: 'Acción no permitida',
-          text: `El rol "${nombreRol}" debe tener al menos una pantalla asignada en el sistema. No es posible revocar todas las pantallas a la vez. Si deseas cambiarla, primero activa otra antes de quitar esta.`,
-          confirmButtonColor: '#dc3545',
-          confirmButtonText: 'Entendido',
-        })
-        return
-      }
-
       // Actualizar acciones:
       // Si se otorga la pantalla, añadir sus acciones disponibles por defecto
       // Si se revoca la pantalla, remover sus acciones

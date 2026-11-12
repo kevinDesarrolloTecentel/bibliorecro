@@ -2,7 +2,7 @@ import Cookies from 'js-cookie'
 import CryptoJS from 'crypto-js'
 
 export const ENCRYPTION_KEY =
-  ((import.meta as any).env?.VITE_ENCRYPTION_KEY as string) || 'clave_token'
+  import.meta.env.VITE_ENCRYPTION_KEY || 'clave_token'
 
 export const AUTH_COOKIE_NAME = 'tk'
 export const USER_STORAGE_KEY = 'userData'
@@ -24,10 +24,14 @@ export const decryptData = (ciphertext: string, secret: string = ENCRYPTION_KEY)
 
 // Gestion de cookies
 export const getCookieOptions = (_isRemember: boolean = false, expSeconds: number = 3600): Cookies.CookieAttributes => {
+  const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:'
+  const isRecreoDomain = typeof window !== 'undefined' && window.location.hostname.endsWith('ccelrecreo.com')
+
   return {
     path: '/',
-    sameSite: 'lax',
-    secure: typeof window !== 'undefined' && window.location.protocol === 'https:',
+    sameSite: isHttps ? 'none' : 'lax',
+    secure: isHttps,
+    domain: isRecreoDomain ? '.ccelrecreo.com' : undefined,
     expires: new Date(Date.now() + (expSeconds || 3600) * 1000),
   }
 }
@@ -35,7 +39,7 @@ export const getCookieOptions = (_isRemember: boolean = false, expSeconds: numbe
 // Guardar el token en la cookie
 export const saveAuthCookie = (rawToken: string, isRemember: boolean = false, expSeconds: number = 3600): void => {
   try {
-    const encrypted = encryptData(rawToken, ENCRYPTION_KEY)
+    const encrypted = rawToken.startsWith('U2FsdGVkX1') ? rawToken : encryptData(rawToken, ENCRYPTION_KEY)
     Cookies.set(AUTH_COOKIE_NAME, encrypted, getCookieOptions(isRemember, expSeconds))
     if (typeof window !== 'undefined') {
       window.localStorage.removeItem('tk')
@@ -45,10 +49,17 @@ export const saveAuthCookie = (rawToken: string, isRemember: boolean = false, ex
   }
 }
 
+export const getRawAuthCookie = (): string | null => {
+  try {
+    return Cookies.get(AUTH_COOKIE_NAME) || null
+  } catch {
+    return null
+  }
+}
+
 export const getAuthCookie = (): string | null => {
   try {
-    const cookie =
-      Cookies.get(AUTH_COOKIE_NAME)
+    const cookie = Cookies.get(AUTH_COOKIE_NAME)
 
     if (cookie) {
       if (cookie.startsWith('U2FsdGVkX1')) {

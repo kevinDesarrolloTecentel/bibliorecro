@@ -21,9 +21,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   const location = useLocation()
   const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated)
   const user = useSelector((state: RootState) => state.auth.user) as UserData | null
-  const { canAccessPath, permisosCargados, rutasPermitidas } = usePermissions()
+  const { canAccessPath, permisosCargados, loadingPermisos, rutasPermitidas } = usePermissions()
 
-  // Si no es la ruta base "/" y no tiene permiso en la BD para este path
   const currentPath = location.pathname.split('?')[0].replace(/\/+$/, '') || '/'
 
   // Recordar la ruta válida en la que está actualmente el usuario
@@ -50,18 +49,22 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
       }
     }
 
-    verificarExpiracion()
+    // Pequeño margen al montar para evitar expulsiones falsas en el primer tick de renderizado
+    const timeoutId = setTimeout(verificarExpiracion, 1500)
     const interval = setInterval(verificarExpiracion, 5000)
 
-    return () => clearInterval(interval)
+    return () => {
+      clearTimeout(timeoutId)
+      clearInterval(interval)
+    }
   }, [isAuthenticated, user, dispatch])
 
   if (!isAuthenticated) {
     return <Navigate to={redirectTo} replace />
   }
 
-  // Si los permisos iniciales aún no terminan de cargar, mostrar spinner (NUNCA 403)
-  if (!permisosCargados) {
+  // Mientras los permisos se están cargando o sincronizando, mostrar el spinner
+  if (!permisosCargados || loadingPermisos) {
     return (
       <div className="d-flex justify-content-center align-items-center py-5" style={{ minHeight: '60vh' }}>
         <CSpinner color="primary" />
@@ -69,24 +72,49 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     )
   }
 
-  // Si el usuario intenta entrar a una ruta no permitida, redirigirlo a la ruta en la que estaba
+  // Si ya cargaron los permisos pero el rol no tiene ninguna pantalla asignada en la BD
+  if (rutasPermitidas.size === 0) {
+    clearAuthSession()
+    dispatch(sessionExpired())
+    return <Navigate to="/login" replace />
+  }
+
+  // Si el usuario intenta entrar a una ruta no permitida, redirigirlo a la siguiente ruta válida de la BD
   if (currentPath !== '/' && !canAccessPath(currentPath)) {
-    let fallback = '/dashboard'
+    let siguienteRuta = ''
+
     try {
+      // 1. Intentar con la última ruta válida que tenía si aún tiene acceso a ella
       const last = sessionStorage.getItem('last_valid_route')
       if (last && last !== currentPath && canAccessPath(last)) {
-        fallback = last
-      } else if (canAccessPath('/dashboard')) {
-        fallback = '/dashboard'
-      } else if (rutasPermitidas && rutasPermitidas.size > 0) {
-        const first = Array.from(rutasPermitidas)[0]
-        if (first && first !== currentPath) {
-          fallback = first
+        siguienteRuta = last
+      }
+
+      // 2. Tomar la primera ruta disponible en las rutas permitidas de su rol (directamente desde la base de datos)
+      if (!siguienteRuta && rutasPermitidas && rutasPermitidas.size > 0) {
+        const anyPermitted = Array.from(rutasPermitidas).find((r) => r !== currentPath && canAccessPath(r))
+        if (anyPermitted) {
+          siguienteRuta = anyPermitted
         }
       }
     } catch { }
 
-    return <Navigate to={fallback} replace />
+    // Si tiene una siguiente ruta permitida, redirigirlo automáticamente a ella
+    if (siguienteRuta && siguienteRuta !== currentPath) {
+      return <Navigate to={siguienteRuta} replace />
+    }
+
+    if (rutasPermitidas.size > 0) {
+      const first = Array.from(rutasPermitidas)[0]
+      if (first && first !== currentPath) {
+        return <Navigate to={first} replace />
+      }
+    }
+
+    // Si no tiene ninguna ruta asignada en el sistema, sacarlo al login
+    clearAuthSession()
+    dispatch(sessionExpired())
+    return <Navigate to="/login" replace />
   }
 
   return <>{children}</>

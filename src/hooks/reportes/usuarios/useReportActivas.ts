@@ -60,7 +60,6 @@ const useReportActivas = () => {
       return
     }
 
-    setHaBuscado(true)
     setUsuarios([])
     setExcelLink(null)
 
@@ -77,7 +76,11 @@ const useReportActivas = () => {
         .sort((a: PersonaReporteItem, b: PersonaReporteItem) => (a.EDAD_PERSONA || 0) - (b.EDAD_PERSONA || 0))
 
       setUsuarios(personasFiltradas)
-      setExcelLink(data?.excel_path || null)
+      const rutaExcel: string | null = data?.excel?.nombre || data?.excel_path || null
+      setExcelLink(rutaExcel)
+
+      setHaBuscado(true)
+
 
       if (personasFiltradas.length === 0) {
         Swal.fire({
@@ -89,6 +92,8 @@ const useReportActivas = () => {
         })
       }
     } catch (error: any) {
+      setHaBuscado(true)
+
       console.error('Error al obtener las personas activas', error)
       setUsuarios([])
       setExcelLink(null)
@@ -153,7 +158,8 @@ const useReportActivas = () => {
     }
 
     if (excelLink) {
-      await descargarArchivo(`${STORAGE_BASE_URL}/${excelLink}`)
+       await descargarArchivo(`${STORAGE_BASE_URL}/personas/${excelLink}`)
+
     }
   }, [excelLink, canDescargarUsuariosActivos, verificarAccionEnServidor])
 

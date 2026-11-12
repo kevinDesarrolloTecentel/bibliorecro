@@ -1,6 +1,6 @@
 
 import useRoles from "@/hooks/admin-roles/useRoles"
-import { cilExitToApp, cilPenNib } from "@coreui/icons"
+import { cilExitToApp, cilPenNib, cilPlus} from "@coreui/icons"
 import CIcon from "@coreui/icons-react"
 import { CButton, CCol, CForm, CFormInput, CModal, CModalBody, CModalFooter, CModalHeader, CModalTitle, CSpinner } from "@coreui/react-pro"
 
@@ -17,8 +17,9 @@ const ModalCreate = ({ userState }: { userState: ReturnType<typeof useRoles> }) 
     return (
         <CModal visible={userState.modalCrear} onClose={userState.handleCerrarCrear}>
             <CModalHeader>
-                <CModalTitle className="d-flex align-items-center">
-                    Crear Nuevo Rol
+                <CModalTitle className=" mb-1 text-body d-flex align-items-center gap-2">
+                    <CIcon icon={cilPlus} size="lg" className="text-body" />
+                  <span>Crear Nuevo Rol</span>
                 </CModalTitle>
             </CModalHeader>
             <CModalBody>

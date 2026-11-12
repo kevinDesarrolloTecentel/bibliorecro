@@ -155,53 +155,61 @@ const ImpresionTej: React.FC = () => {
               </CCol>
 
               <CCol xs={12} md={4} className="d-flex gap-2 align-items-center">
-                {canGenerarReporteTejuelos && (
-                  <CButton
-                    color="primary"
-                    variant="outline"
-                    size="sm"
-                    className="d-flex align-items-center justify-content-center gap-1 shadow-sm flex-grow-1"
-                    onClick={() => {
-                      setFiltroTexto('')
-                      handleGeneratePdf()
-                    }}
-                    disabled={
-                      isLoading ||
-                      !startDate ||
-                      !endDate ||
-                      isRangoInvalido
-                    }                  >
-                    {isLoading ? (
-                      <>
-                        <CSpinner size="sm" className="me-1" />
-                        <span>Cargando...</span>
-                      </>
-                    ) : (
-                      <>
-                        <CIcon icon={cilPrint} className="me-1" />
-                        <span>Generar</span>
-                      </>
+                {canGenerarReporteTejuelos || canDescargarPdfTejuelos ? (
+                  <>
+                    {canGenerarReporteTejuelos && (
+                      <CButton
+                        color="primary"
+                        variant="outline"
+                        size="sm"
+                        className="d-flex align-items-center justify-content-center gap-1 shadow-sm flex-grow-1"
+                        onClick={() => {
+                          setFiltroTexto('')
+                          handleGeneratePdf()
+                        }}
+                        disabled={
+                          isLoading ||
+                          !startDate ||
+                          !endDate ||
+                          isRangoInvalido
+                        }                  >
+                        {isLoading ? (
+                          <>
+                            <CSpinner size="sm" className="me-1" />
+                            <span>Cargando...</span>
+                          </>
+                        ) : (
+                          <>
+                            <CIcon icon={cilPrint} className="me-1" />
+                            <span>Generar</span>
+                          </>
+                        )}
+                      </CButton>
                     )}
-                  </CButton>
-                )}
 
-                {canDescargarPdfTejuelos && (
-                  <CButton
-                    color="success"
-                    variant="outline"
-                    size="sm"
-                    className="hover:text-white d-flex align-items-center justify-content-center gap-1 shadow-sm"
-                    onClick={handleDescargarPdf}
-                    title="Abrir o Descargar PDF"
-                    disabled={
-                      isLoading ||
-                      libros.length === 0 ||
-                      !pdfPath
-                    }
-                  >
-                    <CIcon icon={cilCloudDownload} className="me-1" />
-                    <span>PDF</span>
-                  </CButton>
+                    {canDescargarPdfTejuelos && (
+                      <CButton
+                        color="success"
+                        variant="outline"
+                        size="sm"
+                        className="hover:text-white d-flex align-items-center justify-content-center gap-1 shadow-sm"
+                        onClick={handleDescargarPdf}
+                        title="Abrir o Descargar PDF"
+                        disabled={
+                          isLoading ||
+                          libros.length === 0 ||
+                          !pdfPath
+                        }
+                      >
+                        <CIcon icon={cilCloudDownload} className="me-1" />
+                        <span>PDF</span>
+                      </CButton>
+                    )}
+                  </>
+                ) : (
+                  <span className="text-danger small fw-semibold flex-grow-1">
+                    No tienes acceso a las acciones de tejuelos
+                  </span>
                 )}
 
 

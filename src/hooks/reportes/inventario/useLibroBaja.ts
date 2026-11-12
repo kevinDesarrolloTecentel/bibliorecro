@@ -56,16 +56,12 @@ export const useReporteLibrosBaja = () => {
       return
     }
 
-    setHaBuscado(true)
     setLibros([])
     setExcelLink(null)
 
     try {
       const params = {
         fechaMes: anoBaja.trim(),
-        anoBaja: anoBaja.trim(),
-        anio: anoBaja.trim(),
-        year: anoBaja.trim(),
       }
       const data = await librosBaja(params)
       const rawList = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
@@ -78,7 +74,9 @@ export const useReporteLibrosBaja = () => {
         )
 
       setLibros(librosFiltrados)
-      setExcelLink(data?.excel_path || null)
+      const rutaExcel: string | null = data?.excel?.nombre || data?.excel_path || null
+      setExcelLink(rutaExcel)      
+      setHaBuscado(true)
 
       if (librosFiltrados.length === 0) {
         Swal.fire({
@@ -90,6 +88,7 @@ export const useReporteLibrosBaja = () => {
         })
       }
     } catch (error: any) {
+      setHaBuscado(true)
       console.error('Error al obtener libros dados de baja', error)
       setLibros([])
       setExcelLink(null)
@@ -109,7 +108,7 @@ export const useReporteLibrosBaja = () => {
         Swal.fire({
           icon: 'info',
           title: 'Sin libros encontrados',
-          text:  'No se encontraron libros dados de baja para el año seleccionado.',
+          text: 'No se encontraron libros dados de baja para el año seleccionado.',
           confirmButtonColor: '#044c8c',
           confirmButtonText: 'Entendido',
         })
@@ -152,7 +151,7 @@ export const useReporteLibrosBaja = () => {
     }
 
     if (excelLink) {
-      await descargarArchivo(`${STORAGE_BASE_URL}/${excelLink}`)
+      await descargarArchivo(`${STORAGE_BASE_URL}/prestamos/${excelLink}`)
     }
   }, [canDescargarLibrosBaja, excelLink, verificarAccionEnServidor])
 

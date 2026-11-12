@@ -1,16 +1,9 @@
-/**
- * Descarga un archivo directamente a la computadora del usuario usando un iframe oculto.
- * 
- * Ventajas:
- * 1. Cero errores de CORS: A diferencia de fetch(), el navegador no bloquea descargas de archivos estáticos en iframes por políticas de origen cruzado.
- * 2. Previene la redirección de Microsoft Edge: Edge solo intercepta navegaciones de pestañas principales (_blank) para enviarlas a Office Online. En un iframe, el visor de Office no interviene y Edge descarga el archivo .xlsx directamente a la carpeta de Descargas.
- * 3. No abre pestañas en blanco ni interrumpe la navegación del usuario en la SPA.
- */
+
+// Descargar el archivo Excel para que funcione en todos los navegadores sin bloqueo de CORS
 export const descargarArchivo = async (
   url: string,
   _nombreArchivoDefault?: string,
 ): Promise<void> => {
-  if (!url || typeof window === 'undefined') return
 
   const fullUrl = url.startsWith('http')
     ? url
@@ -27,8 +20,6 @@ export const descargarArchivo = async (
   iframe.src = fullUrl
 
   document.body.appendChild(iframe)
-
-  // Limpiar el elemento del DOM tras dar tiempo suficiente al navegador para iniciar la descarga
   setTimeout(() => {
     try {
       if (document.body.contains(iframe)) {

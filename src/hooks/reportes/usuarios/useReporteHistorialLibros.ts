@@ -72,7 +72,6 @@ export const useReporteHistorialLibrosUsuario = () => {
       return
     }
 
-    setHaBuscado(true)
     setLibros([])
     setExcelLink(null)
 
@@ -86,18 +85,18 @@ export const useReporteHistorialLibrosUsuario = () => {
       const rawList: any[] = Array.isArray(data)
         ? data
         : Array.isArray(data?.data)
-        ? data.data
-        : Array.isArray(data?.prestamos)
-        ? data.prestamos
-        : Array.isArray(data?.libros)
-        ? data.libros
-        : Array.isArray(data?.data?.prestamos)
-        ? data.data.prestamos
-        : Array.isArray(data?.data?.libros)
-        ? data.data.libros
-        : Array.isArray(data?.reporte)
-        ? data.reporte
-        : []
+          ? data.data
+          : Array.isArray(data?.prestamos)
+            ? data.prestamos
+            : Array.isArray(data?.libros)
+              ? data.libros
+              : Array.isArray(data?.data?.prestamos)
+                ? data.data.prestamos
+                : Array.isArray(data?.data?.libros)
+                  ? data.data.libros
+                  : Array.isArray(data?.reporte)
+                    ? data.reporte
+                    : []
 
       const normalizados: PrestamoReporteItem[] = rawList
         .map((item: any) => ({
@@ -152,7 +151,11 @@ export const useReporteHistorialLibrosUsuario = () => {
         )
 
       setLibros(normalizados)
-      setExcelLink(data?.excel_path || data?.data?.excel_path || null)
+
+      const rutaExcel: string | null = data?.excel?.nombre || data?.excel_path || null
+      setExcelLink(rutaExcel)      
+      setHaBuscado(true)
+
 
       if (normalizados.length === 0) {
         Swal.fire({
@@ -164,6 +167,7 @@ export const useReporteHistorialLibrosUsuario = () => {
         })
       }
     } catch (error: any) {
+      setHaBuscado(true)
       console.error('Error al obtener historial de libros', error)
       setLibros([])
       setExcelLink(null)
@@ -183,7 +187,7 @@ export const useReporteHistorialLibrosUsuario = () => {
         Swal.fire({
           icon: 'info',
           title: 'Sin préstamos encontrados',
-          text:  'No se encontraron préstamos registrados para la cédula ingresada.',
+          text: 'No se encontraron préstamos registrados para la cédula ingresada.',
           confirmButtonColor: '#044c8c',
           confirmButtonText: 'Entendido',
         })
@@ -191,7 +195,7 @@ export const useReporteHistorialLibrosUsuario = () => {
         Swal.fire({
           icon: 'error',
           title: 'Error al consultar',
-          text:  'Hubo un problema al obtener los préstamos. Por favor, inténtelo de nuevo más tarde.',
+          text: 'Hubo un problema al obtener los préstamos. Por favor, inténtelo de nuevo más tarde.',
           confirmButtonColor: '#dc3545',
           confirmButtonText: 'Entendido',
         })
@@ -226,7 +230,7 @@ export const useReporteHistorialLibrosUsuario = () => {
     }
 
     if (excelLink) {
-      await descargarArchivo(`${STORAGE_BASE_URL}/${excelLink}`)
+      await descargarArchivo(`${STORAGE_BASE_URL}/prestamos/${excelLink}`)
     }
   }, [canDescargarLibrosUsuarios, excelLink, verificarAccionEnServidor])
 

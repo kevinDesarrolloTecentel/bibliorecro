@@ -82,9 +82,9 @@ const Inventary: React.FC = () => {
 
   const columns = useMemo(
     () => [
-      { key: 'ISBN_LIBROS', label: 'ISBN', _style: { width: '13%' }, filter: false },
-      { key: 'TITULO_LIBROS', label: 'Título', _style: { width: '27%' }, filter: false },
-      { key: 'NOMBRE_AUTOR', label: 'Autor', _style: { width: '18%' }, filter: false },
+      { key: 'ISBN_LIBROS', label: 'ISBN', _style: { width: '12%' }, filter: false },
+      { key: 'TITULO_LIBROS', label: 'Título', _style: { width: '2%' }, filter: false },
+      { key: 'NOMBRE_AUTOR', label: 'Autor', _style: { width: '15%' }, filter: false },
       { key: 'NOMBRE_CATEGORIA', label: 'Categoría', _style: { width: '16%' }, filter: false },
       {
         key: 'ESTADOS_PRESTAMO',
@@ -126,12 +126,16 @@ const Inventary: React.FC = () => {
 
   return (
     <div className="pb-4">
-      {/* Encabezado estándar unificado */}
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
         <div>
-          <h3 className="fw-bold mb-1">Inventario de Libros</h3>
+          <h3 className="fw-bold mb-1 text-body d-flex align-items-center gap-2">
+            <CIcon icon={cilLibraryBuilding} size="lg" style={{ color: '#104299ff' }} />
+            <span>
+              Inventario de Libros
+            </span>
+          </h3>
           <p className="text-body-secondary mb-0">
-            Administración del acervo bibliográfico, control de ejemplares, autores y categorías.
+            Administración de los libros del sistema.
           </p>
         </div>
         <div className="d-flex align-items-center gap-2">
@@ -191,7 +195,8 @@ const Inventary: React.FC = () => {
 
       <CCard className="shadow-sm border-0">
         <CCardHeader className="bg-transparent py-3 d-flex justify-content-between align-items-center">
-          <span className="fw-semibold text-uppercase small">
+          <span className="fw-semibold text-uppercase small d-inline-flex align-items-center gap-2">
+            <CIcon icon={cilLibraryBuilding} style={{ color: '#104299ff' }} />
             Listado de Libros
           </span>
           <span className="text-body-secondary small">
@@ -522,57 +527,65 @@ const Inventary: React.FC = () => {
 
                           {/* Acciones dentro del detalle */}
                           <div className="d-flex flex-wrap gap-2 justify-content-end mt-3 pt-2 border-top">
-                            {canEditarLibro && (
-                              <CButton
-                                color="info"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleAbrirEditar(item)}
-                                title="Editar libro"
-                                className="d-flex align-items-center gap-1 shadow-sm px-3 hover:text-white"
-                              >
-                                <CIcon icon={cilColorBorder} size="sm" />
-                                <span>Editar</span>
-                              </CButton>
-                            )}
-                            {isActivo && canInactivarLibro && (
-                              <CButton
-                                color="warning"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleInactivarLibro(item)}
-                                title="Inactivar libro"
-                                className="d-flex align-items-center gap-1 shadow-sm px-3 hover:text-white"
-                              >
-                                <CIcon icon={cilBan} size="sm" />
-                                <span>Inactivar</span>
-                              </CButton>
-                            )}
-                            {!isActivo && canActivarLibro && (
-                              <CButton
-                                color="success"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleActivarLibro(item)}
-                                title="Activar libro"
-                                className="d-flex align-items-center gap-1 shadow-sm px-3 hover:text-white"
-                              >
-                                <CIcon icon={cilCheckCircle} size="sm" />
-                                <span>Activar</span>
-                              </CButton>
-                            )}
-                            {canEliminarLibro && (
-                              <CButton
-                                color="danger"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleEliminarLibro(item)}
-                                title="Eliminar libro"
-                                className="d-flex align-items-center gap-1 shadow-sm px-3 hover:text-white"
-                              >
-                                <CIcon icon={cilTrash} size="sm" />
-                                <span>Eliminar Libro</span>
-                              </CButton>
+                            {canEditarLibro || canInactivarLibro || canActivarLibro || canEliminarLibro ? (
+                              <>
+                                {canEditarLibro && (
+                                  <CButton
+                                    color="info"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleAbrirEditar(item)}
+                                    title="Editar libro"
+                                    className="d-flex align-items-center gap-1 shadow-sm px-3 hover:text-white"
+                                  >
+                                    <CIcon icon={cilColorBorder} size="sm" />
+                                    <span>Editar</span>
+                                  </CButton>
+                                )}
+                                {isActivo && canInactivarLibro && (
+                                  <CButton
+                                    color="warning"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleInactivarLibro(item)}
+                                    title="Inactivar libro"
+                                    className="d-flex align-items-center gap-1 shadow-sm px-3 hover:text-white"
+                                  >
+                                    <CIcon icon={cilBan} size="sm" />
+                                    <span>Inactivar</span>
+                                  </CButton>
+                                )}
+                                {!isActivo && canActivarLibro && (
+                                  <CButton
+                                    color="success"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleActivarLibro(item)}
+                                    title="Activar libro"
+                                    className="d-flex align-items-center gap-1 shadow-sm px-3 hover:text-white"
+                                  >
+                                    <CIcon icon={cilCheckCircle} size="sm" />
+                                    <span>Activar</span>
+                                  </CButton>
+                                )}
+                                {canEliminarLibro && (
+                                  <CButton
+                                    color="danger"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleEliminarLibro(item)}
+                                    title="Eliminar libro"
+                                    className="d-flex align-items-center gap-1 shadow-sm px-3 hover:text-white"
+                                  >
+                                    <CIcon icon={cilTrash} size="sm" />
+                                    <span>Eliminar Libro</span>
+                                  </CButton>
+                                )}
+                              </>
+                            ) : (
+                              <span className="text-danger small fw-semibold py-1">
+                                No tienes acceso a las acciones del inventario.
+                              </span>
                             )}
                           </div>
                         </CCol>

@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import Swal from 'sweetalert2'
-import { listarLibros, getLibros, BuscarLibros } from '@/Service/rco/Libros'
+import { listarLibros } from '@/Service/rco/Libros'
 import { STORAGE_BASE_URL, descargarArchivo } from '@/utils/imageUtils'
 import { usePermissions } from '@/context/PermissionsContext'
 
@@ -47,55 +47,19 @@ export const useReporteLibrosSistema = () => {
       return
     }
 
-    setHaBuscado(true)
     setLibros([])
     setExcelLink(null)
 
     try {
-      let rawItems: any[] = []
-      let excelPath: string | null = null
+      const data = await listarLibros()
+      const rawItems: any[] = Array.isArray(data?.data)
+        ? data.data
+        : Array.isArray(data)
+        ? data
+        : Array.isArray(data?.libros)
+        ? data.libros
+        : []
 
-      // 1. Intento principal con listarLibros (/v1/libros/librosC)
-      try {
-        const data = await listarLibros()
-        if (Array.isArray(data?.data)) {
-          rawItems = data.data
-        } else if (Array.isArray(data)) {
-          rawItems = data
-        } else if (Array.isArray(data?.libros)) {
-          rawItems = data.libros
-        }
-        excelPath = data?.excel_path || null
-      } catch (err) {
-        console.warn('[useReporteLibrosSistema] Falló /librosC, intentando fallback:', err)
-      }
-
-      // 2. Si /librosC vino vacío o falló, consultar con BuscarLibros o getLibros
-      if (rawItems.length === 0) {
-        try {
-          const fallbackData = await BuscarLibros('', 1, 1000)
-          if (Array.isArray(fallbackData?.data)) {
-            rawItems = fallbackData.data
-          } else if (Array.isArray(fallbackData)) {
-            rawItems = fallbackData
-          }
-          if (!excelPath) excelPath = fallbackData?.excel_path || null
-        } catch (err2) {
-          console.warn('[useReporteLibrosSistema] Falló /librosNew, intentando getLibros:', err2)
-          try {
-            const getLibrosData = await getLibros()
-            if (Array.isArray(getLibrosData?.data)) {
-              rawItems = getLibrosData.data
-            } else if (Array.isArray(getLibrosData)) {
-              rawItems = getLibrosData
-            }
-          } catch (err3) {
-            console.error('[useReporteLibrosSistema] Fallaron todos los endpoints de libros:', err3)
-          }
-        }
-      }
-
-      // 3. Normalizar libros para que todos los campos coincidan con la tabla
       const ordenados: LibroInventarioItem[] = rawItems
         .map((item: any, idx: number) => ({
           ...item,
@@ -112,10 +76,25 @@ export const useReporteLibrosSistema = () => {
           NOMBRE_EDITORIAL: item.NOMBRE_EDITORIAL || item.editorial || item.Editorial || 'Sin editorial',
           PRECIO_LIBROS: item.PRECIO_LIBROS ?? item.precio ?? '-',
         }))
-        .sort((a, b) => Number(a.ID_LIBROS || 0) - Number(b.ID_LIBROS || 0))
+        .sort((a, b) => {
+          const fechaA = a.FECHAINGRESO_LIBROS || a.fechaIngreso || a.created_at || ''
+          const fechaB = b.FECHAINGRESO_LIBROS || b.fechaIngreso || b.created_at || ''
+          if (fechaA && fechaB && fechaA !== fechaB) {
+            const timeA = new Date(fechaA).getTime()
+            const timeB = new Date(fechaB).getTime()
+            if (!isNaN(timeA) && !isNaN(timeB) && timeA !== timeB) {
+              return timeB - timeA
+            }
+          }
+          const idA = Number(a.ID_LIBROS ?? a.id ?? 0)
+          const idB = Number(b.ID_LIBROS ?? b.id ?? 0)
+          return idB - idA
+        })
 
       setLibros(ordenados)
-      setExcelLink(excelPath)
+      const rutaExcel: string | null = data?.excel?.nombre || data?.excel_path || null
+      setExcelLink(rutaExcel)
+      setHaBuscado(true)
 
       if (ordenados.length === 0) {
         Swal.fire({
@@ -127,6 +106,7 @@ export const useReporteLibrosSistema = () => {
         })
       }
     } catch (error: any) {
+      setHaBuscado(true)
       console.error('Error al obtener libros del sistema:', error)
       setLibros([])
       setExcelLink(null)
@@ -189,7 +169,7 @@ export const useReporteLibrosSistema = () => {
     }
 
     if (excelLink) {
-      await descargarArchivo(`${STORAGE_BASE_URL}/${excelLink}`)
+      await descargarArchivo(`${STORAGE_BASE_URL}/prestamos/${excelLink}`)
     }
   }, [canDescargarLibrosSistema, excelLink, verificarAccionEnServidor])
 

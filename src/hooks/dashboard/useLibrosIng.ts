@@ -3,6 +3,7 @@ import Swal from 'sweetalert2'
 import { ReporteIngresos } from '@/Service/rco/Libros'
 import { LibroIngresoItem, UseLibrosIngReturn } from '@/models/dashboard/dashboard.model'
 import { usePermissions } from '@/context/PermissionsContext'
+import { generarExcelEstilizado } from '@/utils/dashboardExcel'
 
 export type { LibroIngresoItem, UseLibrosIngReturn }
 
@@ -26,8 +27,7 @@ export const aFechaLocal = (str?: string | null): Date | undefined => {
 export const parseDatePickerValue = (val: Date | string | null): string => {
   if (!val) return ''
   if (val instanceof Date) {
-    // Si la hora es >= 18 (desfase UTC hacia GMT-5 en horas nocturnas),
-    // el día real seleccionado corresponde al día UTC.
+
     if (val.getHours() >= 18) {
       const y = val.getUTCFullYear()
       const m = String(val.getUTCMonth() + 1).padStart(2, '0')
@@ -331,50 +331,37 @@ export const useLibrosIng = (): UseLibrosIngReturn => {
 
     try {
       const headers = [
-        '#',
-        'ISBN',
-        'Título',
-        'Autor',
-        'Editorial',
-        'Proveedor',
-        'Categoría',
-        'Género',
-        'Formato',
-        'Volumen',
-        'País',
-        'Fecha Edición',
-        'Fecha Ingreso',
-        'Estado',
+        '#', 'ISBN', 'Título', 'Autor', 'Editorial', 'Proveedor',
+        'Categoría', 'Género', 'Formato', 'Volumen', 'País',
+        'Fecha Edición', 'Fecha Ingreso', 'Estado'
       ]
 
       const rows = libros.map((l, idx) => [
         idx + 1,
-        l.isbn ? `="${(l.isbn || '').replace(/"/g, '""')}"` : '""',
-        `"${(l.titulo || '').replace(/"/g, '""')}"`,
-        `"${(l.autor || '').replace(/"/g, '""')}"`,
-        `"${(l.editorial || '').replace(/"/g, '""')}"`,
-        `"${(l.proveedor || '').replace(/"/g, '""')}"`,
-        `"${(l.categoria || '').replace(/"/g, '""')}"`,
-        `"${(l.genero || '').replace(/"/g, '""')}"`,
-        `"${(l.formato || '').replace(/"/g, '""')}"`,
-        `"${(l.volumen || '').replace(/"/g, '""')}"`,
-        `"${(l.pais || '').replace(/"/g, '""')}"`,
-        `"${(l.fechaEdicion || '').replace(/"/g, '""')}"`,
-        `"${(l.fechaIngreso || '').replace(/"/g, '""')}"`,
-        `"${(l.estado || '').replace(/"/g, '""')}"`,
+        String(l.isbn || ''),
+        l.titulo || '',
+        l.autor || '',
+        l.editorial || '',
+        l.proveedor || '',
+        l.categoria || '',
+        l.genero || '',
+        l.formato || '',
+        l.volumen || '',
+        l.pais || '',
+        l.fechaEdicion || '',
+        l.fechaIngreso || '',
+        l.estado || '',
       ])
 
-      const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n')
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      const nombreArchivo = `reporte_ingresos_libros_${fechaDesde || 'inicio'}_${fechaHasta || 'fin'}.csv`
-      a.download = nombreArchivo
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
+      await generarExcelEstilizado({
+        nombreArchivo: `reporte_ingresos_libros_${fechaDesde || 'inicio'}_${fechaHasta || 'fin'}.xlsx`,
+        tituloPrincipal: 'Reporte de Libros Ingresados',
+        subtituloFiltro: `Libros registrados entre ${fechaDesde || 'inicio'} y ${fechaHasta || 'fin'}`,
+        totalRegistros: libros.length,
+        headers,
+        rows,
+      })
+
 
       Swal.fire({
         icon: 'success',

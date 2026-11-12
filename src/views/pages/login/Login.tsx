@@ -8,7 +8,7 @@ import logoImg from '@/assets/images/logo-recreo.png'
 
 const Login = () => {
   const { handleLoginSubmit, clearAuthSession } = useAuth()
-  const [searchParams, setSearchParams] = useSearchParams()
+  const [searchParams] = useSearchParams()
 
   useEffect(() => {
     const isInactive =
@@ -19,12 +19,11 @@ const Login = () => {
       searchParams.get('session_expired') === 'true' ||
       window.location.hash.includes('session_expired')
 
+    if (window.location.hash.includes('user_inactive') || window.location.hash.includes('session_expired')) {
+      window.history.replaceState(null, '', '#/login')
+    }
+
     if (isInactive) {
-      searchParams.delete('user_inactive')
-      setSearchParams(searchParams, { replace: true })
-      if (window.location.hash.includes('user_inactive')) {
-        window.history.replaceState(null, '', '#/login')
-      }
       Swal.fire({
         icon: 'error',
         title: 'Usuario inactivo',
@@ -33,11 +32,6 @@ const Login = () => {
         confirmButtonText: 'Entendido',
       })
     } else if (isExpired) {
-      searchParams.delete('session_expired')
-      setSearchParams(searchParams, { replace: true })
-      if (window.location.hash.includes('session_expired')) {
-        window.history.replaceState(null, '', '#/login')
-      }
       Swal.fire({
         icon: 'warning',
         title: 'Sesión expirada',
@@ -46,8 +40,9 @@ const Login = () => {
         confirmButtonText: 'Entendido',
       })
     }
+
     clearAuthSession()
-  }, [searchParams, setSearchParams, clearAuthSession])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <AuthFormSplitScreen

@@ -82,7 +82,7 @@ const Registro_bk: React.FC<RegisterBkProps> = (props) => {
       backdrop="static"
     >
       <CModalHeader closeButton className="bg-body">
-        <CModalTitle id="ModalRegistroLibroLabel" className="d-flex align-items-center gap-2 fs-5 fw-bold text-dark">
+        <CModalTitle id="ModalRegistroLibroLabel" className="d-flex align-items-center gap-2 fs-5 fw-bold text-body">
           <CIcon icon={cilBook} size="lg" className='text-body'/>
           <span className='text-body'>Registrar Libro</span>
         </CModalTitle>

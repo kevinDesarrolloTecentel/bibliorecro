@@ -219,6 +219,18 @@ export const useRenovaciones = () => {
     }
 
     if (!solicitudSeleccionada || submitting) return
+
+    if (!detalleRenovacion.trim()) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Campo obligatorio',
+        text: 'El detalle u observaciones de la activación es obligatorio. Por favor ingrese las observaciones.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return
+    }
+
     setSubmitting(true)
     try {
       await AceptarInscripcionNew({
@@ -226,7 +238,7 @@ export const useRenovaciones = () => {
         tipo_usuario: solicitudSeleccionada.tipo_usuario,
         ID_INSCRIPCION: solicitudSeleccionada.ID_INSCRIPCION,
         FECHA_PERSONA: solicitudSeleccionada.FECHA_PERSONA,
-        DETALLE_RENOVACIONES: detalleRenovacion,
+        DETALLE_RENOVACIONES: detalleRenovacion.trim(),
       })
 
       setVisibleAceptar(false)

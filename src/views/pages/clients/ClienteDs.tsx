@@ -12,7 +12,7 @@ import {
   CSmartTable,
 } from '@coreui/react-pro'
 import CIcon from '@coreui/icons-react'
-import { cilCalendar, cilClock, cilDollar, cilPencil, cilTrash, cilUser, cilWarning } from '@coreui/icons'
+import { cilCalendar, cilClock, cilDollar, cilPencil, cilTrash, cilUser, cilWarning, cilAddressBook } from '@coreui/icons'
 import Swal from 'sweetalert2'
 import Modal_Register from '@/components/clients/Modal_Register'
 import Modal_Edit from '@/components/clients/Modal_Edit'
@@ -21,8 +21,11 @@ import ModalRenova from '@/components/clients/ModalRenovaciones'
 import useClienteDs from '@/hooks/tab-persona/useClienteDs'
 import ClienteAvatar from '@/components/clients/ClienteAvatar'
 import { buscarPrestamos } from '@/Service/rco/Prestamos'
+import { useCatalogos } from '@/hooks/tab-catalogos/useCatalogos'
 
 const ClienteDs = () => {
+  useCatalogos(true)
+
   const {
     personaState,
     items,
@@ -185,8 +188,9 @@ const ClienteDs = () => {
 
       <CCard className="shadow-sm border-0">
         <CCardHeader className="bg-transparent py-3 d-flex justify-content-between align-items-center">
-          <span className="fw-semibold text-uppercase small">
-            Listado de Usuarios Registrados
+          <span className="fw-semibold text-uppercase small d-inline-flex align-items-center gap-2">
+            <CIcon icon={cilAddressBook} style={{ color: '#258d1bff' }} />
+            <span>Listado de Usuarios Registrados</span>
           </span>
           <span className="text-body-secondary small">
             Total usuarios registrados: <strong>{personaState.totalRegistros}</strong>
@@ -317,8 +321,8 @@ const ClienteDs = () => {
                                     />
                                     <span
                                       className={`badge bg-body rounded-pill border ${item.inicio_inscripcion === 'Sin inscripción' || item.inicio_inscripcion === 'No registrada'
-                                          ? 'text-secondary'
-                                          : 'text-success'
+                                        ? 'text-secondary'
+                                        : 'text-success'
                                         }`}
                                     >
                                       {item.inicio_inscripcion}
@@ -343,8 +347,8 @@ const ClienteDs = () => {
                                     />
                                     <span
                                       className={`badge bg-body rounded-pill border ${item.fin_inscripcion === 'Sin inscripción' || item.fin_inscripcion === 'No registrada'
-                                          ? 'text-secondary'
-                                          : 'text-warning'
+                                        ? 'text-secondary'
+                                        : 'text-warning'
                                         }`}
                                     >
                                       {item.fin_inscripcion}
@@ -420,9 +424,9 @@ const ClienteDs = () => {
                                         <CBadge
                                           color={String(item.sancionado || '').includes('Vetado') || item.es_vetado ? 'danger' : 'warning'}
                                           shape="rounded-pill"
-                                          className="px-2 py-1"
+                                          className={`px-2 py-1 ${!(String(item.sancionado || '').includes('Vetado') || item.es_vetado) ? 'text-dark fw-semibold' : ''}`}
                                         >
-                                          {String(item.sancionado || '').includes('Vetado') || item.es_vetado ? 'Vetado' : 'Sanción Activa'}
+                                          {String(item.sancionado || '').includes('Vetado') || item.es_vetado ? 'Vetado' : 'Con sanción'}
                                         </CBadge>
                                       </div>
                                       <div className="d-flex flex-wrap gap-1 align-items-center mb-2">
@@ -562,7 +566,7 @@ const ClienteDs = () => {
                               </>
                             ) : null}
 
-                            {tieneAcciones && (
+                            {tieneAcciones ? (
                               <div className="d-flex flex-wrap gap-2 justify-content-end mt-3 pt-2 border-top">
                                 {canEditar && (
                                   <CButton
@@ -595,6 +599,10 @@ const ClienteDs = () => {
                                   />
                                 )}
                               </div>
+                            ) : (
+                              <span className="text-danger small fw-semibold d-inline-flex align-items-center py-1">
+                                No tienes acceso a las acciones de usuario.
+                              </span>
                             )}
                           </CRow>
                         </CCol>

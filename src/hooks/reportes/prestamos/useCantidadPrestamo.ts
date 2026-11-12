@@ -59,14 +59,12 @@ export const useReporteCantidadPrestamosHoy = () => {
       return
     }
 
-    setHaBuscado(true)
     setPrestamos([])
     setExcelLink(null)
 
     try {
       const params = {
         fechaHoy,
-        fecha: fechaHoy,
       }
       const data = await Hoy(params)
       const rawList = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
@@ -75,7 +73,10 @@ export const useReporteCantidadPrestamosHoy = () => {
       )
 
       setPrestamos(filtrados)
-      setExcelLink(data?.excel_path || null)
+      const rutaExcel: string | null = data?.excel?.nombre || data?.excel_path || null
+      setExcelLink(rutaExcel)
+      setHaBuscado(true)
+
 
       if (filtrados.length === 0) {
         Swal.fire({
@@ -87,6 +88,8 @@ export const useReporteCantidadPrestamosHoy = () => {
         })
       }
     } catch (error: any) {
+      setHaBuscado(true)
+
       console.error('Error al obtener cantidad de préstamos', error)
       setPrestamos([])
       setExcelLink(null)
@@ -106,7 +109,7 @@ export const useReporteCantidadPrestamosHoy = () => {
         Swal.fire({
           icon: 'info',
           title: 'Sin préstamos encontrados',
-          text:  `No se encontraron préstamos para la fecha seleccionada (${fechaHoy}).`,
+          text: `No se encontraron préstamos para la fecha seleccionada (${fechaHoy}).`,
           confirmButtonColor: '#044c8c',
           confirmButtonText: 'Entendido',
         })
@@ -149,7 +152,7 @@ export const useReporteCantidadPrestamosHoy = () => {
     }
 
     if (excelLink) {
-      await descargarArchivo(`${STORAGE_BASE_URL}/${excelLink}`)
+      await descargarArchivo(`${STORAGE_BASE_URL}/prestamos/${excelLink}`)
     }
   }, [canDescargarCantidadPrestamos, excelLink, verificarAccionEnServidor])
 

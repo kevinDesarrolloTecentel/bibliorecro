@@ -62,7 +62,7 @@ const Author: React.FC = () => {
             <span>Gestión de Autores</span>
           </h4>
           <p className="text-muted small mb-0">
-            Administra el catálogo de autores, busca y consulta sus detalles y obras registradas.
+            Administra el catálogo de autores.
           </p>
         </div>
         <div className="d-flex align-items-center gap-2">
@@ -98,7 +98,7 @@ const Author: React.FC = () => {
           <CCard className="h-100 border shadow-sm">
             <CCardHeader className="bg-body d-flex align-items-center justify-content-between py-2 border-bottom">
               <div className="d-flex align-items-center gap-2 fw-semibold text-body">
-                <CIcon icon={cilUser} size="lg" style={{ color: '#0a9b05ff' }} />
+                <CIcon icon={cilUser} style={{ color: '#0a9b05ff' }} />
                 <span>Catálogo de Autores</span>
               </div>
               <div className="d-flex align-items-center gap-2">
@@ -265,31 +265,6 @@ const Author: React.FC = () => {
                 <CIcon icon={cilInfo} size="lg" style={{ color: '#0a9b05ff' }} />
                 <span>Detalle del Autor</span>
               </div>
-              <div className="d-flex align-items-center gap-1">
-                <CButton
-                  color="secondary"
-                  variant="ghost"
-                  size="sm"
-                  disabled={loadingAutores}
-                  className="p-1 text-muted"
-                  onClick={() => handleRecargar()}
-                  title="Refrescar y limpiar selección"
-                >
-                  <CIcon icon={cilSync} className={loadingAutores ? 'rotate-animation' : ''} />
-                </CButton>
-                {autorSeleccionado && (
-                  <CButton
-                    color="secondary"
-                    variant="ghost"
-                    size="sm"
-                    className="p-1 text-muted"
-                    onClick={() => setAutorSeleccionado(null)}
-                    title="Cerrar detalle"
-                  >
-                    <CIcon icon={cilX} />
-                  </CButton>
-                )}
-              </div>
             </CCardHeader>
 
             <CCardBody className="p-4 d-flex flex-column justify-content-between">
@@ -338,38 +313,46 @@ const Author: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="d-flex gap-2 justify-content-end">
-                    {canEliminarAutor && (
-                      <CButton
-                        color="danger"
-                        size="sm"
-                        variant="outline"
-                        className="d-flex align-items-center gap-2 shadow-sm hover:text-white"
-                        onClick={() => handleElminiarAutor(autorSeleccionado)}
-                      >
-                        <CIcon icon={cilTrash} />
-                        <span>Eliminar Autor</span>
-                      </CButton>
-                    )}
-                    {canEditarAutor && (
-                      <CButton
-                        color="success"
-                        variant="outline"
-                        size="sm"
-                        className="d-flex align-items-center gap-2 shadow-sm hover:text-white"
-                        onClick={() => handleOpen(autorSeleccionado)}
-                      >
-                        <CIcon icon={cilPencil} />
-                        <span>Editar Autor</span>
-                      </CButton>
+                  <div className="d-flex flex-wrap gap-2 justify-content-end align-items-center mt-3 pt-2 border-top">
+                    {canEliminarAutor || canEditarAutor ? (
+                      <>
+                        {canEliminarAutor && (
+                          <CButton
+                            color="danger"
+                            size="sm"
+                            variant="outline"
+                            className="d-flex align-items-center gap-2 shadow-sm hover:text-white"
+                            onClick={() => handleElminiarAutor(autorSeleccionado)}
+                          >
+                            <CIcon icon={cilTrash} />
+                            <span>Eliminar Autor</span>
+                          </CButton>
+                        )}
+                        {canEditarAutor && (
+                          <CButton
+                            color="success"
+                            variant="outline"
+                            size="sm"
+                            className="d-flex align-items-center gap-2 shadow-sm hover:text-white"
+                            onClick={() => handleOpen(autorSeleccionado)}
+                          >
+                            <CIcon icon={cilPencil} />
+                            <span>Editar Autor</span>
+                          </CButton>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-danger small fw-semibold py-1">
+                        No tienes acceso a las acciones de autores.
+                      </span>
                     )}
                   </div>
                 </div>
               ) : (
                 <div className="text-center py-5 my-auto text-muted">
                   <div
-                    className="bg-body border rounded-circle p-4 d-inline-flex align-items-center justify-content-center mb-3 shadow-sm"
-                    style={{ width: '84px', height: '84px' }}
+                    className="bg-body rounded-circle p-4 d-inline-flex align-items-center justify-content-center mb-3"
+                    style={{ width: '80px', height: '80px' }}
                   >
                     <CIcon
                       icon={cilUser}
@@ -383,7 +366,7 @@ const Author: React.FC = () => {
                   </p>
                   {canCrearAutor && (
                     <CButton
-                      color="success"
+                      color="primary"
                       variant="outline"
                       size="sm"
                       className="d-inline-flex align-items-center gap-1 shadow-sm hover:text-white"

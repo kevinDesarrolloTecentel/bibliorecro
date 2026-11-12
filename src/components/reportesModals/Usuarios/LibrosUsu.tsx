@@ -166,10 +166,11 @@ const LibroUModal: React.FC<HistLibProps> = ({ visible, setVisible }) => {
       size="xl"
       scrollable
       visible={visible}
-      onClose={handleClose}
-      backdrop="static"
+      onClose={() => {
+        if (!isLoading) handleClose()
+      }} backdrop="static"
     >
-      <CModalHeader closeButton>
+      <CModalHeader closeButton={!isLoading}>
         <CModalTitle className="d-flex align-items-center gap-2">
           <span>Historial de Libros por Usuario</span>
         </CModalTitle>
@@ -262,14 +263,17 @@ const LibroUModal: React.FC<HistLibProps> = ({ visible, setVisible }) => {
               tableFilter={haBuscado && !isLoading && libros.length > 0}
               tableFilterLabel="Buscar:"
               tableFilterPlaceholder="Buscar en el historial..."
+              loading={isLoading}
               cleaner
               items={tableItems}
               itemsPerPage={60}
               pagination
               noItemsLabel={
-                haBuscado
-                  ? 'No se encontraron registros para la cédula ingresada'
-                  : 'Ingrese un número de cédula y haga clic en Generar para ver el reporte'
+                isLoading
+                  ? 'Cargando historial de lirbros...'
+                  : haBuscado
+                    ? 'No se encontraron registros para la cédula ingresada'
+                    : 'Ingrese un número de cédula y haga clic en Generar para ver el reporte'
               }
               scopedColumns={{
                 nombre: (item: any) => (
@@ -331,6 +335,7 @@ const LibroUModal: React.FC<HistLibProps> = ({ visible, setVisible }) => {
             variant="outline"
             className="hover:text-white shadow-sm"
             onClick={handleClose}
+            disabled={isLoading}
           >
             <CIcon icon={cilExitToApp} className="me-1" />
             Cerrar

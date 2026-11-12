@@ -62,7 +62,6 @@ export const useReportActivosMesDia = () => {
       return
     }
 
-    setHaBuscado(true)
     setUsuarios([])
     setExcelLink(null)
 
@@ -70,10 +69,7 @@ export const useReportActivosMesDia = () => {
       const params: Record<string, any> = {
         mesRegistro,
         anoRegistro,
-      }
-      if (diaRegistro) {
-        params.diaRegistro = diaRegistro
-        params.dia = diaRegistro
+        diaRegistro,
       }
 
       const data = await PersonasActivasMesReport(params)
@@ -84,7 +80,14 @@ export const useReportActivosMesDia = () => {
 
 
       setUsuarios(personasFiltradas)
-      setExcelLink(data?.excel_path || null)
+
+      //setExcelLink(data?.excel_path || null)
+
+      const rutaExcel: string | null = data?.excel?.nombre || data?.excel_path || null
+      setExcelLink(rutaExcel)
+
+      setHaBuscado(true)
+
 
       if (personasFiltradas.length === 0) {
         Swal.fire({
@@ -96,6 +99,8 @@ export const useReportActivosMesDia = () => {
         })
       }
     } catch (error: any) {
+      setHaBuscado(true)
+
       console.error('Error al obtener las personas activas por mes/día', error)
       setUsuarios([])
       setExcelLink(null)
@@ -160,7 +165,7 @@ export const useReportActivosMesDia = () => {
     }
 
     if (excelLink) {
-      await descargarArchivo(`${STORAGE_BASE_URL}/${excelLink}`)
+      await descargarArchivo(`${STORAGE_BASE_URL}/personas/${excelLink}`)
     }
   }, [canDescargarUsuariosActivosMesDia, excelLink, verificarAccionEnServidor])
 

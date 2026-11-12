@@ -1,17 +1,20 @@
 import { useState } from 'react'
 import {
-  CBadge,
-  CButton,
-  CCard,
-  CCardBody,
-  CCardHeader,
-  CCollapse,
-  CSmartTable,
+    CBadge,
+    CButton,
+    CCard,
+    CCardBody,
+    CCardHeader,
+    CCollapse,
+    CSmartTable,
 } from "@coreui/react-pro"
 import CIcon from "@coreui/icons-react"
-import { cilPencil } from "@coreui/icons"
+import { cilLockLocked, cilPencil, cilShieldAlt, cilUser } from "@coreui/icons"
 import ModalProfile from "@/components/users/ModalProfile"
+import ModalVerRoles from "@/components/users/ModalVerRoles"
+import ModalVerPermisos from "@/components/users/ModalVerPermisos"
 import useProfile from "@/hooks/adm-user/useProfile"
+import { usePermissions } from "@/context/PermissionsContext"
 
 const getEstadoNombre = (estado: any) => {
     const s = String(estado ?? '').toLowerCase().trim()
@@ -24,7 +27,10 @@ const getBadge = (Estado: any) => {
 
 const Profile = () => {
     const profileState = useProfile()
+    const { roles, modulos, loadingPermisos } = usePermissions()
     const [details, setDetails] = useState<(string | number)[]>([])
+    const [modalRolesVisible, setModalRolesVisible] = useState(false)
+    const [modalPermisosVisible, setModalPermisosVisible] = useState(false)
 
     const toggleDetails = (id: string | number) => {
         setDetails((prev) => (prev.includes(id) ? [] : [id]))
@@ -50,27 +56,46 @@ const Profile = () => {
         },
     ]
 
-    const nickActivo =
-        profileState.currentUser?.NICK_USUARIO ||
-        (profileState.user || profileState.getStoredUser?.())?.NICK_USUARIO ||
-        ''
+    const nickActivo = profileState.currentUser?.NICK_USUARIO || ''
+    const nombreCompleto = profileState.currentUser?.NOMBRES_USUARIO || nickActivo
 
     return (
         <div className="pb-4">
             <ModalProfile profileState={profileState} />
 
+            <ModalVerRoles
+                visible={modalRolesVisible}
+                setVisible={setModalRolesVisible}
+                roles={roles}
+                loading={loadingPermisos}
+                userName={nombreCompleto}
+            />
+
+            <ModalVerPermisos
+                visible={modalPermisosVisible}
+                setVisible={setModalPermisosVisible}
+                modulos={modulos}
+                roles={roles}
+                loading={loadingPermisos}
+                userName={nombreCompleto}
+            />
+
             {/* Encabezado */}
             <div className="mb-4">
-                <h3 className="fw-bold mb-1">Perfil de Usuario</h3>
+                <h3 className="fw-bold mb-1 text-body d-flex align-items-center gap-2">
+                    <CIcon icon={cilUser} size="lg" className="text-primary" />
+                    <span>Perfil de Usuario</span>
+                </h3>
                 <p className="text-body-secondary mb-0">
-                    Consulta y administración de la información de tu cuenta y credenciales de acceso.
+                    Consulta y administración de la información de tu cuenta.
                 </p>
             </div>
 
             <CCard className="shadow-sm border-0">
                 <CCardHeader className="bg-transparent py-3 d-flex justify-content-between align-items-center">
-                    <span className="fw-semibold text-uppercase small">
-                        Información del Perfil
+                    <span className="fw-semibold text-uppercase small d-inline-flex align-items-center gap-2">
+                        <CIcon icon={cilUser} className="text-primary" />
+                        <span>Información del Perfil</span>
                     </span>
                     <span className="text-body-secondary small">
                         Usuario activo: <strong>{nickActivo}</strong>
@@ -119,20 +144,61 @@ const Profile = () => {
                                 return (
                                     <CCollapse visible={isVisible} className="user-details-collapse">
                                         <div className="p-3 bg-body-tertiary border-top border-bottom d-flex flex-wrap gap-2 justify-content-end align-items-center">
-                                            {profileState.canEditarPerfil && (
-                                                <CButton
-                                                    color="primary"
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className="d-flex align-items-center gap-1 shadow-sm"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation()
-                                                        profileState.handleOpenEditModal()
-                                                    }}
-                                                >
-                                                    <CIcon icon={cilPencil} className="me-1" />
-                                                    <span>Editar Perfil</span>
-                                                </CButton>
+                                            {profileState.canEditarPerfil || profileState.canVermisRoles || profileState.canVermisPermisos ? (
+                                                <>
+                                                    {profileState.canVermisRoles && (
+                                                        <CButton
+                                                            color="info"
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="d-flex align-items-center gap-1 shadow-sm"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation()
+                                                                setModalRolesVisible(true)
+                                                            }}
+                                                        >
+                                                            <CIcon icon={cilShieldAlt} className="me-1" />
+                                                            <span>Ver Roles</span>
+                                                        </CButton>
+                                                    )}
+
+                                                    {/* Botón Ver Permisos protegido con canVermisPermisos */}
+                                                    {profileState.canVermisPermisos && (
+                                                        <CButton
+                                                            color="success"
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="d-flex align-items-center gap-1 shadow-sm"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation()
+                                                                setModalPermisosVisible(true)
+                                                            }}
+                                                        >
+                                                            <CIcon icon={cilLockLocked} className="me-1" />
+                                                            <span>Ver Permisos</span>
+                                                        </CButton>
+                                                    )}
+
+                                                    {/* Botón Editar Perfil o Mensaje de permiso denegado */}
+                                                    {profileState.canEditarPerfil && (
+                                                        <CButton
+                                                            color="primary"
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="d-flex align-items-center gap-1 shadow-sm"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation()
+                                                                profileState.handleOpenEditModal()
+                                                            }}
+                                                        >
+                                                            <CIcon icon={cilPencil} className="me-1" />
+                                                            <span>Editar Perfil</span>
+                                                        </CButton>
+                                                    )}
+                                                </>
+                                            ) : (
+                                                <span className="text-danger small fw-semibold d-inline-flex align-items-center py-1">                                                    No tienes acceso a las acciones del perfil.
+                                                </span>
                                             )}
                                         </div>
                                     </CCollapse>

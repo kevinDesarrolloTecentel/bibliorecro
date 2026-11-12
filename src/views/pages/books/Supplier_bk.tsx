@@ -110,7 +110,7 @@ const Supplier = () => {
           <CCard className="h-100 border shadow-sm">
             <CCardHeader className="bg-body d-flex align-items-center justify-content-between py-2">
               <div className="d-flex align-items-center gap-2 fw-semibold text-body">
-                <CIcon icon={cilTruck} size='lg' style={{ color: "#193CB8" }} />
+                <CIcon icon={cilTruck} style={{ color: "#193CB8" }} />
                 <span>Catálogo de Proveedores</span>
               </div>
               <div className="d-flex align-items-center gap-2">
@@ -239,31 +239,6 @@ const Supplier = () => {
                 <CIcon icon={cilInfo} className="text-primary" />
                 <span>Detalle del Proveedor</span>
               </div>
-              <div className="d-flex align-items-center gap-1">
-                <CButton
-                  color="secondary"
-                  variant="ghost"
-                  size="sm"
-                  disabled={loadingProveedor}
-                  className="p-1 text-muted"
-                  onClick={() => handleRecargar()}
-                  title="Refrescar y limpiar selección"
-                >
-                  <CIcon icon={cilSync} className={loadingProveedor ? 'rotate-animation' : ''} />
-                </CButton>
-                {proveedorSeleccionado && (
-                  <CButton
-                    color="secondary"
-                    variant="ghost"
-                    size="sm"
-                    className="p-1 text-muted"
-                    onClick={() => setProveedorSeleccionado(null)}
-                    title="Cerrar detalle"
-                  >
-                    <CIcon icon={cilX} />
-                  </CButton>
-                )}
-              </div>
             </CCardHeader>
 
             <CCardBody className="p-4 d-flex flex-column justify-content-between">
@@ -310,29 +285,37 @@ const Supplier = () => {
                     </div>
                   </div>
 
-                  <div className="d-flex gap-2 justify-content-end">
-                    {canEliminarProveedor && (
-                      <CButton
-                        color='danger'
-                        variant='outline'
-                        size="sm"
-                        className='hover:text-white d-flex align-items-center gap-2 shadow-sm'
-                        onClick={() => handleEliminarProveedor(proveedorSeleccionado)}>
-                        <CIcon icon={cilTrash} />
-                        <span>Eliminar</span>
-                      </CButton>
-                    )}
-                    {canEditarProveedor && (
-                      <CButton
-                        color="success"
-                        variant='outline'
-                        size="sm"
-                        className="hover:text-white d-flex align-items-center gap-2 shadow-sm"
-                        onClick={() => handleOpen(proveedorSeleccionado)}
-                      >
-                        <CIcon icon={cilPencil} />
-                        <span>Editar Proveedor</span>
-                      </CButton>
+                  <div className="d-flex flex-wrap gap-2 justify-content-end align-items-center mt-3 pt-2 border-top">
+                    {canEliminarProveedor || canEditarProveedor ? (
+                      <>
+                        {canEliminarProveedor && (
+                          <CButton
+                            color='danger'
+                            variant='outline'
+                            size="sm"
+                            className='hover:text-white d-flex align-items-center gap-2 shadow-sm'
+                            onClick={() => handleEliminarProveedor(proveedorSeleccionado)}>
+                            <CIcon icon={cilTrash} />
+                            <span>Eliminar</span>
+                          </CButton>
+                        )}
+                        {canEditarProveedor && (
+                          <CButton
+                            color="success"
+                            variant='outline'
+                            size="sm"
+                            className="hover:text-white d-flex align-items-center gap-2 shadow-sm"
+                            onClick={() => handleOpen(proveedorSeleccionado)}
+                          >
+                            <CIcon icon={cilPencil} />
+                            <span>Editar Proveedor</span>
+                          </CButton>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-danger small fw-semibold py-1">
+                        No tienes acceso a las acciones de proveedores.
+                      </span>
                     )}
                   </div>
                 </div>

@@ -9,6 +9,7 @@ import {
   cilCloudDownload,
   cilFilter,
   cilLockLocked,
+  cilStorage
 } from '@coreui/icons'
 import LibBajaModal from '@/components/reportesModals/Inventario/LibBaja'
 import LibCategoriaModal from '@/components/reportesModals/Inventario/LibCategoria'
@@ -119,9 +120,12 @@ const RP_inv: React.FC = () => {
       {/* Encabezado del Módulo */}
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-4">
         <div>
-          <h3 className="fw-bold mb-1 text-body">Reportes de Inventario</h3>
+          <h3 className="fw-bold mb-1 text-body d-flex align-items-center gap-2">
+            <CIcon icon={cilStorage} size="lg" style={{ color: '#12358dff' }} />
+             <span>Reportes de Inventario</span> 
+          </h3>
           <p className="text-body-secondary mb-0 small">
-            Consulta y genera informes detallados sobre las existencias, clasificación y estado de los libros.
+            Gestión de los libros del sistema.
           </p>
         </div>
       </div>

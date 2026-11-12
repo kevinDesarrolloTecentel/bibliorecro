@@ -54,6 +54,7 @@ const Modal_Register = (props: ModalRegisterProps) => {
         previewFoto,
         handleFotoChange,
         canGuardar,
+        datePickerKey,
     } = usePersonaRegister(props)
 
     return (
@@ -135,6 +136,7 @@ const Modal_Register = (props: ModalRegisterProps) => {
                     <CCol xs={12} sm={6} md={4}>
                         <label className="form-label small fw-semibold text-muted">Fecha de Nacimiento <span className="text-danger">*</span></label>
                         <CDatePicker
+                            key={datePickerKey}
                             locale="es-ES"
                             inputReadOnly
                             placeholder="Seleccione fecha"
@@ -158,11 +160,12 @@ const Modal_Register = (props: ModalRegisterProps) => {
                             <CFormInput
                                 type="text"
                                 name="NOMBRE_PERSONA"
-                                placeholder="Ej: Juan Carlos"
+                                placeholder="Ej: JUAN CARLOS"
                                 value={formData.NOMBRE_PERSONA || ''}
                                 onChange={handleChange}
                                 onBlur={() => handleBlur('NOMBRE_PERSONA')}
                                 invalid={!!errors.NOMBRE_PERSONA}
+                                style={{ textTransform: 'uppercase' }}
                             />
                         </CInputGroup>
                         {errors.NOMBRE_PERSONA && (
@@ -179,11 +182,12 @@ const Modal_Register = (props: ModalRegisterProps) => {
                             <CFormInput
                                 type="text"
                                 name="APELLIDO_PERSONA"
-                                placeholder="Ej: Pérez Gómez"
+                                placeholder="Ej: PÉREZ GÓMEZ"
                                 value={formData.APELLIDO_PERSONA || ''}
                                 onChange={handleChange}
                                 onBlur={() => handleBlur('APELLIDO_PERSONA')}
                                 invalid={!!errors.APELLIDO_PERSONA}
+                                style={{ textTransform: 'uppercase' }}
                             />
                         </CInputGroup>
                         {errors.APELLIDO_PERSONA && (
@@ -278,7 +282,7 @@ const Modal_Register = (props: ModalRegisterProps) => {
                             <CFormInput
                                 type="file"
                                 name="FOTO_PERSONA"
-                                accept="image/*"
+                                accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
                                 onChange={handleFotoChange}
                                 invalid={!!errors.FOTO_PERSONA}
                             />

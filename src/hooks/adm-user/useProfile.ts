@@ -46,7 +46,8 @@ export const useProfile = () => {
   const canMostrarBotonEditar = canDoAction('btn_mostrar_boton_editar')
   const canEditarPerfil = canDoAction('btn_editar_perfil')
   const canGuardarPerfil = canDoAction('btn_guardar_perfil')
-
+  const canVermisPermisos = canDoAction('btn_ver_permisos')
+  const canVermisRoles = canDoAction('btn_ver_roles')
   const [loading, setLoading] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [profileData, setProfileData] = useState<any>(null)
@@ -89,8 +90,8 @@ export const useProfile = () => {
 
     const current = profileData || activeUser
     setFormData({
-      usuario: current?.NICK_USUARIO || current?.Usuario || current?.usuario || '',
-      nombres: current?.NOMBRES_USUARIO || current?.NOMBRE_USUARIO || current?.Nombres || current?.nombres || '',
+      usuario: current?.NICK_USUARIO || '',
+      nombres: current?.NOMBRES_USUARIO || '',
       password: '',
     })
     setShowPassword(false)
@@ -133,7 +134,7 @@ export const useProfile = () => {
     }
 
     const current = profileData || activeUser
-    const userId = current?.ID_USUARIO ?? current?.id
+    const userId = current?.ID_USUARIO
 
     if (!userId) {
       Swal.fire({
@@ -152,7 +153,7 @@ export const useProfile = () => {
         NOMBRES_USUARIO: formData.nombres.trim(),
       }
 
-      let passToSave = current?.PASSWORD_USUARIO || current?.password
+      let passToSave = current?.PASSWORD_USUARIO
       if (
         formData.password &&
         formData.password.trim() !== '' &&
@@ -160,7 +161,6 @@ export const useProfile = () => {
         !isBcryptHash(formData.password)
       ) {
         payload.PASSWORD_USUARIO = formData.password.trim()
-        payload.password = formData.password.trim()
         passToSave = formData.password.trim()
       }
 
@@ -170,7 +170,6 @@ export const useProfile = () => {
         ...current,
         NOMBRES_USUARIO: formData.nombres.trim(),
         PASSWORD_USUARIO: passToSave,
-        password: passToSave,
         token: current?.token,
       }
 
@@ -203,7 +202,7 @@ export const useProfile = () => {
   }
 
   // Normalización del estado para la tabla
-  const rawEstado = currentUser?.ESTADO_USUARIO ?? currentUser?.estado ?? currentUser?.NOMBRE_ESTADO ?? currentUser?.Estado
+  const rawEstado = currentUser?.ESTADO_USUARIO ?? currentUser?.estado
   const estadoNormalizado: 'Activo' | 'Inactivo' =
     String(rawEstado).toLowerCase() === '1' || String(rawEstado).toLowerCase() === 'activo'
       ? 'Activo'
@@ -213,10 +212,10 @@ export const useProfile = () => {
   const items: ProfileTableItem[] = currentUser
     ? [
       {
-        id: currentUser.ID_USUARIO || currentUser.id || 1,
-        Usuario: currentUser.NICK_USUARIO || currentUser.Usuario || currentUser.usuario || '',
-        Nombres: currentUser.NOMBRES_USUARIO || currentUser.NOMBRE_USUARIO || currentUser.Nombres || currentUser.nombres || 'No disponible',
-        fecha_registro: currentUser.FECHA_REGISTRO || currentUser.fecha_registro || '',
+        id: currentUser.ID_USUARIO,
+        Usuario: currentUser.NICK_USUARIO,
+        Nombres: currentUser.NOMBRES_USUARIO,
+        fecha_registro: currentUser.FECHA_REGISTRO,
         Estado: estadoNormalizado,
         raw: currentUser,
       },
@@ -243,10 +242,11 @@ export const useProfile = () => {
     fetchProfile,
     handleOpenEditModal,
     handleGuardar,
-    getStoredUser,
     canMostrarBotonEditar,
     canEditarPerfil,
     canGuardarPerfil,
+    canVermisPermisos,
+    canVermisRoles
   }
 }
 

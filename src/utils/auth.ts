@@ -8,6 +8,7 @@ import {
   decryptData,
   saveAuthCookie,
   getAuthCookie,
+  getRawAuthCookie,
   removeAuthCookie,
   saveUserStorage,
   getUserStorage,
@@ -22,6 +23,7 @@ export {
   decryptData,
   saveAuthCookie,
   getAuthCookie,
+  getRawAuthCookie,
   removeAuthCookie,
   saveUserStorage,
   getUserStorage,
@@ -55,7 +57,12 @@ export const encodeJWT = (payload: unknown, secret: string = ENCRYPTION_KEY): st
 
 export const decodeJWT = <T = unknown>(token: string): T | null => {
   try {
-    const parts = token.split('.')
+    let cleanToken = token
+    if (cleanToken && cleanToken.startsWith('U2FsdGVkX1')) {
+      const decrypted = decryptData(cleanToken, ENCRYPTION_KEY)
+      if (decrypted) cleanToken = decrypted
+    }
+    const parts = cleanToken.split('.')
     if (parts.length < 2) return null
     const base64Url = parts[1]
     const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')

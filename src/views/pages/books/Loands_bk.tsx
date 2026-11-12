@@ -9,6 +9,7 @@ import {
   cilReportSlash,
   cilSync,
   cilUser,
+  cilTransfer
 } from '@coreui/icons'
 import CIcon from '@coreui/icons-react'
 import {
@@ -24,6 +25,7 @@ import {
   CSmartPagination,
   CSmartTable,
   CSpinner,
+
 } from '@coreui/react-pro'
 import Swal from 'sweetalert2'
 import usePrestamos from '@/hooks/rco-prestamos/usePrestamos'
@@ -187,7 +189,10 @@ const Loands: React.FC = () => {
       {/* Encabezado estándar unificado */}
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
         <div>
-          <h3 className="fw-bold mb-1">Préstamos y Devoluciones</h3>
+          <h3 className="fw-bold mb-1 text-body d-flex align-items-center gap-2">
+            <CIcon icon={cilTransfer} size="lg" style={{ color: '#2e59e5ff' }} />
+            <span>  Préstamos y Devoluciones</span>
+          </h3>
           <p className="text-body-secondary mb-0">
             Visualiza y gestiona los préstamos activos y procesa las devoluciones de libros.
           </p>
@@ -246,7 +251,8 @@ const Loands: React.FC = () => {
 
       <CCard className="shadow-sm border-0">
         <CCardHeader className="bg-transparent py-3 d-flex justify-content-between align-items-center">
-          <span className="fw-semibold text-uppercase small">
+          <span className="fw-semibold text-uppercase small d-inline-flex align-items-center gap-2">
+            <CIcon icon={cilTransfer} style={{ color: '#2e59e5ff' }} />
             Listado de Préstamos y Devoluciones
           </span>
           <span className="text-body-secondary small">
@@ -374,7 +380,7 @@ const Loands: React.FC = () => {
                             <CCol xs={12} sm={6} lg={4}>
                               <CCard className="h-100 shadow-sm border-0 bg-body">
                                 <CCardBody className="p-2">
-                                   <span className="text-muted small d-block mb-1">
+                                  <span className="text-muted small d-block mb-1">
                                     <CIcon icon={cilContact} className="me-1 text-body" />
                                     Identificación
                                   </span>
@@ -461,77 +467,84 @@ const Loands: React.FC = () => {
                             )}
                           </CRow>
 
-                          <div className="d-flex flex-wrap gap-2 justify-content-end mt-3 pt-2 border-top">
-                            {/* Extender fecha de préstamo */}
-                            {canExtenderPrestamo && !esDevuelto && (
-                              <CButton
-                                color={yaExtendido ? 'secondary' : 'primary'}
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleExtenderPrestamo(item)}
-                                title={
-                                  yaExtendido
-                                    ? 'El préstamo ya fue extendido previamente y no permite más extensiones'
-                                    : 'Extender fecha de entrega'
-                                }
-                                className="d-flex align-items-center gap-1 shadow-sm px-3"
-                                disabled={procesando || yaExtendido}
-                              >
-                                <CIcon icon={cilCalendar} size="sm" />
-                                <span>Extender</span>
-                              </CButton>
-                            )}
-
-                            {/* Registrar Devolución */}
-                            {canRegistrarDevolucion && !esDevuelto && (
-                              <CButton
-                                color="success"
-                                variant="outline"
-                                size="sm"
-                                className="d-flex align-items-center gap-1 shadow-sm px-3"
-                                disabled={procesando}
-                                onClick={() => handleDevolver(item)}
-                                title="Registrar devolución normal del libro"
-                              >
-                                {procesando ? (
-                                  <CSpinner size="sm" />
-                                ) : (
-                                  <CIcon icon={cilCheck} size="sm" />
+                          <div className="d-flex flex-wrap gap-2 justify-content-end align-items-center mt-3 pt-2 border-top">
+                            {canExtenderPrestamo || canRegistrarDevolucion || canDevolverSancion || canNoDevuelto ? (
+                              <>
+                                {canExtenderPrestamo && !esDevuelto && (
+                                  <CButton
+                                    color={yaExtendido ? 'secondary' : 'primary'}
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleExtenderPrestamo(item)}
+                                    title={
+                                      yaExtendido
+                                        ? 'El préstamo ya fue extendido previamente y no permite más extensiones'
+                                        : 'Extender fecha de entrega'
+                                    }
+                                    className="d-flex align-items-center gap-1 shadow-sm px-3"
+                                    disabled={procesando || yaExtendido}
+                                  >
+                                    <CIcon icon={cilCalendar} size="sm" />
+                                    <span>Extender</span>
+                                  </CButton>
                                 )}
-                                <span>Registrar Devolución</span>
-                              </CButton>
-                            )}
 
-                            {/* Devolver con Sanción */}
-                            {canDevolverSancion && !esDevuelto && (
-                              <CButton
-                                color="warning"
-                                variant="outline"
-                                size="sm"
-                                className="d-flex align-items-center gap-1 shadow-sm px-3"
-                                disabled={procesando}
-                                onClick={() => handleAbrirSancion(item)}
-                                title="Registrar devolución aplicando sanción"
-                              >
-                                <CIcon icon={cilReportSlash} size="sm" />
-                                <span>Devolver con Sanción</span>
-                              </CButton>
-                            )}
+                                {/* Registrar Devolución */}
+                                {canRegistrarDevolucion && !esDevuelto && (
+                                  <CButton
+                                    color="success"
+                                    variant="outline"
+                                    size="sm"
+                                    className="d-flex align-items-center gap-1 shadow-sm px-3"
+                                    disabled={procesando}
+                                    onClick={() => handleDevolver(item)}
+                                    title="Registrar devolución normal del libro"
+                                  >
+                                    {procesando ? (
+                                      <CSpinner size="sm" />
+                                    ) : (
+                                      <CIcon icon={cilCheck} size="sm" />
+                                    )}
+                                    <span>Registrar Devolución</span>
+                                  </CButton>
+                                )}
 
-                            {/* No Devuelto */}
-                            {canNoDevuelto && !esDevuelto && (
-                              <CButton
-                                color="danger"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleAbrirNoDevuelto(item)}
-                                title="Marcar como no devuelto / dar de baja ejemplar"
-                                className="d-flex align-items-center gap-1 shadow-sm px-3"
-                                disabled={procesando || item.status === 'No Devuelto' || item.status === '2'}
-                              >
-                                <CIcon icon={cilReportSlash} size="sm" />
-                                <span>No Devuelto</span>
-                              </CButton>
+                                {/* Devolver con Sanción */}
+                                {canDevolverSancion && !esDevuelto && (
+                                  <CButton
+                                    color="warning"
+                                    variant="outline"
+                                    size="sm"
+                                    className="d-flex align-items-center gap-1 shadow-sm px-3"
+                                    disabled={procesando}
+                                    onClick={() => handleAbrirSancion(item)}
+                                    title="Registrar devolución aplicando sanción"
+                                  >
+                                    <CIcon icon={cilReportSlash} size="sm" />
+                                    <span>Devolver con Sanción</span>
+                                  </CButton>
+                                )}
+
+                                {/* No Devuelto */}
+                                {canNoDevuelto && !esDevuelto && (
+                                  <CButton
+                                    color="danger"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleAbrirNoDevuelto(item)}
+                                    title="Marcar como no devuelto / dar de baja ejemplar"
+                                    className="d-flex align-items-center gap-1 shadow-sm px-3"
+                                    disabled={procesando || item.status === 'No Devuelto' || item.status === '2'}
+                                  >
+                                    <CIcon icon={cilReportSlash} size="sm" />
+                                    <span>No Devuelto</span>
+                                  </CButton>
+                                )}
+                              </>
+                            ) : (
+                              <span className="text-danger small fw-semibold py-1">
+                                No tienes acceso a las acciones de préstamos.                              
+                                </span>
                             )}
                           </div>
                         </CCol>

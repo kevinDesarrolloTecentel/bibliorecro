@@ -12,8 +12,10 @@ import {
   CFormSwitch,
 } from '@coreui/react-pro'
 import CIcon from '@coreui/icons-react'
-import {  cilCheckCircle, cilLockLocked } from '@coreui/icons'
+import { cilCheckCircle, cilLockLocked, cilInfo } from '@coreui/icons'
 import { Accion, Pantalla } from '@/models/adm/permiso.model'
+import { useDetalleAcciones } from '@/hooks/admin-roles/useDetalleAcciones'
+import { ModalDetalleAccion } from './ModalDetalleAccion'
 
 interface ModalAccionesPantallaProps {
   visible: boolean
@@ -44,6 +46,14 @@ export const ModalAccionesPantalla: React.FC<ModalAccionesPantallaProps> = ({
 }) => {
   const [selectedRolId, setSelectedRolId] = useState<number | null>(null)
 
+  // Hook centralizado para detalles y descripciones de acciones
+  const {
+    accionSeleccionada,
+    modalDetalleOpen,
+    verDetalleAccion,
+    cerrarDetalleAccion,
+  } = useDetalleAcciones()
+
   // Seleccionar automáticamente el primer rol disponible si no hay uno seleccionado
   useEffect(() => {
     if (roles && roles.length > 0) {
@@ -68,15 +78,26 @@ export const ModalAccionesPantalla: React.FC<ModalAccionesPantallaProps> = ({
   // Filtrar acciones que pertenecen a la pantalla seleccionada
   const accionesPantalla = useMemo(() => {
     if (!pantalla) return []
-    return allAcciones.filter(
+    const filtradas = allAcciones.filter(
       (a: any) => Number(a.ID_PERMISO) === Number(pantalla.ID_PERMISO),
     )
+    const base = filtradas.length > 0 ? filtradas : (pantalla.ACCIONES || [])
+    return base.map((acc) => {
+      const dePantalla = (pantalla.ACCIONES || []).find(
+        (pa) => Number(pa.ID_ACCION ?? (pa as any).id) === Number(acc.ID_ACCION ?? (acc as any).id),
+      )
+      return {
+        ...acc,
+        DESCRIPCION_ACCION: acc.DESCRIPCION_ACCION || dePantalla?.DESCRIPCION_ACCION || '',
+      }
+    })
   }, [allAcciones, pantalla])
 
   if (!pantalla) return null
 
   return (
-    <CModal visible={visible} onClose={onClose} size="lg" alignment="center">
+    <>
+      <CModal visible={visible} onClose={onClose} size="lg" alignment="center">
       <CModalHeader className="border-bottom py-3 px-4 bg-body-tertiary">
         <CModalTitle className="d-flex align-items-center gap-2 text-body fs-5 w-100">
           <motion.div
@@ -87,7 +108,9 @@ export const ModalAccionesPantalla: React.FC<ModalAccionesPantallaProps> = ({
           >
 
             <div>
-              <span className="fw-bold d-block text-body">{pantalla.NOMBRE_PERMISO}</span>
+              <span className="fw-bold d-block text-body">
+                {pantalla.NOMBRE_PERMISO}
+              </span>
               <div className="d-flex align-items-center gap-2 mt-1">
                 <CBadge color="primary" className="font-monospace px-2 py-0.5" style={{ fontSize: '0.75rem' }}>
                   {pantalla.PATH_PERMISO}
@@ -120,31 +143,28 @@ export const ModalAccionesPantalla: React.FC<ModalAccionesPantallaProps> = ({
                   type="button"
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
-                  className={`btn d-flex align-items-center gap-2 px-3 py-2 rounded-3 transition-all ${
-                    isSelected
+                  className={`btn d-flex align-items-center gap-2 px-3 py-2 rounded-3 transition-all ${isSelected
                       ? 'btn-primary text-white shadow-sm'
                       : 'btn-outline-secondary bg-body text-body'
-                  }`}
+                    }`}
                   style={{
-                    fontSize: '0.88rem',
+                    fontSize: '0.sm',
                     fontWeight: isSelected ? 600 : 500,
                   }}
                   onClick={() => setSelectedRolId(rId)}
                 >
                   <span>{rNombre}</span>
                   <span
-                    className={`badge rounded-pill ${
-                      isSelected ? 'bg-white text-primary' : 'bg-body-secondary text-body-secondary border'
-                    }`}
+                    className={`badge rounded-pill ${isSelected ? 'bg-white text-primary' : 'bg-body-secondary text-body-secondary border'
+                      }`}
                     style={{ fontSize: '0.7rem' }}
                   >
                     Nivel {rNivel}
                   </span>
                   {accionesPantalla.length > 0 && (
                     <span
-                      className={`badge rounded-pill ms-1 ${
-                        isSelected ? 'bg-info text-white' : 'bg-secondary text-white'
-                      }`}
+                      className={`badge rounded-pill ms-1 ${isSelected ? 'bg-info text-white' : 'bg-secondary text-white'
+                        }`}
                       style={{ fontSize: '0.68rem' }}
                     >
                       {rActiveCount}/{accionesPantalla.length}
@@ -204,26 +224,32 @@ export const ModalAccionesPantalla: React.FC<ModalAccionesPantallaProps> = ({
                         visible: { opacity: 1, y: 0, transition: { duration: 0.25 } },
                       }}
                       whileHover={{ scale: 1.01, boxShadow: '0 6px 16px rgba(0,0,0,0.06)' }}
-                      className={`p-3 rounded-3 border bg-body d-flex align-items-center justify-content-between gap-3 shadow-sm transition-all ${
-                        isActiva ? 'border-primary-subtle' : ''
-                      }`}
+                      className={`p-3 rounded-3 border bg-body d-flex align-items-center justify-content-between gap-3 shadow-sm transition-all ${isActiva ? 'border-primary-subtle' : ''
+                        }`}
                       style={{
                         borderLeft: isActiva ? '4px solid #10b981' : '4px solid #cbd5e1',
                       }}
                     >
-                      <div className="d-flex align-items-center gap-2.5">
+                      <div
+                        className="d-flex align-items-center gap-2.5 flex-grow-1"
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => verDetalleAccion(accion, pantalla, accionesPantalla)}
+                        title="Haz clic para ver la descripción y detalle de esta acción"
+                      >
                         <div
-                          className={`rounded-circle d-flex align-items-center justify-content-center ${
-                            isActiva ? 'text-success bg-success-subtle' : 'text-secondary bg-body-secondary'
-                          }`}
+                          className={`rounded-circle d-flex align-items-center justify-content-center ${isActiva ? 'text-success bg-success-subtle' : 'text-secondary bg-body-secondary'
+                            }`}
                           style={{ width: '32px', height: '32px' }}
                         >
                           <CIcon icon={isActiva ? cilCheckCircle : cilLockLocked} size="sm" />
                         </div>
                         <div>
-                          <span className="fw-semibold text-body fs-6 d-block">
-                            {accion.NOMBRE_ACCION}
-                          </span>
+                          <div className="d-flex align-items-center gap-1.5">
+                            <span className="fw-semibold text-body fs-6 d-block">
+                              {accion.NOMBRE_ACCION}
+                            </span>
+                            <CIcon icon={cilInfo} size="sm" className="text-primary opacity-50" title="Ver descripción" />
+                          </div>
                           <span className="small text-secondary" style={{ fontSize: '0.78rem' }}>
                             {isActiva ? 'Acción habilitada para este rol' : 'Acción restringida'}
                           </span>
@@ -231,7 +257,8 @@ export const ModalAccionesPantalla: React.FC<ModalAccionesPantallaProps> = ({
                       </div>
 
                       <div
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation()
                           if (!canModificarAcciones) {
                             Swal.fire({
                               icon: 'error',
@@ -262,8 +289,8 @@ export const ModalAccionesPantalla: React.FC<ModalAccionesPantallaProps> = ({
                             !canModificarAcciones
                               ? 'Solo lectura: no tienes permiso para modificar acciones'
                               : isActiva
-                              ? `Deshabilitar ${accion.NOMBRE_ACCION}`
-                              : `Habilitar ${accion.NOMBRE_ACCION}`
+                                ? `Deshabilitar ${accion.NOMBRE_ACCION}`
+                                : `Habilitar ${accion.NOMBRE_ACCION}`
                           }
                         />
                       </div>
@@ -282,6 +309,15 @@ export const ModalAccionesPantalla: React.FC<ModalAccionesPantallaProps> = ({
         </CButton>
       </CModalFooter>
     </CModal>
+
+    {/* Modal independiente de Detalle / Descripción de la Acción */}
+    <ModalDetalleAccion
+      visible={modalDetalleOpen}
+      onClose={cerrarDetalleAccion}
+      accion={accionSeleccionada}
+      pantalla={pantalla}
+    />
+  </>
   )
 }
 

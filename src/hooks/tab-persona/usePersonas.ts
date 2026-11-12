@@ -301,8 +301,6 @@ export const deduplicarPersonas = (lista: any[]): any[] => {
         Boolean(item.FECHA_VETO) ||
         item.ESTADO_SANCION === 1 ||
         item.ESTADO_SANCION === '1' ||
-        item.ESTADO_SANCION === 2 ||
-        item.ESTADO_SANCION === '2' ||
         item.ESTADO_PERSONA === 2 ||
         item.ESTADO_PERSONA === '2' ||
         item.TIENE_SANCION === 1 ||
@@ -446,8 +444,6 @@ export const deduplicarPersonas = (lista: any[]): any[] => {
         person.estado_veto === '2' ||
         person.TIENE_VETO_PERMANENTE === 1 ||
         person.TIENE_VETO_PERMANENTE === '1' ||
-        masActual.estado === 2 ||
-        masActual.estado === '2' ||
         masActual.ESTADO_VETO === 2 ||
         masActual.ESTADO_VETO === '2' ||
         masActual.estado_veto === 2 ||
@@ -480,7 +476,11 @@ export const deduplicarPersonas = (lista: any[]): any[] => {
         person.ESTADO_SANCION === 1 ||
         person.ESTADO_SANCION === '1' ||
         person.estado_sancion === 1 ||
-        person.estado_sancion === '1'
+        person.estado_sancion === '1' ||
+        masActual.estado === 1 ||
+        masActual.estado === '1' ||
+        masActual.ESTADO_SANCION === 1 ||
+        masActual.ESTADO_SANCION === '1'
       )) {
         person.TIENE_SANCION = 1
         person.ESTADO_SANCION = 1
@@ -837,6 +837,12 @@ const usePersonas = (autoFetch: boolean = true) => {
 
     setGuardando(true)
     try {
+      if (data instanceof FormData) {
+        const nom = data.get('NOMBRE_PERSONA')
+        if (typeof nom === 'string') data.set('NOMBRE_PERSONA', nom.trim().toUpperCase())
+        const ape = data.get('APELLIDO_PERSONA')
+        if (typeof ape === 'string') data.set('APELLIDO_PERSONA', ape.trim().toUpperCase())
+      }
       await PersonasNueva(data)
       await fetchPersonas(1, porPagina, undefined, true)
       return true
@@ -905,7 +911,12 @@ const usePersonas = (autoFetch: boolean = true) => {
 
     setGuardando(true)
     try {
-      await CrearPersonas(personaData)
+      const payload = {
+        ...personaData,
+        NOMBRE_PERSONA: personaData.NOMBRE_PERSONA ? personaData.NOMBRE_PERSONA.trim().toUpperCase() : '',
+        APELLIDO_PERSONA: personaData.APELLIDO_PERSONA ? personaData.APELLIDO_PERSONA.trim().toUpperCase() : '',
+      }
+      await CrearPersonas(payload)
       await fetchPersonas(1, porPagina, undefined, true)
       return true
     } catch (error: any) {
@@ -957,9 +968,18 @@ const usePersonas = (autoFetch: boolean = true) => {
     setGuardando(true)
     try {
       if (personaData instanceof FormData) {
+        const nom = personaData.get('NOMBRE_PERSONA')
+        if (typeof nom === 'string') personaData.set('NOMBRE_PERSONA', nom.trim().toUpperCase())
+        const ape = personaData.get('APELLIDO_PERSONA')
+        if (typeof ape === 'string') personaData.set('APELLIDO_PERSONA', ape.trim().toUpperCase())
         await ActualizarPersonaNueva(id, personaData)
       } else {
-        await ActualizarPersonaNueva(id, personaData)
+        const payload = {
+          ...personaData,
+          NOMBRE_PERSONA: personaData.NOMBRE_PERSONA ? String(personaData.NOMBRE_PERSONA).trim().toUpperCase() : '',
+          APELLIDO_PERSONA: personaData.APELLIDO_PERSONA ? String(personaData.APELLIDO_PERSONA).trim().toUpperCase() : '',
+        }
+        await ActualizarPersonaNueva(id, payload)
       }
       await fetchPersonas(paginaActual, porPagina)
       return true

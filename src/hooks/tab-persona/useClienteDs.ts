@@ -124,20 +124,35 @@ export const mapearPersona = (item: any, index: number): ClienteItem => {
 
   const historial_sanciones = sanitizarHistorialSanciones(rawListSanciones)
 
-  // Comprobar si el usuario tiene alguna sanción activa o veto de por vida:
+  // Comprobar si el usuario tiene realmente un veto de por vida registrado:
+  const vetoObj =
+    (Array.isArray(item.vetos) && item.vetos.find((v: any) => v.ESTADO_VETO === 2 || v.ESTADO_VETO === '2' || v.estado_veto === 2 || v.estado_veto === '2')) ||
+    (Array.isArray(item.raw?.vetos) && item.raw.vetos.find((v: any) => v.ESTADO_VETO === 2 || v.ESTADO_VETO === '2' || v.estado_veto === 2 || v.estado_veto === '2')) ||
+    null
+
   const esVetado = Boolean(
-    (Array.isArray(item.vetos) && item.vetos.some((v: any) => v.ESTADO_VETO === 2 || v.ESTADO_VETO === '2' || v.estado_veto === 2 || v.estado_veto === '2')) ||
-    (Array.isArray(item.raw?.vetos) && item.raw.vetos.some((v: any) => v.ESTADO_VETO === 2 || v.ESTADO_VETO === '2' || v.estado_veto === 2 || v.estado_veto === '2')) ||
+    vetoObj ||
     item.ESTADO_VETO === 2 ||
     item.ESTADO_VETO === '2' ||
     item.estado_veto === 2 ||
     item.estado_veto === '2' ||
     item.TIENE_VETO_PERMANENTE === 1 ||
     item.TIENE_VETO_PERMANENTE === '1' ||
+    item.esVetado ||
     item.es_vetado ||
-    (Array.isArray(historial_sanciones) && historial_sanciones.some((s: any) => s.estado === 2 || s.estado === '2' || s.fin === 'Indefinido'))
+    item.esDePorVida ||
+    item.vetado === 'Sí' ||
+    item.status === 'Vetado' ||
+    (Array.isArray(historial_sanciones) &&
+      historial_sanciones.some(
+        (s: any) =>
+          s.estado === 2 ||
+          s.estado === '2' ||
+          s.ESTADO_VETO === 2 ||
+          s.ESTADO_VETO === '2' ||
+          s.fin === 'Indefinido'
+      ))
   )
-
 
   const esSinSancionExplicito = Boolean(
     item.sancion === 0 ||
@@ -158,7 +173,13 @@ export const mapearPersona = (item: any, index: number): ClienteItem => {
     item.ESTADO_SANCION === 1 ||
     item.ESTADO_SANCION === '1' ||
     item.estado_sancion === 1 ||
-    item.estado_sancion === '1'
+    item.estado_sancion === '1' ||
+    (Array.isArray(historial_sanciones) &&
+      historial_sanciones.some((s: any) => s.estado === 1 || s.estado === '1' || s.ESTADO_SANCION === 1 || s.ESTADO_SANCION === '1')) ||
+    (Array.isArray(item.sanciones) &&
+      item.sanciones.some((s: any) => s.estado === 1 || s.estado === '1' || s.ESTADO_SANCION === 1 || s.ESTADO_SANCION === '1')) ||
+    (Array.isArray(item.raw?.sanciones) &&
+      item.raw.sanciones.some((s: any) => s.estado === 1 || s.estado === '1' || s.ESTADO_SANCION === 1 || s.ESTADO_SANCION === '1'))
   )
 
   const tieneSancion = !esSinSancionExplicito && esConSancionExplicito
@@ -304,7 +325,7 @@ export const parseDateToTimestamp = (val: any): number => {
     const day = parseInt(dmy[1], 10)
     const month = parseInt(dmy[2], 10) - 1
     const year = parseInt(dmy[3], 10)
-    if (year > 1970) {
+    if (year > 1900) {
       const d = new Date(year, month, day)
       if (!isNaN(d.getTime())) return d.getTime()
     }
@@ -315,7 +336,7 @@ export const parseDateToTimestamp = (val: any): number => {
     const year = parseInt(ymd[1], 10)
     const month = parseInt(ymd[2], 10) - 1
     const day = parseInt(ymd[3], 10)
-    if (year > 1970) {
+    if (year > 1900) {
       const d = new Date(year, month, day)
       if (!isNaN(d.getTime())) return d.getTime()
     }

@@ -10,7 +10,7 @@ import {
   CSpinner,
 } from '@coreui/react-pro'
 import CIcon from '@coreui/icons-react'
-import { cilPlus, cilSync } from '@coreui/icons'
+import { cilPlus, cilSync, cilPeople } from '@coreui/icons'
 
 import ModalEdit from '@/components/users/ModalEdit'
 import Newuser from '@/components/users/ModalNew_user'
@@ -72,7 +72,10 @@ export const User = () => {
       {/* Encabezado del módulo unificado */}
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
         <div>
-          <h3 className="fw-bold mb-1">Usuarios del Sistema</h3>
+          <h3 className="fw-bold mb-1 text-body d-flex align-items-center gap-2">
+            <CIcon icon={cilPeople} size="lg" style={{ color: '#4731d3ff' }} />
+            <span>Usuarios del Sistema</span>
+          </h3>
           <p className="text-body-secondary mb-0">
             Administración de cuentas y asignación de roles por usuario.
           </p>
@@ -110,8 +113,9 @@ export const User = () => {
 
       <CCard className="shadow-sm border-0 mb-4">
         <CCardHeader className="bg-transparent py-3 d-flex justify-content-between align-items-center">
-          <span className="fw-semibold text-uppercase small">
-            Matriz de Usuarios y Roles
+          <span className="fw-semibold text-uppercase small d-inline-flex align-items-center gap-2">
+            <CIcon icon={cilPeople} style={{ color: '#4731d3ff' }} />
+            <span>Matriz de Usuarios y Roles</span>
           </span>
           <span className="text-body-secondary small">
             Total usuarios registrados: <strong>{matriz.usuarios.length}</strong>
@@ -259,13 +263,6 @@ export const User = () => {
                                 {nombres}
                               </span>
                             )}
-
-                            {isSavingThisUser && (
-                              <div className="text-primary small d-flex align-items-center gap-1 mt-1">
-                                <CSpinner size="sm" style={{ width: '0.85rem', height: '0.85rem' }} />
-                                <span>Guardando roles...</span>
-                              </div>
-                            )}
                           </div>
                         </td>
 
@@ -274,6 +271,7 @@ export const User = () => {
                           const rolId = Number(rol.ID_ROL ?? rol.id)
                           const isChecked = matriz.isRolAsignado(usuarioId, rolId)
                           const nombreRol = String(rol.NOMBRE_ROL ?? rol.nombre ?? `Rol ${rolId}`)
+                          const isCellDisabled = !matriz.canCheckboxRoles || isSavingThisUser || !isActivo
 
                           return (
                             <td
@@ -282,7 +280,10 @@ export const User = () => {
                               style={{
                                 borderRight: '1px solid var(--cui-border-color-translucent)',
                                 borderBottom: '1px solid var(--cui-border-color)',
-                                backgroundColor: isChecked ? 'rgba(99, 102, 241, 0.12)' : undefined,
+                                backgroundColor: isChecked
+                                  ? (isActivo ? 'rgba(99, 102, 241, 0.12)' : 'rgba(108, 117, 125, 0.08)')
+                                  : undefined,
+                                opacity: !isActivo ? 0.65 : 1,
                                 transition: 'background-color 0.15s ease',
                               }}
                             >
@@ -290,19 +291,21 @@ export const User = () => {
                                 <CFormCheck
                                   id={`user-role-${usuarioId}-${rolId}`}
                                   checked={isChecked}
-                                  disabled={!matriz.canCheckboxRoles || isSavingThisUser}
+                                  disabled={isCellDisabled}
                                   onChange={() => {
-                                    if (matriz.canCheckboxRoles) {
+                                    if (matriz.canCheckboxRoles && isActivo) {
                                       matriz.handleConfirmarCambioRol(usuario, rol)
                                     }
                                   }}
                                   title={
-                                    !matriz.canCheckboxRoles
-                                      ? 'No tienes permiso para modificar la asignación de roles'
-                                      : `${isChecked ? 'Quitar' : 'Asignar'} rol "${nombreRol}" a ${nick}`
+                                    !isActivo
+                                      ? `No se pueden asignar ni quitar roles porque el usuario "${nick}" está inactivo.`
+                                      : !matriz.canCheckboxRoles
+                                        ? 'No tienes permiso para modificar la asignación de roles'
+                                        : `${isChecked ? 'Quitar' : 'Asignar'} rol "${nombreRol}" a ${nick}`
                                   }
                                   style={{
-                                    cursor: !matriz.canCheckboxRoles
+                                    cursor: isCellDisabled
                                       ? 'not-allowed'
                                       : isSavingThisUser
                                         ? 'wait'

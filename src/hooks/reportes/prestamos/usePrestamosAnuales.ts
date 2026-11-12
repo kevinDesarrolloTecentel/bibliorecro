@@ -59,16 +59,12 @@ export const useReportePrestamosAnuales = () => {
       return
     }
 
-    setHaBuscado(true)
     setPrestamos([])
     setExcelLink(null)
 
     try {
       const params = {
         fechaMes: fechaAno,
-        fechaAno,
-        anio: fechaAno,
-        year: fechaAno,
       }
       const data = await Anio(params)
       const rawList = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
@@ -77,7 +73,9 @@ export const useReportePrestamosAnuales = () => {
       )
 
       setPrestamos(filtrados)
-      setExcelLink(data?.excel_path || null)
+      const rutaExcel: string | null = data?.excel?.nombre || data?.excel_path || null
+      setExcelLink(rutaExcel)      
+      setHaBuscado(true)
 
       if (filtrados.length === 0) {
         Swal.fire({
@@ -89,6 +87,7 @@ export const useReportePrestamosAnuales = () => {
         })
       }
     } catch (error: any) {
+      setHaBuscado(true)
       console.error('Error al obtener préstamos anuales', error)
       setPrestamos([])
       setExcelLink(null)
@@ -108,7 +107,7 @@ export const useReportePrestamosAnuales = () => {
         Swal.fire({
           icon: 'info',
           title: 'Sin préstamos encontrados',
-          text:  `No se encontraron préstamos para el año ${fechaAno}.`,
+          text: `No se encontraron préstamos para el año ${fechaAno}.`,
           confirmButtonColor: '#044c8c',
           confirmButtonText: 'Entendido',
         })
@@ -151,7 +150,7 @@ export const useReportePrestamosAnuales = () => {
     }
 
     if (excelLink) {
-      await descargarArchivo(`${STORAGE_BASE_URL}/${excelLink}`)
+      await descargarArchivo(`${STORAGE_BASE_URL}/prestamos/${excelLink}`)
     }
   }, [canDescargarPrestamosAnuales, excelLink, verificarAccionEnServidor])
 

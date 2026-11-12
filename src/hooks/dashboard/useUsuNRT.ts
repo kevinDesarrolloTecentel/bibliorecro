@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import Swal from 'sweetalert2'
 import { UsuarioItem, DashboardUsuarioItem } from '@/models/dashboard/dashboard.model'
+import { generarExcelEstilizado } from '@/utils/dashboardExcel'
 
 export type { UsuarioItem, DashboardUsuarioItem }
 
@@ -9,8 +10,8 @@ export const normalizeUsuario = (u: any, tipoDefault: 'Nuevo' | 'Renovación' = 
   const renovaciones = Array.isArray(u?.RENOVACIONES)
     ? u.RENOVACIONES
     : Array.isArray(u?.renovaciones)
-    ? u.renovaciones
-    : []
+      ? u.renovaciones
+      : []
   const primeraRenovacion = renovaciones[0] || {}
 
   const cedula = String(
@@ -134,26 +135,26 @@ export const useUsuNRT = () => {
       rawNuevos = Array.isArray(sourceObj?.usuarios_nuevos)
         ? sourceObj.usuarios_nuevos
         : Array.isArray(sourceObj?.data?.usuarios_nuevos)
-        ? sourceObj.data.usuarios_nuevos
-        : Array.isArray(sourceObj?.nuevos)
-        ? sourceObj.nuevos
-        : []
+          ? sourceObj.data.usuarios_nuevos
+          : Array.isArray(sourceObj?.nuevos)
+            ? sourceObj.nuevos
+            : []
       rawRenov = Array.isArray(sourceObj?.usuarios_renovaciones)
         ? sourceObj.usuarios_renovaciones
         : Array.isArray(sourceObj?.data?.usuarios_renovaciones)
-        ? sourceObj.data.usuarios_renovaciones
-        : Array.isArray(sourceObj?.renovaciones)
-        ? sourceObj.renovaciones
-        : []
+          ? sourceObj.data.usuarios_renovaciones
+          : Array.isArray(sourceObj?.renovaciones)
+            ? sourceObj.renovaciones
+            : []
 
       if (rawNuevos.length === 0 && rawRenov.length === 0) {
         const fallbackList = Array.isArray(sourceObj?.data)
           ? sourceObj.data
           : Array.isArray(sourceObj?.activos)
-          ? sourceObj.activos
-          : Array.isArray(sourceObj?.usuarios)
-          ? sourceObj.usuarios
-          : []
+            ? sourceObj.activos
+            : Array.isArray(sourceObj?.usuarios)
+              ? sourceObj.usuarios
+              : []
         fallbackList.forEach((u: any) => {
           const tipoStr = String(
             u?.tipo_usuario ||
@@ -204,7 +205,7 @@ export const useUsuNRT = () => {
     setTodosUsuariosList(todos)
   }, [])
 
-  const handleExportarExcel = useCallback((year: string = '2026', month: string = 'todos') => {
+  const handleExportarExcel = useCallback(async (year: string = '2026', month: string = 'todos') => {
     const listToExport =
       todosUsuariosList.length > 0
         ? todosUsuariosList
@@ -224,25 +225,23 @@ export const useUsuNRT = () => {
     const headers = ['#', 'Cédula', 'Nombre', 'Apellido', 'Correo', 'Edad', 'Teléfono', 'Tipo']
     const rows = listToExport.map((u, idx) => [
       idx + 1,
-      `"${u.cedula || ''}"`,
-      `"${(u.nombre || '').replace(/"/g, '""')}"`,
-      `"${(u.apellido || '').replace(/"/g, '""')}"`,
-      `"${u.correo || ''}"`,
-      `"${u.edad ?? ''}"`,
-      `"${u.telefono || ''}"`,
-      `"${u.tipo || ''}"`,
+      String(u.cedula || ''),
+      u.nombre || '',
+      u.apellido || '',
+      u.correo || '',
+      u.edad ?? '',
+      u.telefono || '',
+      u.tipo || '',
     ])
 
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n')
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `reporte_usuarios_${year}_${month || 'todos'}.csv`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+    await generarExcelEstilizado({
+      nombreArchivo: `reporte_usuarios_${year}_${month || 'todos'}.xlsx`,
+      tituloPrincipal: 'Reporte de Usuarios del Sistema',
+      subtituloFiltro: `Usuarios registrados | Año: ${year} | Mes: ${month ? month : 'Todos los meses'}`,
+      totalRegistros: listToExport.length,
+      headers,
+      rows,
+    })
 
     Swal.fire({
       icon: 'success',

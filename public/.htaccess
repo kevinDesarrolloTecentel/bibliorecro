@@ -1,0 +1,28 @@
+# Configuración de Apache para Producción (BiblioRecreo)
+AcceptPathInfo On
+
+# Bloquear acceso directo a archivos sensibles como .env o archivos ocultos
+<FilesMatch "^\.env">
+  Order allow,deny
+  Deny from all
+</FilesMatch>
+
+# Asegurar que Apache pase la cabecera Authorization a PHP
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+  RewriteRule ^server\.php - [L]
+
+  # Servir archivos existentes directamente
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Redirigir el resto al index.html para React Router
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+<IfModule !mod_rewrite.c>
+  SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
+</IfModule>
+

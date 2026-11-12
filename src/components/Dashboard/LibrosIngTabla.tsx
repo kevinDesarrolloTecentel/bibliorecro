@@ -11,19 +11,19 @@ export interface LibrosIngTablaProps {
 }
 
 export const COLUMNAS_LIBROS: Array<{ key: string; label: string; _style?: React.CSSProperties }> = [
-  { key: 'isbn', label: 'ISBN' },
-  { key: 'titulo', label: 'Título' },
-  { key: 'autor', label: 'Autor' },
-  { key: 'editorial', label: 'Editorial' },
-  { key: 'proveedor', label: 'Proveedor' },
-  { key: 'categoria', label: 'Categoría' },
-  { key: 'genero', label: 'Género' },
-  { key: 'formato', label: 'Formato' },
-  { key: 'volumen', label: 'Volumen' },
-  { key: 'pais', label: 'País' },
-  { key: 'fechaEdicion', label: 'Fecha Edición' },
-  { key: 'fechaIngreso', label: 'Fecha Ingreso' },
-  { key: 'estado', label: 'Estado' },
+  { key: 'isbn', label: 'ISBN', _style: { minWidth: '125px' } },
+  { key: 'titulo', label: 'Título', _style: { minWidth: '150px' } },
+  { key: 'autor', label: 'Autor', _style: { minWidth: '150px' } },
+  { key: 'editorial', label: 'Editorial', _style: { minWidth: '150px' } },
+  { key: 'proveedor', label: 'Proveedor', _style: { minWidth: '150px' } },
+  { key: 'categoria', label: 'Categoría', _style: { minWidth: '150px' } },
+  { key: 'genero', label: 'Género', _style: { minWidth: '150px' } },
+  { key: 'formato', label: 'Formato', _style: { minWidth: '150px' } },
+  { key: 'volumen', label: 'Volumen', _style: { minWidth: '110px' } },
+  { key: 'pais', label: 'País', _style: { minWidth: '110px' } },
+  { key: 'fechaEdicion', label: 'Fecha Edición', _style: { minWidth: '150px' } },
+  { key: 'fechaIngreso', label: 'Fecha Ingreso', _style: { minWidth: '150px' } },
+  { key: 'estado', label: 'Estado', _style: { minWidth: '90px' } },
 ]
 
 export const LibrosIngTabla: React.FC<LibrosIngTablaProps> = ({ libros, loading = false, haBuscado = false }) => {
@@ -47,7 +47,7 @@ export const LibrosIngTabla: React.FC<LibrosIngTablaProps> = ({ libros, loading 
           {haBuscado ? `${libros.length} ${libros.length === 1 ? 'libro' : 'libros'}` : '0 libros'}
         </span>
       </CCardHeader>
-      <CCardBody>
+      <CCardBody className="p-0">
         <CSmartTable
           key={tableKey}
           activePage={1}

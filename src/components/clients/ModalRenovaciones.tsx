@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { cilExitToApp, cilSave, cilSync } from '@coreui/icons'
 import CIcon from '@coreui/icons-react'
 import {
+  CAlert,
   CButton,
   CForm,
   CFormLabel,
@@ -33,21 +34,25 @@ const ModalRenova: React.FC<ModalRenovaProps> = ({
   const { verificarAccionEnServidor } = usePermissions()
   const [visible, setVisible] = useState(false)
   const [detalle, setDetalle] = useState('')
+  const [errorMsg, setErrorMsg] = useState('')
   const [loading, setLoading] = useState(false)
 
   const handleClose = () => {
     setDetalle('')
+    setErrorMsg('')
     setVisible(false)
   }
 
   const handleOpen = () => {
     setDetalle('')
+    setErrorMsg('')
     setVisible(true)
   }
 
   React.useEffect(() => {
     if (!visible) {
       setDetalle('')
+      setErrorMsg('')
     }
   }, [visible])
 
@@ -61,7 +66,10 @@ const ModalRenova: React.FC<ModalRenovaProps> = ({
   }
 
   const handleRenovarInscripcion = async () => {
+    setErrorMsg('')
+
     if (!canGuardarRenovacion) {
+      setErrorMsg('No tienes permisos para registrar renovaciones de usuarios.')
       Swal.fire({
         icon: 'error',
         title: 'Acceso Denegado',
@@ -74,6 +82,7 @@ const ModalRenova: React.FC<ModalRenovaProps> = ({
 
     const tienePermiso = await verificarAccionEnServidor('btn_guardar_renovacion_gestion_usuario')
     if (!tienePermiso) {
+      setErrorMsg('No tienes permisos para registrar renovaciones de usuarios.')
       Swal.fire({
         icon: 'error',
         title: 'Acceso Denegado',
@@ -93,10 +102,23 @@ const ModalRenova: React.FC<ModalRenovaProps> = ({
       ''
 
     if (!idPersona) {
+      setErrorMsg('No se pudo identificar al usuario para la renovación.')
       Swal.fire({
         icon: 'error',
         title: 'Error de identificación',
         text: 'No se pudo identificar al usuario para la renovación.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return
+    }
+
+    if (!detalle.trim()) {
+      setErrorMsg('Por favor escriba el detalle u observaciones de la renovación.')
+      Swal.fire({
+        icon: 'warning',
+        title: 'Campo obligatorio',
+        text: 'El detalle de la renovación es obligatorio. Por favor ingrese las observaciones.',
         confirmButtonColor: '#dc3545',
         confirmButtonText: 'Entendido',
       })
@@ -114,6 +136,7 @@ const ModalRenova: React.FC<ModalRenovaProps> = ({
 
       setVisible(false)
       setDetalle('')
+      setErrorMsg('')
 
       await Swal.fire({
         icon: 'success',
@@ -132,6 +155,7 @@ const ModalRenova: React.FC<ModalRenovaProps> = ({
         err?.response?.data?.message ||
         err?.response?.data?.error ||
         'Hubo un error al renovar la inscripción.'
+      setErrorMsg(msg)
       Swal.fire({
         icon: 'error',
         title: 'Error al renovar',
@@ -165,9 +189,23 @@ const ModalRenova: React.FC<ModalRenovaProps> = ({
         onClose={handleClose}
       >
         <CModalHeader>
-          <CModalTitle>Renovar Inscripción</CModalTitle>
+          <CModalTitle className="mb-1 text-body d-flex align-items-center gap-2">
+            <CIcon icon={cilSync} size="lg" className="text-body" />
+            <span>Renovar Inscripción</span>
+          </CModalTitle>
         </CModalHeader>
         <CModalBody>
+          {errorMsg && (
+            <CAlert
+              color="danger"
+              dismissible
+              onClose={() => setErrorMsg('')}
+              className="mb-3 py-2 small"
+            >
+              {errorMsg}
+            </CAlert>
+          )}
+
           <div className="mb-3 p-3 bg-body rounded border">
             <div className="fw-semibold text-body">
               {item.nombre} {item.apellido}
@@ -176,17 +214,29 @@ const ModalRenova: React.FC<ModalRenovaProps> = ({
               Identificación: {item.identificacion || item.raw?.IDENTIFICACION_PERSONA || '-'}
             </div>
           </div>
-          <CForm className="row g-3">
+          <CForm
+            className="row g-3"
+            onSubmit={(e) => {
+              e.preventDefault()
+              handleRenovarInscripcion()
+            }}
+          >
             <div className="col-12">
               <CFormLabel htmlFor="inputDetalleInscripcion" className="fw-semibold">
-                Detalle de la Renovación:
+                Detalle de la Renovación <span className="text-danger">*</span>:
               </CFormLabel>
               <CFormTextarea
                 id="inputDetalleInscripcion"
                 rows={3}
                 placeholder="Ingrese detalles u observaciones de la renovación..."
                 value={detalle}
-                onChange={(e) => setDetalle(e.target.value)}
+                onChange={(e) => {
+                  setDetalle(e.target.value)
+                  if (errorMsg) setErrorMsg('')
+                }}
+                required
+                disabled={loading}
+                autoFocus
               />
             </div>
           </CForm>
@@ -196,7 +246,8 @@ const ModalRenova: React.FC<ModalRenovaProps> = ({
             color="danger"
             variant="outline"
             size="sm"
-            className="hover:text-white shadow-sm" onClick={handleClose}
+            className="hover:text-white shadow-sm"
+            onClick={handleClose}
             disabled={loading}
           >
             <CIcon icon={cilExitToApp} className="me-1" /> Cerrar
@@ -206,9 +257,9 @@ const ModalRenova: React.FC<ModalRenovaProps> = ({
               color="success"
               size="sm"
               variant="outline"
-              className="hover:text-white shadow-sm" onClick={handleRenovarInscripcion}
-              disabled={loading}
-            >
+              className="hover:text-white shadow-sm"
+              onClick={handleRenovarInscripcion}
+              disabled={loading || detalle.trim().length < 10}            >
               {loading ? (
                 <>
                   <CSpinner size="sm" className="me-1" />

@@ -1,9 +1,23 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
-import { clearAuthSession } from '../utils/auth'
+import { getStoredToken, clearAuthSession } from '../utils/auth'
 import store from '../store'
 import { sessionExpired } from '../authSlice'
 
-export const BACKEND_API_BASE = '/api'
+// Determinar la URL base del backend apuntando a /server.php/api
+const getBackendApiBase = (): string => {
+  const customBase = import.meta.env.VITE_API_BASE_URL
+  if (customBase) return customBase
+
+  if (import.meta.env.VITE_USE_PROXY === 'false') {
+    const apiUrl = import.meta.env.VITE_API_URL || 'https://bibliobackend.ccelrecreo.com:1500'
+    const cleanUrl = String(apiUrl).replace(/\/+$/, '')
+    return cleanUrl.includes('/server.php/api') ? cleanUrl : `${cleanUrl}/server.php/api`
+  }
+
+  return '/server.php/api'
+}
+
+export const BACKEND_API_BASE = getBackendApiBase()
 
 export const apiClient = axios.create({
   withCredentials: true,
@@ -13,20 +27,39 @@ export const apiClient = axios.create({
   },
 })
 
-// Request interceptor: sanitiza la URL y asegura que el token NO viaje expuesto en cabeceras HTTP del navegador
 apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  // Prevenir que el token viaje expuesto en los parámetros de la URL
   if (config.params && 'token' in config.params) {
     delete config.params.token
   }
+
+  const token = getStoredToken()
+
+  const isUsingProxy =
+    import.meta.env.VITE_USE_PROXY !== 'false' &&
+    (Boolean(config.url && config.url.includes('server.php')) ||
+      BACKEND_API_BASE.includes('server.php'))
+
   if (config.headers) {
-    delete config.headers['Authorization']
-    delete config.headers['authorization']
-    if (config.data instanceof FormData) {
-      delete config.headers['Content-Type']
-      delete config.headers['content-type']
+    if (isUsingProxy) {
+      delete config.headers['Authorization']
+      delete config.headers['authorization']
+      delete config.headers['X-Auth-Token']
+      delete config.headers['x-auth-token']
+    } else if (token) {
+      const rawJwt = token.replace(/^Bearer\s+/i, '').trim()
+      if (typeof config.headers.set === 'function') {
+        config.headers.set('Authorization', `Bearer ${rawJwt}`)
+      } else {
+        config.headers['Authorization'] = `Bearer ${rawJwt}`
+      }
     }
   }
+
+  if (config.headers && config.data instanceof FormData) {
+    delete config.headers['Content-Type']
+    delete config.headers['content-type']
+  }
+
   return config
 })
 

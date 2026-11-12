@@ -188,6 +188,7 @@ export const useRoles = () => {
   const handleCerrarEditar = useCallback(() => {
     setModalEditar(false)
     resetEditFormData()
+    setGuardando(false)
   }, [resetEditFormData])
 
   const handleListarRoles = async () => {
@@ -248,6 +249,7 @@ export const useRoles = () => {
       nivel: isNaN(nivel) || nivel < 1 ? 1 : nivel,
       estado,
     })
+    setGuardando(false)
     setModalEditar(true)
   }, [canEditarRol, verificarAccionEnServidor])
 
@@ -520,10 +522,23 @@ export const useRoles = () => {
       })
     } catch (error: any) {
       console.error('Error al eliminar rol:', error)
-      const msg = formatApiError(error, 'Error al eliminar el rol')
+      let msg = formatApiError(error, 'Error al eliminar el rol')
+
+      const msgLower = (msg || '').toLowerCase()
+      if (
+        msgLower.includes('registros relacionados') ||
+        msgLower.includes('restricción') ||
+        msgLower.includes('foreign key') ||
+        msgLower.includes('constraint') ||
+        error?.response?.status === 400 ||
+        error?.response?.status === 409
+      ) {
+        msg = 'No se puede eliminar el rol porque actualmente se encuentra asignado a uno o más usuarios.'
+      }
+
       Swal.fire({
         icon: 'error',
-        title: 'Error al eliminar rol',
+        title: 'No se puede eliminar el rol',
         text: msg,
         confirmButtonColor: '#dc3545',
         confirmButtonText: 'Entendido',

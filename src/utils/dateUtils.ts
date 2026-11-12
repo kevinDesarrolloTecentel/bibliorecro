@@ -4,24 +4,30 @@ export const formatFecha = (f: any): string => {
   if (!f) return 'No registrada'
   if (f === 'No registrada' || f === 'Sin inscripción') return f
   if (typeof f === 'string') {
+    const trimmed = f.trim()
     if (
-      f.startsWith('0000-00-00')
+      !trimmed ||
+      trimmed.startsWith('0000-00-00') ||
+      trimmed.startsWith('0000') ||
+      trimmed === '1969-12-31' ||
+      trimmed.startsWith('1969-12-31')
     ) {
       return 'No registrada'
     }
-    const clean = f.includes('T') ? f.split('T')[0] : f.includes(' ') ? f.split(' ')[0] : f
+    const clean = trimmed.includes('T') ? trimmed.split('T')[0] : trimmed.includes(' ') ? trimmed.split(' ')[0] : trimmed
     if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) {
       const [y, m, d] = clean.split('-')
-      if (Number(y) <= 1970) return 'No registrada'
+      const numY = Number(y)
+      if (numY < 1900 || clean === '1969-12-31') return 'No registrada'
       return `${d}/${m}/${y}`
     }
     return clean
   }
   if (f instanceof Date && !isNaN(f.getTime())) {
-    if (f.getFullYear() <= 1970) return 'No registrada'
+    const y = f.getFullYear()
+    if (y < 1900) return 'No registrada'
     const d = String(f.getDate()).padStart(2, '0')
     const m = String(f.getMonth() + 1).padStart(2, '0')
-    const y = f.getFullYear()
     return `${d}/${m}/${y}`
   }
   return String(f)
@@ -102,5 +108,31 @@ export const parseDatePickerValue = (val: Date | string | null): string => {
     }
   }
   return ''
+}
+
+// Calcula la edad en años a partir de una fecha de nacimiento
+export const calcularEdad = (fecha: Date | string | null | undefined): number => {
+  if (!fecha) return 0
+  let birth: Date | null = null
+  if (fecha instanceof Date) {
+    birth = fecha
+  } else if (typeof fecha === 'string') {
+    const clean = fecha.includes('T') ? fecha.split('T')[0] : fecha.includes(' ') ? fecha.split(' ')[0] : fecha
+    if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) {
+      const [y, m, d] = clean.split('-').map(Number)
+      birth = new Date(y, m - 1, d)
+    } else {
+      const d = new Date(fecha)
+      if (!isNaN(d.getTime())) birth = d
+    }
+  }
+  if (!birth || isNaN(birth.getTime())) return 0
+  const today = new Date()
+  let age = today.getFullYear() - birth.getFullYear()
+  const m = today.getMonth() - birth.getMonth()
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+    age--
+  }
+  return age < 0 ? 0 : age
 }
 

@@ -95,7 +95,6 @@ export interface ProfileFormData {
 export interface ProfileTableItem {
   id: string | number
   Usuario: string
-  Contraseña?: string
   Nombres: string
   fecha_registro: string
   Estado: 'Activo' | 'Inactivo'

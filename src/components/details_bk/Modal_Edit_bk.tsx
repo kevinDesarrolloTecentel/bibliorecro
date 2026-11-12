@@ -101,7 +101,7 @@ const Modal_Edit_bk: React.FC<ModalEditBkProps> = (props) => {
       backdrop="static"
     >
       <CModalHeader closeButton className="bg-body">
-        <CModalTitle id="ModalEditarLibroLabel" className="d-flex align-items-center gap-2 fs-5 fw-bold text-dark">
+        <CModalTitle id="ModalEditarLibroLabel" className="d-flex align-items-center gap-2 fs-5 fw-bold text-body">
           <CIcon icon={cilColorBorder} size="lg" className="text-primary" />
           <span className='text-body'>Editar Libro: {formData.TITULO_LIBROS || 'Cargando...'}</span>
         </CModalTitle>

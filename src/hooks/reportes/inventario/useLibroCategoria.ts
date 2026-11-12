@@ -83,7 +83,6 @@ export const useReporteLibrosCategoria = () => {
       return
     }
 
-    setHaBuscado(true)
     setLibros([])
     setExcelLink(null)
 
@@ -97,7 +96,9 @@ export const useReporteLibrosCategoria = () => {
         (a, b) => Number(a.ID_LIBROS || 0) - Number(b.ID_LIBROS || 0),
       )
       setLibros(ordenados)
-      setExcelLink(data?.excel_path || null)
+      const rutaExcel: string | null = data?.excel?.nombre || data?.excel_path || null
+      setExcelLink(rutaExcel)      
+      setHaBuscado(true)
 
       if (ordenados.length === 0) {
         Swal.fire({
@@ -109,6 +110,7 @@ export const useReporteLibrosCategoria = () => {
         })
       }
     } catch (error: any) {
+      setHaBuscado(true)
       console.error('Error al obtener libros por categoría:', error)
       setLibros([])
       setExcelLink(null)
@@ -128,7 +130,7 @@ export const useReporteLibrosCategoria = () => {
         Swal.fire({
           icon: 'info',
           title: 'Sin libros encontrados',
-          text:  `No se encontraron libros para la categoría "${selectedValue.label || ''}".`,
+          text: `No se encontraron libros para la categoría "${selectedValue.label || ''}".`,
           confirmButtonColor: '#044c8c',
           confirmButtonText: 'Entendido',
         })
@@ -136,7 +138,7 @@ export const useReporteLibrosCategoria = () => {
         Swal.fire({
           icon: 'error',
           title: 'Error al consultar',
-          text:  'No se pudieron obtener los libros de la categoría seleccionada. Por favor, inténtelo de nuevo más tarde.',
+          text: 'No se pudieron obtener los libros de la categoría seleccionada. Por favor, inténtelo de nuevo más tarde.',
           confirmButtonColor: '#dc3545',
           confirmButtonText: 'Entendido',
         })
@@ -171,7 +173,7 @@ export const useReporteLibrosCategoria = () => {
     }
 
     if (excelLink) {
-      await descargarArchivo(`${STORAGE_BASE_URL}/${excelLink}`)
+      await descargarArchivo(`${STORAGE_BASE_URL}/prestamos/${excelLink}`)
     }
   }, [canDescargarLibrosCategoria, excelLink, verificarAccionEnServidor])
 

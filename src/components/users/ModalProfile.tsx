@@ -1,18 +1,17 @@
 import useProfile from "@/hooks/adm-user/useProfile"
-import { cilExitToApp, cilLockLocked, cilLockUnlocked, cilUser } from "@coreui/icons"
+import { cilExitToApp, cilLockLocked, cilLockUnlocked, cilUser,cilPencil } from "@coreui/icons"
 import CIcon from "@coreui/icons-react"
 import { CButton, CCol, CForm, CFormInput, CInputGroup, CModal, CModalBody, CModalFooter, CModalHeader, CModalTitle, CSpinner } from "@coreui/react-pro"
 
 interface ModalProfileProps {
     profileState?: ReturnType<typeof useProfile>
-    userState?: any
 }
 
-const ModalProfile = ({ profileState, userState }: ModalProfileProps) => {
-    const state = profileState || userState
+const ModalProfile = ({ profileState }: ModalProfileProps) => {
+    const state = profileState
     if (!state) return null
 
-    const usuarioNick = state.formData?.usuario || state.currentUser?.NICK_USUARIO || (state.user || state.getStoredUser?.())?.NICK_USUARIO || ''
+    const usuarioNick = state.currentUser?.NICK_USUARIO || state.formData?.usuario || ''
     const isSaving = Boolean(state.guardando || state.loading)
 
     return (
@@ -21,7 +20,10 @@ const ModalProfile = ({ profileState, userState }: ModalProfileProps) => {
             onClose={() => state.setModalVisible(false)}
         >
             <CModalHeader>
-                <CModalTitle className="w-100 text-center">Actualización de Datos</CModalTitle>
+                <CModalTitle className="mb-1 text-body d-flex align-items-center gap-2">
+                    <CIcon icon={cilPencil} size="lg" className="text-body" />                    
+                   <span>Actualización de Datos</span>
+                </CModalTitle>
             </CModalHeader>
             <CModalBody>
                 <CForm className="row g-3">
@@ -89,7 +91,7 @@ const ModalProfile = ({ profileState, userState }: ModalProfileProps) => {
                                 Guardando...
                             </>
                         ) : (
-                            'Guardar Usuario'
+                            'Guardar Cambios'
                         )}
                     </CButton>
                 )}

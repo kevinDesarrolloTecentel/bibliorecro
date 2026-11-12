@@ -59,14 +59,12 @@ export const useReportePrestamosMensuales = () => {
       return
     }
 
-    setHaBuscado(true)
     setPrestamos([])
     setExcelLink(null)
 
     try {
       const params = {
         fechaMes,
-        mes: fechaMes,
       }
       const data = await Mes(params)
       const rawList = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
@@ -75,7 +73,9 @@ export const useReportePrestamosMensuales = () => {
       )
 
       setPrestamos(filtrados)
-      setExcelLink(data?.excel_path || null)
+      const rutaExcel: string | null = data?.excel?.nombre || data?.excel_path || null
+      setExcelLink(rutaExcel)
+      setHaBuscado(true)
 
       if (filtrados.length === 0) {
         Swal.fire({
@@ -87,6 +87,7 @@ export const useReportePrestamosMensuales = () => {
         })
       }
     } catch (error: any) {
+      setHaBuscado(true)
       console.error('Error al obtener préstamos mensuales', error)
       setPrestamos([])
       setExcelLink(null)
@@ -106,7 +107,7 @@ export const useReportePrestamosMensuales = () => {
         Swal.fire({
           icon: 'info',
           title: 'Sin préstamos encontrados',
-          text:  `No se encontraron préstamos para la fecha seleccionada (${fechaMes}).`,
+          text: `No se encontraron préstamos para la fecha seleccionada (${fechaMes}).`,
           confirmButtonColor: '#044c8c',
           confirmButtonText: 'Entendido',
         })
@@ -149,7 +150,7 @@ export const useReportePrestamosMensuales = () => {
     }
 
     if (excelLink) {
-      await descargarArchivo(`${STORAGE_BASE_URL}/${excelLink}`)
+      await descargarArchivo(`${STORAGE_BASE_URL}/prestamos/${excelLink}`)
     }
   }, [canDescargarPrestamosMensuales, excelLink, verificarAccionEnServidor])
 

@@ -6,7 +6,7 @@ import { filterOnlyDigits, filterOnlyLetters } from '@/utils/validations'
 import usePersonas from './usePersonas'
 import { initialPersona, Persona } from '@/models/tab/persona.model'
 import { ActualizarPersonaNueva } from '@/Service/tab/Persona'
-import { parseDatePickerValue } from '@/utils/dateUtils'
+import { parseDatePickerValue, formatFecha, calcularEdad } from '@/utils/dateUtils'
 
 export const initialEditFormData: Persona = initialPersona
 
@@ -52,13 +52,14 @@ export const usePersonaEdit = ({
   const [loading, setLoading] = useState(false)
   const [previewFoto, setPreviewFoto] = useState<string | null>(null)
   const [fotoActual, setFotoActual] = useState<string>('')
+  const [datePickerKey, setDatePickerKey] = useState<number>(0)
   const {
     tiposId,
     nacionalidades,
     generos,
     estadosCiviles,
     loading: loadingCatalogos,
-  } = useCatalogos(isVisible)
+  } = useCatalogos(true)
 
   const handleClose = () => {
     setPreviewFoto(null)
@@ -118,10 +119,10 @@ export const usePersonaEdit = ({
         ),
         NOMBRE_PERSONA: String(
           raw.NOMBRE_PERSONA ?? currentUser.nombre ?? '',
-        ),
+        ).toUpperCase(),
         APELLIDO_PERSONA: String(
           raw.APELLIDO_PERSONA ?? currentUser.apellido ?? '',
-        ),
+        ).toUpperCase(),
         TELEFONO_PERSONA: String(
           raw.TELEFONO_PERSONA ?? currentUser.telefono ?? '',
         ),
@@ -159,33 +160,57 @@ export const usePersonaEdit = ({
     if (name === 'IDENTIFICACION_PERSONA' || name === 'TELEFONO_PERSONA' || name === 'CELULAR_PERSONA') {
       finalValue = filterOnlyDigits(value, 10)
     } else if (name === 'NOMBRE_PERSONA' || name === 'APELLIDO_PERSONA') {
-      finalValue = filterOnlyLetters(value)
+      finalValue = filterOnlyLetters(value).toUpperCase()
     }
 
     setFormData((prev) => ({ ...prev, [name]: finalValue }))
   }
 
-  const handleDateChange = (date: Date | string | null) => {
+  const handleDateChange = async (date: Date | string | null) => {
     const finalValue = parseDatePickerValue(date)
-    let calculatedAge = ''
-    if (finalValue) {
-      const birth = new Date(finalValue)
-      if (!isNaN(birth.getTime())) {
-        const today = new Date()
-        let age = today.getFullYear() - birth.getFullYear()
-        const m = today.getMonth() - birth.getMonth()
-        if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
-          age--
-        }
-        if (age >= 0) {
-          calculatedAge = String(age)
-        }
-      }
+    if (!finalValue) {
+      setFormData((prev) => ({ ...prev, FECHA_PERSONA: '', EDAD_PERSONA: '' }))
+      return
     }
+
+    if (finalValue === formData.FECHA_PERSONA) return
+
+    const age = calcularEdad(finalValue)
+    const fechaDisplay = formatFecha(finalValue)
+    const isPresentYear = age === 0 || finalValue.startsWith(String(new Date().getFullYear()))
+
+    const result = await Swal.fire({
+      title: '¿Está seguro de la fecha ingresada?',
+      html: isPresentYear
+        ? `<div style="text-align: center; font-size: 0.95rem;">
+             <p class="mb-2">Ha seleccionado la fecha: <strong>${fechaDisplay}</strong></p>
+             <div style="background-color: #fff3cd; color: #856404; padding: 12px; border-radius: 6px; border: 1px solid #ffeeba; margin: 12px 0; text-align: left;">
+               <strong>¡Atención!</strong> Con esta fecha el usuario tendrá <strong>0 años</strong>.
+             </div>
+           </div>`
+        : `<div style="text-align: center; font-size: 0.95rem;">
+             <p class="mb-2">Ha seleccionado la fecha: <strong>${fechaDisplay}</strong></p>
+             <p class="mb-2" style="font-size: 1.1rem;">Edad: <strong style="color: #044c8c;">${age} ${age === 1 ? 'año' : 'años'}</strong></p>
+           </div>`,
+      icon: isPresentYear ? 'warning' : 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#044c8c',
+      cancelButtonColor: '#6c757d',
+      confirmButtonText: 'Sí, aceptar',
+      cancelButtonText: 'Cancelar',
+      allowOutsideClick: false,
+      focusConfirm: true,
+    })
+
+    if (!result.isConfirmed) {
+      setDatePickerKey((k) => k + 1)
+      return
+    }
+
     setFormData((prev) => ({
       ...prev,
       FECHA_PERSONA: finalValue,
-      EDAD_PERSONA: calculatedAge || prev.EDAD_PERSONA,
+      EDAD_PERSONA: String(age),
     }))
   }
 
@@ -242,6 +267,27 @@ export const usePersonaEdit = ({
         text: 'El teléfono fijo debe contener entre 7 y 10 dígitos numéricos (ej: 7 dígitos para número de casa local).',
       })
       return
+    }
+
+    if (formData.FOTO_PERSONA instanceof File) {
+      const validExtensions = ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'gif']
+      const ext = (formData.FOTO_PERSONA.name.split('.').pop() || '').toLowerCase()
+      if (!formData.FOTO_PERSONA.type.startsWith('image/') || !validExtensions.includes(ext)) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Formato de fotografía inválido',
+          text: 'Por favor seleccione un archivo de imagen válido (.jpg, .jpeg, .png, .webp).',
+        })
+        return
+      }
+      if (formData.FOTO_PERSONA.size > 5 * 1024 * 1024) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Imagen demasiado grande',
+          text: 'El tamaño de la imagen no debe superar los 5MB.',
+        })
+        return
+      }
     }
 
     const idPersona = formData.ID_PERSONA || currentUser?.id || currentUser?.raw?.ID_PERSONA
@@ -303,8 +349,8 @@ export const usePersonaEdit = ({
       formDataToSend.append('ID_NACIONALIDAD', String(formData.ID_NACIONALIDAD || ''))
       formDataToSend.append('ID_ESTADOCIVIL', String(formData.ID_ESTADOCIVIL || ''))
       formDataToSend.append('IDENTIFICACION_PERSONA', formData.IDENTIFICACION_PERSONA.trim())
-      formDataToSend.append('NOMBRE_PERSONA', formData.NOMBRE_PERSONA.trim())
-      formDataToSend.append('APELLIDO_PERSONA', formData.APELLIDO_PERSONA.trim())
+      formDataToSend.append('NOMBRE_PERSONA', formData.NOMBRE_PERSONA.trim().toUpperCase())
+      formDataToSend.append('APELLIDO_PERSONA', formData.APELLIDO_PERSONA.trim().toUpperCase())
       formDataToSend.append('TELEFONO_PERSONA', formData.TELEFONO_PERSONA?.trim() || '')
       formDataToSend.append('CELULAR_PERSONA', formData.CELULAR_PERSONA?.trim() || '')
       formDataToSend.append('CORREO_PERSONA', formData.CORREO_PERSONA?.trim() || '')
@@ -400,11 +446,41 @@ export const usePersonaEdit = ({
   const handleFotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
+      const validExtensions = ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'gif']
+      const ext = (file.name.split('.').pop() || '').toLowerCase()
+
+      if (!file.type.startsWith('image/') || !validExtensions.includes(ext)) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Formato no permitido',
+          text: 'Por favor seleccione un archivo de imagen válido (.jpg, .jpeg, .png, .webp).',
+          confirmButtonColor: '#3085d6',
+        })
+        e.target.value = ''
+        setPreviewFoto(null)
+        setFormData((prev) => ({ ...prev, FOTO_PERSONA: '' }))
+        return
+      }
+
+      if (file.size > 5 * 1024 * 1024) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Imagen demasiado grande',
+          text: 'El tamaño de la imagen no debe superar los 5MB.',
+          confirmButtonColor: '#3085d6',
+        })
+        e.target.value = ''
+        setPreviewFoto(null)
+        setFormData((prev) => ({ ...prev, FOTO_PERSONA: '' }))
+        return
+      }
+
       const url = URL.createObjectURL(file)
       setPreviewFoto(url)
       setFormData((prev) => ({ ...prev, FOTO_PERSONA: file }))
     } else {
       setPreviewFoto(null)
+      setFormData((prev) => ({ ...prev, FOTO_PERSONA: '' }))
     }
   }
 
@@ -427,6 +503,7 @@ export const usePersonaEdit = ({
     setFormData,
     canActualizar,
     readOnly,
+    datePickerKey,
   }
 }
 

@@ -10,7 +10,7 @@ import { PersonaReporteItem } from '@/models/reportes/usuarios'
 
 export type { PersonaReporteItem }
 
-  const useReporteMejores = () => {
+const useReporteMejores = () => {
   const { canDoAction, verificarAccionEnServidor } = usePermissions()
   const canGenerarRankingUsuarios = canDoAction('btn_generar_ranking_usuarios')
   const canDescargarRankingUsuarios = canDoAction('btn_descargar_ranking_usuarios')
@@ -60,7 +60,6 @@ export type { PersonaReporteItem }
       return
     }
 
-    setHaBuscado(true)
     setUsuarios([])
     setExcelLink(null)
 
@@ -80,9 +79,12 @@ export type { PersonaReporteItem }
         )
 
       setUsuarios(personasFiltradas)
-      setExcelLink(data?.excel_path || null)
+      const rutaExcel: string | null = data?.excel?.nombre || data?.excel_path || null
+      setExcelLink(rutaExcel)      
+      setHaBuscado(true)
 
-      if (personasFiltradas.length === 0){
+
+      if (personasFiltradas.length === 0) {
         Swal.fire({
           icon: 'info',
           title: 'Sin registros',
@@ -92,6 +94,7 @@ export type { PersonaReporteItem }
         })
       }
     } catch (error: any) {
+      setHaBuscado(true)
       console.error('Error al obtener los mejores usuarios:', error)
       setUsuarios([])
       setExcelLink(null)
@@ -113,7 +116,7 @@ export type { PersonaReporteItem }
         Swal.fire({
           icon: 'info',
           title: 'Sin usuarios en el ranking',
-          text:  'No se encontraron usuarios en el ranking para el año seleccionado.',
+          text: 'No se encontraron usuarios en el ranking para el año seleccionado.',
           confirmButtonColor: '#044c8c',
           confirmButtonText: 'Entendido',
         })
@@ -121,7 +124,7 @@ export type { PersonaReporteItem }
         Swal.fire({
           icon: 'error',
           title: 'Error al consultar',
-          text:  'Hubo un problema al obtener los datos de mejores usuarios.',
+          text: 'Hubo un problema al obtener los datos de mejores usuarios.',
           confirmButtonColor: '#dc3545',
           confirmButtonText: 'Entendido',
         })
@@ -156,7 +159,7 @@ export type { PersonaReporteItem }
     }
 
     if (excelLink) {
-      await descargarArchivo(`${STORAGE_BASE_URL}/${excelLink}`)
+      await descargarArchivo(`${STORAGE_BASE_URL}/personas/${excelLink}`)
     }
   }, [canDescargarRankingUsuarios, excelLink, verificarAccionEnServidor])
 

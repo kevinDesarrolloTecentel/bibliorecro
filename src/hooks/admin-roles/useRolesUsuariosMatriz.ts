@@ -192,11 +192,27 @@ export const useRolesUsuariosMatriz = (rolesList: Rol[] = [], fetchRoles?: () =>
     const rolId = Number(rol.ID_ROL ?? rol.id ?? 0)
     if (!usuarioId || !rolId) return
 
-    const currentRolesSet = new Set(userRolesMap[usuarioId] || [])
-    const isCurrentlyAssigned = currentRolesSet.has(rolId)
+    const rawEstado = usuario.ESTADO_USUARIO ?? (usuario as any).estado
+    const isActivo =
+      String(rawEstado).toLowerCase() === '1' ||
+      String(rawEstado).toLowerCase() === 'activo'
 
     const nombreUsuario = usuario.NICK_USUARIO || usuario.NOMBRES_USUARIO || `Usuario #${usuarioId}`
     const nombreRol = rol.NOMBRE_ROL || (rol as any).nombre || `Rol #${rolId}`
+
+    if (!isActivo) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Usuario inactivo',
+        text: `No se pueden modificar los roles del usuario "${nombreUsuario}" porque se encuentra inactivo.`,
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return
+    }
+
+    const currentRolesSet = new Set(userRolesMap[usuarioId] || [])
+    const isCurrentlyAssigned = currentRolesSet.has(rolId)
 
     // Salvaguarda: El usuario actual en sesión no debe quitarse su propio rol si es el único
     const currentActiveId = Number(activeUser?.ID_USUARIO ?? activeUser?.id ?? 0)

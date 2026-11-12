@@ -5,7 +5,7 @@ import { ChartLineExample } from "@/components/Dashboard/Totals_active"
 import { CButton, CCard, CCardBody, CCardHeader, CCol, CFormSelect, CRow } from "@coreui/react-pro"
 import { Estadistics } from "@/components/Dashboard/estacs"
 import CIcon from "@coreui/icons-react"
-import { cilChartPie, cilGraph, cilPeople, cilBook, cilSync } from "@coreui/icons"
+import { cilChartPie, cilGraph, cilPeople, cilBook, cilSync, cilUserPlus } from "@coreui/icons"
 import UsuNRT from "@/components/Dashboard/UsuNRT"
 import LibIng from "@/components/Dashboard/LibrosIng"
 import useDashboard from "@/hooks/dashboard/useDashboard"
@@ -92,9 +92,10 @@ const Dashboard = () => {
         </CCardBody>
       </CCard>
 
-      <CCard className="mb-4 shadow-sm border-0" style={{ borderRadius: '6px' }}>
-        <CCardHeader className="bg-body border-bottom py-3 px-3 fw-bold text-body" style={{ fontSize: '14px' }}>
-          Usuarios Nuevos y Renovaciones {selectedYear}
+      <CCard className="shadow-sm border-0">
+        <CCardHeader className="bg-body py-3 border-bottom d-flex align-items-center gap-2">
+          <CIcon icon={cilUserPlus}size="xl"  style={{ color: '#08399cff' }} />
+          <span className="fw-bold text-body">Usuarios Nuevos y Renovaciones {selectedYear} </span>
         </CCardHeader>
         <CCardBody className="p-3">
           <ChartBarExample

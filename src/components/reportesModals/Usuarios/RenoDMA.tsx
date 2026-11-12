@@ -3,6 +3,7 @@ import {
   useReporteRenovaciones,
   PersonaReporteItem,
 } from '@/hooks/reportes/usuarios/useReporteRenovaciones'
+import { formatFecha } from '@/utils/dateUtils'
 import {
   cilCloudDownload,
   cilExitToApp,
@@ -31,6 +32,12 @@ import {
 export interface UsuMDAModalProps {
   visible: boolean
   setVisible: (visible: boolean) => void
+}
+
+const formatFechaDisplay = (fecha?: string | null): string => {
+  if (!fecha) return '-'
+  const res = formatFecha(fecha)
+  return res === 'No registrada' ? '-' : res
 }
 
 const MDAModal: React.FC<UsuMDAModalProps> = ({ visible, setVisible }) => {
@@ -78,55 +85,118 @@ const MDAModal: React.FC<UsuMDAModalProps> = ({ visible, setVisible }) => {
 
   const tableItems = useMemo(() => {
     return usuarios.map((item: PersonaReporteItem) => {
-      const cedula = item.cedula || item.IDENTIFICACION_PERSONA || item.PERSONA?.IDENTIFICACION_PERSONA || ''
-      const nombre = item.nombre || item.NOMBRE_PERSONA || item.PERSONA?.NOMBRE_PERSONA || ''
-      const apellido = item.apellido || item.APELLIDO_PERSONA || item.PERSONA?.APELLIDO_PERSONA || ''
-      const fechaRaw = item.fechaNacimiento || item.FECHA_PERSONA || item.PERSONA?.FECHA_PERSONA
-      let fechaStr = '-'
-      if (fechaRaw) {
-        const parsed = new Date(fechaRaw)
-        if (!isNaN(parsed.getTime()) && parsed.getFullYear() > 1900 && parsed.getFullYear() < 2100) {
-          fechaStr = parsed.toLocaleDateString()
-        }
+      const persona = item.PERSONA || (item as any).persona || {}
+      const primeraRenov = Array.isArray(item.RENOVACIONES) && item.RENOVACIONES.length > 0 ? item.RENOVACIONES[0] : {}
+
+      const nombres = item.NOMBRE_PERSONA?.trim() || persona.NOMBRE_PERSONA?.trim() || item.nombre?.trim() || ''
+      const apellidos = item.APELLIDO_PERSONA?.trim() || persona.APELLIDO_PERSONA?.trim() || item.apellido?.trim() || ''
+      const identificacion = item.IDENTIFICACION_PERSONA?.trim() || persona.IDENTIFICACION_PERSONA?.trim() || item.cedula?.trim() || ''
+      const correo = item.CORREO_PERSONA?.trim() || persona.CORREO_PERSONA?.trim() || item.correo?.trim() || ''
+      const edadVal = item.EDAD_PERSONA ?? persona.EDAD_PERSONA
+      const edad = edadVal !== undefined && edadVal !== null ? String(edadVal) : ''
+      const genero = item.NOMBRE_GENERO?.trim() || persona.NOMBRE_GENERO?.trim() || ''
+      const fechaNacimiento = formatFechaDisplay(item.FECHA_PERSONA || persona.FECHA_PERSONA || (item as any).FECHA_NACIMIENTO_PERSONA)
+      
+      const inicioInscripcion = formatFechaDisplay(
+        primeraRenov.FECHAINICIO_RENOVACIONES ||
+        item.FECHAINICIO_RENOVACIONES ||
+        item.FECHAINICIO_INSCRIPCION
+      )
+      const finInscripcion = formatFechaDisplay(
+        primeraRenov.FECHAFIN_RENOVACIONES ||
+        item.FECHAFIN_RENOVACIONES ||
+        item.FECHAFIN_INSCRIPCION
+      )
+
+      // Costo de inscripción (tomado de COSTO_RENOVACIONES o COSTO_INSCRIPCION)
+      const costoVal = primeraRenov.COSTO_RENOVACIONES ?? item.COSTO_RENOVACIONES ?? item.COSTO_INSCRIPCION
+      const costoNum = Number(costoVal)
+      const costoInscripcion = !isNaN(costoNum)
+        ? `$${costoNum.toFixed(2)}`
+        : costoVal
+          ? `$${costoVal}`
+          : '$0.00'
+
+      // Estado de inscripción (tomado de ESTADO_RENOVACIONES o ESTADO_INSCRIPCION)
+      const estadoVal = primeraRenov.ESTADO_RENOVACIONES ?? item.ESTADO_RENOVACIONES ?? item.ESTADO_INSCRIPCION
+      let estadoInscripcion = 'Inactiva'
+      const estStr = String(estadoVal ?? '').trim().toLowerCase()
+      if (estStr === '1' || estStr === 'true' || estStr === 'activa' || estStr === 'activo') {
+        estadoInscripcion = 'Activa'
       }
-      const correo = item.correo || item.CORREO_PERSONA || item.PERSONA?.CORREO_PERSONA || ''
 
       return {
         ...item,
-        cedula,
-        nombre,
-        apellido,
-        fechaNacimiento: fechaStr,
+        nombres,
+        apellidos,
+        identificacion,
         correo,
+        edad,
+        genero,
+        fechaNacimiento,
+        inicioInscripcion,
+        finInscripcion,
+        costoInscripcion,
+        estadoInscripcion,
       }
     })
   }, [usuarios])
 
   const columns = [
     {
-      key: 'cedula',
-      label: 'Cédula',
-      _style: { width: '18%' },
+      key: 'nombres',
+      label: 'Nombres',
+      _style: { minWidth: '150px' },
     },
     {
-      key: 'nombre',
-      label: 'Nombre',
-      _style: { width: '22%' },
+      key: 'apellidos',
+      label: 'Apellidos',
+      _style: { minWidth: '150px' },
     },
     {
-      key: 'apellido',
-      label: 'Apellido',
-      _style: { width: '22%' },
-    },
-    {
-      key: 'fechaNacimiento',
-      label: 'Fecha de Nacimiento',
-      _style: { width: '18%' },
+      key: 'identificacion',
+      label: 'Identificación',
+      _style: { minWidth: '150px' },
     },
     {
       key: 'correo',
-      label: 'Correo',
-      _style: { width: '20%' },
+      label: 'Correo electrónico',
+      _style: { minWidth: '150px' },
+    },
+    {
+      key: 'edad',
+      label: 'Edad',
+      _style: { minWidth: '80px' },
+    },
+    {
+      key: 'genero',
+      label: 'Género',
+      _style: { minWidth: '110px' },
+    },
+    {
+      key: 'fechaNacimiento',
+      label: 'Fecha de nacimiento',
+      _style: { minWidth: '130px' },
+    },
+    {
+      key: 'inicioInscripcion',
+      label: 'Inicio de inscripción',
+      _style: { minWidth: '135px' },
+    },
+    {
+      key: 'finInscripcion',
+      label: 'Fin de inscripción',
+      _style: { minWidth: '135px' },
+    },
+    {
+      key: 'costoInscripcion',
+      label: 'Costo de inscripción',
+      _style: { minWidth: '125px' },
+    },
+    {
+      key: 'estadoInscripcion',
+      label: 'Estado de inscripción',
+      _style: { minWidth: '135px' },
     },
   ]
 
@@ -135,10 +205,11 @@ const MDAModal: React.FC<UsuMDAModalProps> = ({ visible, setVisible }) => {
       size="xl"
       scrollable
       visible={visible}
-      onClose={handleClose}
-      backdrop="static"
+      onClose={() => {
+        if (!isLoading) handleClose()
+      }} backdrop="static"
     >
-      <CModalHeader closeButton>
+      <CModalHeader closeButton={!isLoading}>
         <CModalTitle className="d-flex align-items-center gap-2">
           <span>Renovaciones de Usuarios por Día, Mes y Año</span>
         </CModalTitle>
@@ -276,51 +347,105 @@ const MDAModal: React.FC<UsuMDAModalProps> = ({ visible, setVisible }) => {
               tableFilter={haBuscado && !isLoading && usuarios.length > 0}
               tableFilterLabel="Buscar:"
               tableFilterPlaceholder="Buscar en la tabla..."
+              loading={isLoading}
               cleaner
               items={tableItems}
               itemsPerPage={60}
               pagination
               noItemsLabel={
-                haBuscado
-                  ? 'No se encontraron renovaciones para la fecha seleccionada'
-                  : 'Seleccione una fecha y haga clic en Generar para ver el reporte'
+                isLoading
+                  ? 'Cargando renovaciones...'
+                  : haBuscado
+                    ? 'No se encontraron renovaciones para la fecha seleccionada'
+                    : 'Seleccione una fecha y haga clic en Generar para ver el reporte'
               }
               scopedColumns={{
-                cedula: (item: any) => (
+                nombres: (item: any) => (
+                  <td>
+                    <span className="font-monospace small">
+                      {item.nombres || '-'}
+                    </span>
+                  </td>
+                ),
+                apellidos: (item: any) => (
+                  <td>
+                    <span className="font-monospace small">
+                      {item.apellidos || '-'}
+                    </span>
+                  </td>
+                ),
+                identificacion: (item: any) => (
                   <td>
                     <span className="font-monospace small text-muted badge bg-body border">
-                      {item.cedula || '-'}
-                    </span>
-                  </td>
-                ),
-                nombre: (item: any) => (
-                  <td>
-                    <span className="font-monospace small">
-                      {item.nombre || '-'}
-                    </span>
-                  </td>
-                ),
-                apellido: (item: any) => (
-                  <td>
-                    <span className="font-monospace small">
-                      {item.apellido || '-'}
-                    </span>
-                  </td>
-                ),
-                fechaNacimiento: (item: any) => (
-                  <td>
-                    <span className="font-monospace text-primary small badge bg-body border">
-                      {item.fechaNacimiento || '-'}
+                      {item.identificacion || '-'}
                     </span>
                   </td>
                 ),
                 correo: (item: any) => (
                   <td>
-                    <span className="font-monospace small badge bg-body border text-muted rounded-pill py-1 px-2">
+                    <span className="font-monospace small badge bg-body border text-muted">
                       {item.correo || '-'}
                     </span>
                   </td>
                 ),
+                edad: (item: any) => (
+                  <td>
+                    <span className="badge bg-body border text-primary font-monospace">
+                      {item.edad !== undefined && item.edad !== '' ? item.edad : '-'}
+                    </span>
+                  </td>
+                ),
+                genero: (item: any) => (
+                  <td>
+                    <span className="font-monospace small">
+                      {item.genero || '-'}
+                    </span>
+                  </td>
+                ),
+                fechaNacimiento: (item: any) => (
+                  <td>
+                    <span className="font-monospace small badge bg-body border text-primary">
+                      {item.fechaNacimiento || '-'}
+                    </span>
+                  </td>
+                ),
+                inicioInscripcion: (item: any) => (
+                  <td>
+                    <span className="font-monospace small badge bg-body border text-info">
+                      {item.inicioInscripcion || '-'}
+                    </span>
+                  </td>
+                ),
+                finInscripcion: (item: any) => (
+                  <td>
+                    <span className="font-monospace small badge bg-body border text-info">
+                      {item.finInscripcion || '-'}
+                    </span>
+                  </td>
+                ),
+                costoInscripcion: (item: any) => (
+                  <td>
+                    <span className="font-monospace small text-success fw-semibold">
+                      {item.costoInscripcion}
+                    </span>
+                  </td>
+                ),
+                estadoInscripcion: (item: any) => {
+                  const esActiva = item.estadoInscripcion === 'Activa'
+                  return (
+                    <td>
+                      <span
+                        className={`badge font-monospace ${
+                          esActiva
+                            ? 'bg-success-subtle text-success border border-success-subtle'
+                            : 'bg-danger-subtle text-danger border border-danger-subtle'
+                        }`}
+                      >
+                        {item.estadoInscripcion}
+                      </span>
+                    </td>
+                  )
+                },
               }}
               tableProps={{
                 responsive: true,
@@ -340,7 +465,7 @@ const MDAModal: React.FC<UsuMDAModalProps> = ({ visible, setVisible }) => {
           Mostrando <strong>{usuarios.length}</strong> registro(s)
         </div>
         <div className="d-flex gap-2">
-          <CButton size="sm" color="danger" variant="outline" className="hover:text-white shadow-sm" onClick={handleClose}>
+          <CButton size="sm" color="danger" variant="outline" className="hover:text-white shadow-sm" onClick={handleClose} disabled={isLoading}>
             <CIcon icon={cilExitToApp} className="me-1" />
             Cerrar
           </CButton>

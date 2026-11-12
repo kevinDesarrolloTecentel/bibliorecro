@@ -71,7 +71,6 @@ export const useReporteNoDevueltosDanados = () => {
       return
     }
 
-    setHaBuscado(true)
     setPrestamos([])
     setExcelLink(null)
 
@@ -87,7 +86,10 @@ export const useReporteNoDevueltosDanados = () => {
       )
 
       setPrestamos(filtrados)
-      setExcelLink(data?.excel_path || null)
+      const rutaExcel: string | null = data?.excel?.nombre || data?.excel_path || null
+      setExcelLink(rutaExcel)      
+      setHaBuscado(true)
+
 
       if (filtrados.length === 0) {
         Swal.fire({
@@ -99,6 +101,7 @@ export const useReporteNoDevueltosDanados = () => {
         })
       }
     } catch (error: any) {
+      setHaBuscado(true)
       console.error('Error al obtener libros no devueltos y dañados', error)
       setPrestamos([])
       setExcelLink(null)
@@ -118,7 +121,7 @@ export const useReporteNoDevueltosDanados = () => {
         Swal.fire({
           icon: 'info',
           title: 'Sin registros encontrados',
-          text:  'No se encontraron libros no devueltos o dañados en el rango de fechas seleccionado.',
+          text: 'No se encontraron libros no devueltos o dañados en el rango de fechas seleccionado.',
           confirmButtonColor: '#044c8c',
           confirmButtonText: 'Entendido',
         })
@@ -162,7 +165,7 @@ export const useReporteNoDevueltosDanados = () => {
     }
 
     if (excelLink) {
-      await descargarArchivo(`${STORAGE_BASE_URL}/${excelLink}`)
+      await descargarArchivo(`${STORAGE_BASE_URL}/prestamos/${excelLink}`)
     }
   }, [canDescargarLibrosNoDevueltos, excelLink, verificarAccionEnServidor])
 

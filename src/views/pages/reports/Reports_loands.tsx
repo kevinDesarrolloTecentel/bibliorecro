@@ -12,6 +12,7 @@ import {
   cilNoteAdd,
   cilReload,
   cilWarning,
+  cilChartLine
 } from "@coreui/icons"
 import CIcon from "@coreui/icons-react"
 import { CButton, CCard, CCardBody, CCol, CRow } from "@coreui/react-pro"
@@ -147,9 +148,13 @@ const Rep_prestamos = () => {
       {/* Encabezado del Módulo */}
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-4">
         <div>
-          <h3 className="fw-bold mb-1 text-body">Reportes de Préstamos</h3>
+          <h3 className="fw-bold mb-1 text-body d-flex align-items-center gap-2">
+            <CIcon icon={cilChartLine} size="lg" style={{ color: '#12358dff' }} />
+            <span>Reportes de Préstamos</span>
+
+          </h3>
           <p className="text-body-secondary mb-0 small">
-            Supervisión, estadísticas y control del flujo de préstamos, entregas y devoluciones de la biblioteca.
+            Gestión de los préstamos de los libros del sistema.
           </p>
         </div>
       </div>

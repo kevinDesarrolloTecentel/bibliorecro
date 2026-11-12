@@ -1,11 +1,11 @@
 // URL base del servidor de almacenamiento de imágenes
-export const VITE_SERVER_URL: string = (
-  (import.meta as any).env?.VITE_SERVER_URL ||
-  'https://bibliobackend.ccelrecreo.com:1500/storage/app/public'
-).replace(/\/+$/, '')
+export const VITE_SERVER_URL = import.meta.env.VITE_SERVER_URL 
+
+// URL base del servidor de reportes
+export const VITE_SERVER_URL_REPORT = import.meta.env.VITE_SERVER_URL_REPORT
 
 export const USER_IMAGES_URL = VITE_SERVER_URL
-export const STORAGE_BASE_URL = VITE_SERVER_URL
+export const STORAGE_BASE_URL = VITE_SERVER_URL_REPORT
 export const DEFAULT_RECREO_IMAGE = `${VITE_SERVER_URL}/elrecreo.png`
 
 export { descargarArchivo } from './downloadUtils'
@@ -92,6 +92,7 @@ export const getUserImageUrl = (fotoRaw?: string | null): string => {
 
 export default {
   VITE_SERVER_URL,
+  VITE_SERVER_URL_REPORT,
   USER_IMAGES_URL,
   STORAGE_BASE_URL,
   DEFAULT_RECREO_IMAGE,

@@ -4,9 +4,16 @@ import { CContainer, CSpinner } from '@coreui/react-pro'
 import routes from '@/routes'
 import ProtectedRoute from '../guards/ProtectedRoute'
 import NotFoundRedirect from '../guards/NotFoundRedirect'
+import { usePermissions } from '@/context/PermissionsContext'
 
-
-
+const RootRedirect = () => {
+  const { canAccessPath, rutasPermitidas } = usePermissions()
+  if (canAccessPath('/dashboard')) {
+    return <Navigate to="/dashboard" replace />
+  }
+  const next = Array.from(rutasPermitidas)[0] || '/dashboard'
+  return <Navigate to={next} replace />
+}
 
 const AppContent = () => {
   return (
@@ -28,7 +35,7 @@ const AppContent = () => {
               />
             )
           })}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/" element={<RootRedirect />} />
           <Route path="*" element={<NotFoundRedirect />} />
         </Routes>
       </Suspense>

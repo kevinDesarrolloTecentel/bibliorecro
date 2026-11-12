@@ -2,6 +2,7 @@
 import React, {
   Suspense,
   useEffect,
+  useRef,
 } from 'react'
 
 import {
@@ -82,12 +83,25 @@ const SincronizadorPermisos = () => {
   )
 
   const { recargarPermisos } = usePermissions()
+  const lastSyncPathRef = useRef<string>('')
+  const lastSyncTimeRef = useRef<number>(0)
 
-  // Al navegar a cualquier ruta, consultar mis-permisos de inmediato sin intervalos
+  // Al navegar a cualquier ruta, consultar mis-permisos con un control de frecuencia para evitar saturación del servidor
   useEffect(() => {
     if (!isAuthenticated) return
     if (location.pathname === '/login') return
 
+    const now = Date.now()
+    const isSamePath = lastSyncPathRef.current === location.pathname
+    const elapsed = now - lastSyncTimeRef.current
+
+    // Evitar saturar el backend si es la misma ruta y pasaron menos de 10s, o si navegó entre rutas pero pasaron menos de 1.5s
+    if ((isSamePath && elapsed < 10000) || (!isSamePath && elapsed < 1500)) {
+      return
+    }
+
+    lastSyncPathRef.current = location.pathname
+    lastSyncTimeRef.current = now
     void recargarPermisos(true)
   }, [location.pathname, isAuthenticated, recargarPermisos])
 

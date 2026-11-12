@@ -71,7 +71,6 @@ export const useReportePendientesDevolver = () => {
       return
     }
 
-    setHaBuscado(true)
     setPrestamos([])
     setExcelLink(null)
 
@@ -87,7 +86,9 @@ export const useReportePendientesDevolver = () => {
       )
 
       setPrestamos(filtrados)
-      setExcelLink(data?.excel_path || null)
+      const rutaExcel: string | null = data?.excel?.nombre || data?.excel_path || null
+      setExcelLink(rutaExcel)      
+      setHaBuscado(true)
 
       if (filtrados.length === 0) {
         Swal.fire({
@@ -99,6 +100,7 @@ export const useReportePendientesDevolver = () => {
         })
       }
     } catch (error: any) {
+      setHaBuscado(true)
       console.error('Error al obtener préstamos pendientes', error)
       setPrestamos([])
       setExcelLink(null)
@@ -118,7 +120,7 @@ export const useReportePendientesDevolver = () => {
         Swal.fire({
           icon: 'info',
           title: 'Sin registros encontrados',
-          text:  'No se encontraron libros pendientes por devolver en el rango de fechas seleccionado.',
+          text: 'No se encontraron libros pendientes por devolver en el rango de fechas seleccionado.',
           confirmButtonColor: '#044c8c',
           confirmButtonText: 'Entendido',
         })
@@ -162,7 +164,7 @@ export const useReportePendientesDevolver = () => {
     }
 
     if (excelLink) {
-      await descargarArchivo(`${STORAGE_BASE_URL}/${excelLink}`)
+      await descargarArchivo(`${STORAGE_BASE_URL}/prestamos/${excelLink}`)
     }
   }, [canDescargarLibrosPendientes, excelLink, verificarAccionEnServidor])
 

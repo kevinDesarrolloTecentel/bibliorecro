@@ -251,7 +251,11 @@ export const PaisSelect: React.FC<PaisSelectProps> = ({
           menuPortal: (base: any) => ({ ...base, zIndex: 99999 }),
           control: (base: any, state: any) => ({
             ...base,
-            borderColor: invalid ? '#e55353' : state.isFocused ? '#86b7fe' : '#ced4da',
+            borderColor: invalid
+              ? '#e55353'
+              : state.isFocused
+                ? '#86b7fe'
+                : 'var(--cui-border-color, #ced4da)',
             boxShadow: state.isFocused
               ? invalid
                 ? '0 0 0 0.25rem rgba(229, 83, 83, 0.25)'
@@ -261,12 +265,81 @@ export const PaisSelect: React.FC<PaisSelectProps> = ({
             height: '38px',
             borderRadius: '0.375rem',
             fontSize: '0.875rem',
-            backgroundColor: disabled ? '#e9ecef' : '#fff',
+            backgroundColor: disabled
+              ? 'var(--cui-tertiary-bg, #e9ecef)'
+              : 'var(--cui-body-bg, #fff)',
+            color: 'var(--cui-body-color, #212529)',
+            cursor: disabled ? 'not-allowed' : 'default',
+            '&:hover': {
+              borderColor: state.isFocused ? '#86b7fe' : 'var(--cui-border-color, #ced4da)',
+            },
+          }),
+          singleValue: (base: any) => ({
+            ...base,
+            color: 'var(--cui-body-color, #212529)',
+          }),
+          input: (base: any) => ({
+            ...base,
+            margin: '0px',
+            color: 'var(--cui-body-color, #212529)',
+          }),
+          placeholder: (base: any) => ({
+            ...base,
+            color: 'var(--cui-secondary-color, #6c757d)',
           }),
           valueContainer: (base: any) => ({ ...base, height: '38px', padding: '0 8px' }),
-          input: (base: any) => ({ ...base, margin: '0px' }),
           indicatorsContainer: (base: any) => ({ ...base, height: '38px' }),
-          menu: (base: any) => ({ ...base, fontSize: '0.875rem' }),
+          dropdownIndicator: (base: any) => ({
+            ...base,
+            color: 'var(--cui-secondary-color, #6c757d)',
+            '&:hover': {
+              color: 'var(--cui-body-color, #212529)',
+            },
+          }),
+          clearIndicator: (base: any) => ({
+            ...base,
+            color: 'var(--cui-secondary-color, #6c757d)',
+            '&:hover': {
+              color: 'var(--cui-body-color, #212529)',
+            },
+          }),
+          indicatorSeparator: (base: any) => ({
+            ...base,
+            backgroundColor: 'var(--cui-border-color, #ced4da)',
+          }),
+          menu: (base: any) => ({
+            ...base,
+            fontSize: '0.875rem',
+            backgroundColor: 'var(--cui-body-bg, #fff)',
+            border: '1px solid var(--cui-border-color, #ced4da)',
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.25)',
+            zIndex: 99999,
+          }),
+          menuList: (base: any) => ({
+            ...base,
+            backgroundColor: 'var(--cui-body-bg, #fff)',
+            padding: 0,
+          }),
+          option: (base: any, state: any) => ({
+            ...base,
+            backgroundColor: state.isSelected
+              ? 'var(--cui-primary, #0d6efd)'
+              : state.isFocused
+                ? 'var(--cui-tertiary-bg, rgba(255, 255, 255, 0.08))'
+                : 'transparent',
+            color: state.isSelected
+              ? '#ffffff'
+              : 'var(--cui-body-color, #212529)',
+            cursor: 'pointer',
+            '&:active': {
+              backgroundColor: 'var(--cui-primary, #0d6efd)',
+              color: '#ffffff',
+            },
+          }),
+          noOptionsMessage: (base: any) => ({
+            ...base,
+            color: 'var(--cui-secondary-color, #6c757d)',
+          }),
         }}
       />
     </div>

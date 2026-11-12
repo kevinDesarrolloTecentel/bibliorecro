@@ -197,7 +197,7 @@ export const ModalInactivarLibro: React.FC<ModalInactivarLibroProps> = ({
           </CRow>
         </CModalBody>
 
-        <CModalFooter className="border-top py-2 px-4 d-flex justify-content-end gap-2 bg-light">
+        <CModalFooter className="border-top py-2 px-4 d-flex justify-content-end gap-2 bg-body">
           <CButton
             color="secondary"
             variant="outline"

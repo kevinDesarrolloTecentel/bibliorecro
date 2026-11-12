@@ -128,10 +128,11 @@ const PrestamoAModal: React.FC<PrestamoAProps> = ({ visible, setVisible }) => {
       size="xl"
       scrollable
       visible={visible}
-      onClose={handleClose}
-      backdrop="static"
+      onClose={() => {
+        if (!isLoading) handleClose()
+      }} backdrop="static"
     >
-      <CModalHeader closeButton>
+      <CModalHeader closeButton={!isLoading}>
         <CModalTitle className="d-flex align-items-center gap-2">
           <span>Préstamos Anuales</span>
         </CModalTitle>
@@ -243,14 +244,17 @@ const PrestamoAModal: React.FC<PrestamoAProps> = ({ visible, setVisible }) => {
               tableFilter={haBuscado && !isLoading && prestamos.length > 0}
               tableFilterLabel="Buscar:"
               tableFilterPlaceholder="Buscar en la tabla..."
+              loading={isLoading}
               cleaner
               items={tableItems}
               itemsPerPage={60}
               pagination
               noItemsLabel={
-                haBuscado
-                  ? 'No se encontraron préstamos para el año seleccionado'
-                  : 'Seleccione un año y haga clic en Generar para ver el reporte'
+                isLoading
+                  ? 'Cargando préstamos anuales...'
+                  : haBuscado
+                    ? 'No se encontraron préstamos para el año seleccionado'
+                    : 'Seleccione un año y haga clic en Generar para ver el reporte'
               }
               scopedColumns={{
                 titulo: (item: any) => (
@@ -321,7 +325,7 @@ const PrestamoAModal: React.FC<PrestamoAProps> = ({ visible, setVisible }) => {
           Mostrando <strong>{prestamos.length}</strong> registro(s)
         </div>
         <div className="d-flex gap-2">
-          <CButton size="sm" color="danger" variant="outline" className="hover:text-white shadow-sm" onClick={handleClose}>
+          <CButton size="sm" color="danger" variant="outline" className="hover:text-white shadow-sm" onClick={handleClose} disabled={isLoading}>
             <CIcon icon={cilExitToApp} className="me-1" />
             Cerrar
           </CButton>

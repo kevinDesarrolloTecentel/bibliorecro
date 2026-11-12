@@ -91,7 +91,6 @@ export const useReporteUsuariosEdadGenero = () => {
       return
     }
 
-    setHaBuscado(true)
     setUsuarios([])
     setExcelLink(null)
 
@@ -114,6 +113,7 @@ export const useReporteUsuariosEdadGenero = () => {
 
       setUsuarios(personasFiltradas)
       setExcelLink(rutaExcel)
+      setHaBuscado(true)
 
       if (personasFiltradas.length === 0) {
         const generoSeleccionado = generos.find((g) => String(g.value) === String(generoId))?.label
@@ -130,6 +130,7 @@ export const useReporteUsuariosEdadGenero = () => {
         })
       }
     } catch (error: any) {
+      setHaBuscado(true)
       console.error('Error al obtener las personas por edad y género:', error)
       const respData = error?.response?.data
       const errStr = typeof respData === 'string' ? respData : JSON.stringify(respData || '')
@@ -200,7 +201,7 @@ export const useReporteUsuariosEdadGenero = () => {
     }
 
     if (excelLink) {
-      await descargarArchivo(`${STORAGE_BASE_URL}/reportes/personas/${excelLink}`)
+      await descargarArchivo(`${STORAGE_BASE_URL}/personas/${excelLink}`)
     }
   }, [canDescargarUsuariosInscritos, excelLink, verificarAccionEnServidor])
 

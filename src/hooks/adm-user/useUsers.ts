@@ -147,9 +147,7 @@ export const parseApiErrors = (error: any, defaultMsg: string): { title: string;
   return { title, messages: rawErrors, isDuplicate }
 }
 
-/**
- * Muestra una alerta visual atractiva (SweetAlert2) con diseño pulido
- */
+//Alerta
 export const showErrorAlert = (title: string, messages: string[]) => {
   if (messages.length === 1) {
     Swal.fire({
@@ -230,6 +228,9 @@ export const useUsers = (options: { fetchAll?: boolean } = { fetchAll: true }) =
   const canEditarUsuario = canDoAction('btn_editar_usuario')
   const canActualizarUsuario = canDoAction('btn_actualizar_usuario')
   const canEliminarUsuario = canDoAction('btn_eliminar_usuario')
+  const canInactivarUsuario = canDoAction('btn_inactivar_usuario_adm')
+  const canActivarUsuario = canDoAction('btn_activar_usuario_adm')
+  const verContraseñaUsuario = canDoAction('btn_ver_contraseña_usuario')
 
 
   const fetchUsuarios = useCallback(async () => {
@@ -544,6 +545,22 @@ export const useUsers = (options: { fetchAll?: boolean } = { fetchAll: true }) =
       return false
     }
 
+    const currentId = activeUser?.ID_USUARIO ?? activeUser?.id
+    const currentNick = String(activeUser?.NICK_USUARIO ?? '').trim().toLowerCase()
+    const targetNick = String(nombre || '').trim().toLowerCase()
+    const isSelf = (currentId && String(id) === String(currentId)) || (currentNick && targetNick && currentNick === targetNick)
+
+    if (isSelf) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Acción no permitida',
+        text: 'No puedes eliminar tu propia cuenta mientras estás en sesión en el sistema.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return false
+    }
+
     const result = await Swal.fire({
       title: '¿Estás seguro?',
       text: `¿Deseas eliminar al usuario ${nombre ? `"${nombre}"` : ''}? Esta acción no se puede deshacer.`,
@@ -596,30 +613,100 @@ export const useUsers = (options: { fetchAll?: boolean } = { fetchAll: true }) =
   const cambiarEstadoUsuario = async (item: any): Promise<boolean> => {
     const u = item.raw || item
     const id = item.id || u.ID_USUARIO
-    const estadoActual = item.Estado || u.ESTADO_USUARIO || 'Activo'
-    const nuevoEstado = estadoActual === 'Activo' ? 'Inactivo' : 'Activo'
-    const estadoNum = nuevoEstado === 'Activo' ? 1 : 0
+    const rawEstado = item.Estado ?? item.estado ?? u.ESTADO_USUARIO ?? u.estado ?? 'Activo'
+    const isActivo =
+      String(rawEstado).toLowerCase() === '1' || String(rawEstado).toLowerCase() === 'activo'
+    const nuevoEstado = isActivo ? 'Inactivo' : 'Activo'
+    const estadoNum = isActivo ? 0 : 1
+
+    const accionVerificar = isActivo ? 'btn_inactivar_usuario_adm' : 'btn_activar_usuario_adm'
+    const accionNombre = isActivo ? 'inactivar' : 'activar'
+
+    if (isActivo && !canInactivarUsuario) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Acceso Denegado',
+        text: 'No tienes permisos para inactivar este usuario.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return false
+    }
+
+    if (!isActivo && !canActivarUsuario) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Acceso Denegado',
+        text: 'No tienes permisos para activar este usuario.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return false
+    }
 
     const currentId = activeUser?.ID_USUARIO ?? activeUser?.id
     const currentNick = String(activeUser?.NICK_USUARIO ?? '').trim().toLowerCase()
-    const targetNick = String(item.Usuario ?? u.NICK_USUARIO ?? '').trim().toLowerCase()
+    const targetNick = String(item.Usuario ?? item.usuario ?? u.NICK_USUARIO ?? '').trim().toLowerCase()
     const isSelf = (currentId && String(id) === String(currentId)) || (currentNick && targetNick && currentNick === targetNick)
+
+    if (isSelf && isActivo) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Acción no permitida',
+        text: 'No puedes inactivar tu propia cuenta mientras estás en sesión en el sistema.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return false
+    }
+
+    const nombreUsuario = item.Nombres || item.nombres || item.Usuario || item.usuario || u.NOMBRES_USUARIO || u.NICK_USUARIO || ''
+
+    const result = await Swal.fire({
+      title: '¿Estás seguro?',
+      text: `¿Deseas ${accionNombre} al usuario ${nombreUsuario ? `"${nombreUsuario}"` : ''}?`,
+      icon: isActivo ? 'warning' : 'question',
+      showCancelButton: true,
+      confirmButtonColor: isActivo ? '#f9b115' : '#2eb85c',
+      cancelButtonColor: '#6c757d',
+      confirmButtonText: `Sí, ${accionNombre}`,
+      cancelButtonText: 'Cancelar',
+    })
+
+    if (!result.isConfirmed) return false
+
+    const tienePermiso = await verificarAccionEnServidor(accionVerificar)
+    if (!tienePermiso) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Acceso Denegado',
+        text: `No tienes permisos para ${accionNombre} este usuario.`,
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return false
+    }
 
     try {
       setGuardando(true)
       const payload: any = {
-        NICK_USUARIO: item.Usuario || u.NICK_USUARIO,
-        NOMBRES_USUARIO: item.Nombres || u.NOMBRES_USUARIO,
+        NICK_USUARIO: item.Usuario || item.usuario || u.NICK_USUARIO,
+        NOMBRES_USUARIO: item.Nombres || item.nombres || u.NOMBRES_USUARIO,
         ESTADO_USUARIO: estadoNum,
         estado: estadoNum,
       }
-      const rawRolVal = u.ID_ROL ?? item.Rol
+      const rawRolVal = u.ID_ROL ?? item.Rol ?? item.rol
       if (rawRolVal && !isNaN(Number(rawRolVal)) && Number(rawRolVal) > 0) {
         payload.ID_ROL = Number(rawRolVal)
         payload.rol = Number(rawRolVal)
       }
       await actualizar(id, payload)
       marcarCambioPermisos()
+
+      setEditFormData((prev) => ({
+        ...prev,
+        estado: nuevoEstado,
+      }))
 
       if (isSelf && estadoNum === 0) {
         clearAuthSession()
@@ -632,8 +719,8 @@ export const useUsers = (options: { fetchAll?: boolean } = { fetchAll: true }) =
 
       Swal.fire({
         icon: 'success',
-        title: 'Estado actualizado',
-        text: `El usuario ahora está ${nuevoEstado === 'Activo' ? 'Activo' : 'Inactivo'}.`,
+        title: nuevoEstado === 'Activo' ? '¡Usuario activado!' : '¡Usuario inactivado!',
+        text: `El usuario ${targetNick ? `"${targetNick}"` : ''} fue ${nuevoEstado === 'Activo' ? 'activado' : 'inactivado'} correctamente.`,
         timer: 1800,
         showConfirmButton: false,
       })
@@ -930,6 +1017,9 @@ export const useUsers = (options: { fetchAll?: boolean } = { fetchAll: true }) =
     canEditarUsuario,
     canActualizarUsuario,
     canEliminarUsuario,
+    canInactivarUsuario,
+    canActivarUsuario,
+    verContraseñaUsuario
   }
 }
 

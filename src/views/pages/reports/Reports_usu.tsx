@@ -9,6 +9,7 @@ import {
   cilLockLocked,
   cilPeople,
   cilUserFollow,
+  cilChartPie
 } from "@coreui/icons"
 import CIcon from "@coreui/icons-react"
 import { CButton, CCard, CCardBody, CCol, CRow } from "@coreui/react-pro"
@@ -177,9 +178,14 @@ const Report_usu = () => {
       {/* Encabezado del Módulo */}
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-4">
         <div>
-          <h3 className="fw-bold mb-1 text-body">Reportes de Usuarios</h3>
+          <h3 className="fw-bold mb-1 text-body d-flex align-items-center gap-2">
+            <CIcon icon={cilChartPie} size="lg" style={{ color: '#12358dff' }} />
+
+            <span>Reportes de Usuarios</span>
+
+          </h3>
           <p className="text-body-secondary mb-0 small">
-            Estadísticas, análisis demográfico y comportamiento de la comunidad de lectores y usuarios registrados.
+            Gestión de reportes del usuario del sistema.
           </p>
         </div>
       </div>

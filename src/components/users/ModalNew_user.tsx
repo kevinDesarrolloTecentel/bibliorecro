@@ -21,7 +21,10 @@ const Newuser = ({ userState, onUserCreated }: NewuserProps) => {
     return (
         <CModal visible={userState.modalVisible} onClose={userState.handleCerrarCrear}>
             <CModalHeader>
-                <CModalTitle>Ingreso de Nuevo Usuario</CModalTitle>
+                <CModalTitle className=" mb-1 text-body d-flex align-items-center gap-2">
+                    <CIcon icon={cilUser} size="lg" className="text-body" />
+                    <span>Ingreso de Nuevo Usuario</span>
+                </CModalTitle>
             </CModalHeader>
             <CModalBody>
                 <CForm className="row g-3" autoComplete="off">
@@ -49,15 +52,18 @@ const Newuser = ({ userState, onUserCreated }: NewuserProps) => {
                                 value={userState.formData.password}
                                 onChange={(e) => userState.setFormData({ ...userState.formData, password: e.target.value })}
                             />
-                            <CButton
-                                type="button"
-                                color="secondary"
-                                variant="outline"
-                                onClick={() => userState.setShowPassword(!userState.showPassword)}
-                                title={userState.showPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
-                            >
-                                <CIcon icon={userState.showPassword ? cilLockUnlocked : cilLockLocked} />
-                            </CButton>
+                            {userState.verContraseñaUsuario && (
+
+                                <CButton
+                                    type="button"
+                                    color="secondary"
+                                    variant="outline"
+                                    onClick={() => userState.setShowPassword(!userState.showPassword)}
+                                    title={userState.showPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
+                                >
+                                    <CIcon icon={userState.showPassword ? cilLockUnlocked : cilLockLocked} />
+                                </CButton>
+                            )}
                         </CInputGroup>
                     </CCol>
                     <CCol xs={12}>
@@ -78,10 +84,10 @@ const Newuser = ({ userState, onUserCreated }: NewuserProps) => {
             </CModalBody>
             <CModalFooter>
                 <CButton size="sm" color="secondary" className="hover:text-white shadow-sm" variant="outline" onClick={userState.handleCerrarCrear} disabled={userState.guardando}>
-                    <CIcon icon={cilExitToApp} className="me-1"/>
+                    <CIcon icon={cilExitToApp} className="me-1" />
                     Cerrar
                 </CButton>
-                
+
                 {userState.canGuardarUsuario && (
                     <CButton
                         color="success"
@@ -91,7 +97,7 @@ const Newuser = ({ userState, onUserCreated }: NewuserProps) => {
                         onClick={handleGuardar}
                         disabled={userState.guardando}
                     >
-                        <CIcon icon={cilUser} className="me-1"/>
+                        <CIcon icon={cilUser} className="me-1" />
                         {userState.guardando ? <CSpinner size="sm" className="me-1" /> : null}
                         Guardar Usuario
                     </CButton>

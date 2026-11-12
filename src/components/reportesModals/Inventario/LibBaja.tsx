@@ -124,10 +124,11 @@ const LibBajaModal: React.FC<LibBajaProps> = ({ visible, setVisible }) => {
       size="xl"
       scrollable
       visible={visible}
-      onClose={handleClose}
-      backdrop="static"
+      onClose={() => {
+        if (!isLoading) handleClose()
+      }} backdrop="static"
     >
-      <CModalHeader closeButton>
+      <CModalHeader closeButton={!isLoading}>
         <CModalTitle className="d-flex align-items-center gap-2">
           <span>Libros Dados de Baja</span>
         </CModalTitle>
@@ -240,14 +241,17 @@ const LibBajaModal: React.FC<LibBajaProps> = ({ visible, setVisible }) => {
               tableFilter={haBuscado && !isLoading && libros.length > 0}
               tableFilterLabel="Buscar:"
               tableFilterPlaceholder="Buscar en la tabla..."
+              loading={isLoading}
               cleaner
               items={tableItems}
               itemsPerPage={60}
               pagination
               noItemsLabel={
-                haBuscado
-                  ? 'No se encontraron libros dados de baja para el año seleccionado'
-                  : 'Seleccione un año y haga clic en Generar para ver el reporte'
+                isLoading
+                  ? 'Cargando libros dados de baja...'
+                  : haBuscado
+                    ? 'No se encontraron libros dados de baja para el año seleccionado'
+                    : 'Seleccione un año y haga clic en Generar para ver el reporte'
               }
               scopedColumns={{
                 isbn: (item: any) => (
@@ -311,6 +315,7 @@ const LibBajaModal: React.FC<LibBajaProps> = ({ visible, setVisible }) => {
             size="sm"
             className="hover:text-white shadow-sm"
             onClick={handleClose}
+            disabled={isLoading}
           >
             <CIcon icon={cilExitToApp} className="me-1" />
             Cerrar

@@ -28,6 +28,12 @@ export const normalizarRenovacion = (item: any): PersonaReporteItem => {
   const telefono = persona.TELEFONO_PERSONA || item.TELEFONO_PERSONA || ''
   const celular = persona.CELULAR_PERSONA || item.CELULAR_PERSONA || ''
   const edad = item.EDAD_PERSONA ?? persona.EDAD_PERSONA
+  const genero = item.NOMBRE_GENERO || persona.NOMBRE_GENERO || ''
+
+  const inicioRenov = primeraRenovacion.FECHAINICIO_RENOVACIONES ?? item.FECHAINICIO_RENOVACIONES ?? item.FECHAINICIO_INSCRIPCION
+  const finRenov = primeraRenovacion.FECHAFIN_RENOVACIONES ?? item.FECHAFIN_RENOVACIONES ?? item.FECHAFIN_INSCRIPCION
+  const costoRenov = primeraRenovacion.COSTO_RENOVACIONES ?? item.COSTO_RENOVACIONES ?? item.COSTO_INSCRIPCION
+  const estadoRenov = primeraRenovacion.ESTADO_RENOVACIONES ?? item.ESTADO_RENOVACIONES ?? item.ESTADO_INSCRIPCION
 
   return {
     ...persona,
@@ -41,6 +47,8 @@ export const normalizarRenovacion = (item: any): PersonaReporteItem => {
     TELEFONO_PERSONA: telefono,
     CELULAR_PERSONA: celular,
     EDAD_PERSONA: edad,
+    NOMBRE_GENERO: genero,
+    genero: genero,
     // Alias directos para las columnas y el ordenamiento de CSmartTable
     cedula: identificacion,
     nombre: nombre,
@@ -49,10 +57,14 @@ export const normalizarRenovacion = (item: any): PersonaReporteItem => {
     fechaNacimiento: fecha,
     RENOVACIONES: renovaciones,
     PERSONA: persona,
-    FECHAINICIO_RENOVACIONES: primeraRenovacion.FECHAINICIO_RENOVACIONES ?? item.FECHAINICIO_RENOVACIONES,
-    FECHAFIN_RENOVACIONES: primeraRenovacion.FECHAFIN_RENOVACIONES ?? item.FECHAFIN_RENOVACIONES,
-    COSTO_RENOVACIONES: primeraRenovacion.COSTO_RENOVACIONES ?? item.COSTO_RENOVACIONES,
-    ESTADO_RENOVACIONES: primeraRenovacion.ESTADO_RENOVACIONES ?? item.ESTADO_RENOVACIONES,
+    FECHAINICIO_RENOVACIONES: inicioRenov,
+    FECHAFIN_RENOVACIONES: finRenov,
+    COSTO_RENOVACIONES: costoRenov,
+    ESTADO_RENOVACIONES: estadoRenov,
+    FECHAINICIO_INSCRIPCION: inicioRenov,
+    FECHAFIN_INSCRIPCION: finRenov,
+    COSTO_INSCRIPCION: costoRenov,
+    ESTADO_INSCRIPCION: estadoRenov,
   }
 }
 
@@ -107,7 +119,6 @@ export const useReporteRenovaciones = () => {
       return
     }
 
-    setHaBuscado(true)
     setUsuarios([])
     setExcelLink(null)
 
@@ -115,12 +126,7 @@ export const useReporteRenovaciones = () => {
       const params: Record<string, any> = {
         mesRegistro,
         anoRegistro,
-        anio: anoRegistro,
-        mes: mesRegistro,
-      }
-      if (diaRegistro) {
-        params.diaRegistro = diaRegistro
-        params.dia = diaRegistro
+        diaRegistro,
       }
 
       const data = await PersonasRenovacionesReport(params)
@@ -131,7 +137,10 @@ export const useReporteRenovaciones = () => {
         .sort((a: PersonaReporteItem, b: PersonaReporteItem) => (Number(a.EDAD_PERSONA) || 0) - (Number(b.EDAD_PERSONA) || 0))
 
       setUsuarios(personasFiltradas)
-      setExcelLink(data?.excel_path || null)
+      const rutaExcel: string | null = data?.excel?.nombre || data?.excel_path || null
+      setExcelLink(rutaExcel)      
+      setHaBuscado(true)
+
 
       if (personasFiltradas.length === 0) {
         Swal.fire({
@@ -143,6 +152,8 @@ export const useReporteRenovaciones = () => {
         })
       }
     } catch (error: any) {
+      setHaBuscado(true)
+
       console.error('Error al obtener renovaciones', error)
       const respData = error?.response?.data
       const errStr = typeof respData === 'string' ? respData : JSON.stringify(respData || '')
@@ -220,37 +231,10 @@ export const useReporteRenovaciones = () => {
       return
     }
 
-    if (excelLink && excelLink !== 'local_csv') {
-      await descargarArchivo(`${STORAGE_BASE_URL}/${excelLink}`)
-      return
+    if (excelLink) {
+      await descargarArchivo(`${STORAGE_BASE_URL}/personas/${excelLink}`)
     }
-    if (!usuarios.length) return
-    const headers = ['Cédula', 'Nombre', 'Apellido', 'Fecha Nacimiento', 'Correo']
-    const rows = usuarios.map((u) => {
-      let fechaStr = '-'
-      if (u.FECHA_PERSONA) {
-        const d = new Date(u.FECHA_PERSONA)
-        if (!isNaN(d.getTime()) && d.getFullYear() > 1900 && d.getFullYear() < 2100) {
-          fechaStr = d.toLocaleDateString()
-        }
-      }
-      return [
-        `"${u.IDENTIFICACION_PERSONA || ''}"`,
-        `"${u.NOMBRE_PERSONA || ''}"`,
-        `"${u.APELLIDO_PERSONA || ''}"`,
-        `"${fechaStr}"`,
-        `"${u.CORREO_PERSONA || ''}"`,
-      ]
-    })
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n')
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `renovaciones_${anoRegistro}_${mesRegistro}${diaRegistro ? '_' + diaRegistro : ''}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
-  }, [canDescargarRenovacionesUsuario, excelLink, usuarios, anoRegistro, mesRegistro, diaRegistro, verificarAccionEnServidor])
+  }, [canDescargarRenovacionesUsuario, excelLink, verificarAccionEnServidor])
 
   const handleReset = useCallback(() => {
     setDiaRegistro('')

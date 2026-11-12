@@ -27,6 +27,12 @@ import {
   CSmartTable,
   CSpinner,
 } from '@coreui/react-pro'
+import { formatFecha } from '@/utils/dateUtils'
+
+const formatFechaDisplay = (val?: string | null): string => {
+  if (!val) return '-'
+  return formatFecha(val)
+}
 
 export interface UseMejoresProps {
   visible: boolean
@@ -61,29 +67,112 @@ const MejoresUModal: React.FC<UseMejoresProps> = ({ visible, setVisible }) => {
   }
 
   const tableItems = useMemo(() => {
-    return usuarios.map((item: PersonaReporteItem) => ({
-      ...item,
-      nombre: item.NOMBRE_PERSONA || '',
-      apellido: item.APELLIDO_PERSONA || '',
-      cantidad: item.cantidad_prestamos ?? 0,
-    }))
+    return usuarios.map((item: PersonaReporteItem) => {
+      const nombres = item.NOMBRE_PERSONA?.trim() || ''
+      const apellidos = item.APELLIDO_PERSONA?.trim() || ''
+      const identificacion = item.IDENTIFICACION_PERSONA?.trim() || ''
+      const correo = item.CORREO_PERSONA?.trim() || ''
+      const edad = item.EDAD_PERSONA !== undefined && item.EDAD_PERSONA !== null ? String(item.EDAD_PERSONA) : ''
+      const genero = item.NOMBRE_GENERO?.trim() || ''
+      const fechaNacimiento = formatFechaDisplay(item.FECHA_PERSONA || (item as any).FECHA_NACIMIENTO_PERSONA || (item as any).fecha_nacimiento)
+      const inicioInscripcion = formatFechaDisplay(item.FECHAINICIO_INSCRIPCION)
+      const finInscripcion = formatFechaDisplay(item.FECHAFIN_INSCRIPCION)
+
+      // Costo de inscripción
+      const costoNum = Number(item.COSTO_INSCRIPCION)
+      const costoInscripcion = !isNaN(costoNum)
+        ? `$${costoNum.toFixed(2)}`
+        : item.COSTO_INSCRIPCION
+          ? `$${item.COSTO_INSCRIPCION}`
+          : '$0.00'
+
+      // Estado de inscripción
+      let estadoInscripcion = 'Inactiva'
+      const estStr = String(item.ESTADO_INSCRIPCION ?? '').trim().toLowerCase()
+      if (estStr === '1' || estStr === 'true' || estStr === 'activa' || estStr === 'activo') {
+        estadoInscripcion = 'Activa'
+      }
+
+      const cantidad_prestamos = Number((item as any).cantidad_prestamos ?? (item as any).cantidad ?? 0)
+
+      return {
+        ...item,
+        nombres,
+        apellidos,
+        identificacion,
+        correo,
+        edad,
+        genero,
+        fechaNacimiento,
+        inicioInscripcion,
+        finInscripcion,
+        costoInscripcion,
+        estadoInscripcion,
+        cantidad_prestamos,
+      }
+    })
   }, [usuarios])
 
   const columns = [
     {
-      key: 'nombre',
-      label: 'Nombre',
-      _style: { width: '38%' },
+      key: 'nombres',
+      label: 'Nombres',
+      _style: { minWidth: '150px' },
     },
     {
-      key: 'apellido',
-      label: 'Apellido',
-      _style: { width: '38%' },
+      key: 'apellidos',
+      label: 'Apellidos',
+      _style: { minWidth: '150px' },
     },
     {
-      key: 'cantidad',
-      label: 'Cantidad de Préstamos',
-      _style: { width: '24%' },
+      key: 'identificacion',
+      label: 'Identificación',
+      _style: { minWidth: '150px' },
+    },
+    {
+      key: 'correo',
+      label: 'Correo electrónico',
+      _style: { minWidth: '150px' },
+    },
+    {
+      key: 'edad',
+      label: 'Edad',
+      _style: { minWidth: '80px' },
+    },
+    {
+      key: 'genero',
+      label: 'Género',
+      _style: { minWidth: '110px' },
+    },
+    {
+      key: 'fechaNacimiento',
+      label: 'Fecha de nacimiento',
+      _style: { minWidth: '130px' },
+    },
+    {
+      key: 'inicioInscripcion',
+      label: 'Inicio de inscripción',
+      _style: { minWidth: '135px' },
+    },
+    {
+      key: 'finInscripcion',
+      label: 'Fin de inscripción',
+      _style: { minWidth: '135px' },
+    },
+    {
+      key: 'costoInscripcion',
+      label: 'Costo de inscripción',
+      _style: { minWidth: '125px' },
+    },
+    {
+      key: 'estadoInscripcion',
+      label: 'Estado de inscripción',
+      _style: { minWidth: '135px' },
+    },
+    {
+      key: 'cantidad_prestamos',
+      label: 'Cantidad',
+      _style: { minWidth: '115px' },
     },
   ]
 
@@ -92,10 +181,12 @@ const MejoresUModal: React.FC<UseMejoresProps> = ({ visible, setVisible }) => {
       size="xl"
       scrollable
       visible={visible}
-      onClose={handleClose}
-      backdrop="static"
+      onClose={() => {
+        if (!isLoading) handleClose()
+      }} backdrop="static"
+
     >
-      <CModalHeader closeButton>
+      <CModalHeader closeButton={!isLoading}>
         <CModalTitle className="d-flex align-items-center gap-2">
           <span>Ranking de los Mejores Usuarios</span>
         </CModalTitle>
@@ -207,30 +298,109 @@ const MejoresUModal: React.FC<UseMejoresProps> = ({ visible, setVisible }) => {
               tableFilter={haBuscado && !isLoading && usuarios.length > 0}
               tableFilterLabel="Buscar:"
               tableFilterPlaceholder="Buscar en el ranking..."
+              loading={isLoading}
               cleaner
               items={tableItems}
               itemsPerPage={60}
               pagination
               noItemsLabel={
-                haBuscado
-                  ? 'No se encontraron usuarios en el ranking para el año seleccionado'
-                  : 'Seleccione un año y haga clic en Generar para ver el reporte'
+                isLoading
+                  ? 'Cargando ranking...'
+                  : haBuscado
+                    ? 'No se encontraron usuarios en el ranking para el año seleccionado'
+                    : 'Seleccione un año y haga clic en Generar para ver el reporte'
               }
               scopedColumns={{
-                nombre: (item: any) => (
+                nombres: (item: any) => (
                   <td>
-                    <span className="font-monospace small">{item.nombre}</span>
+                    <span className="font-monospace small">
+                      {item.nombres || item.NOMBRE_PERSONA || '-'}
+                    </span>
                   </td>
                 ),
-                apellido: (item: any) => (
+                apellidos: (item: any) => (
                   <td>
-                    <span className="font-monospace small">{item.apellido}</span>
+                    <span className="font-monospace small">
+                      {item.apellidos || item.APELLIDO_PERSONA || '-'}
+                    </span>
                   </td>
                 ),
-                cantidad: (item: any) => (
+                identificacion: (item: any) => (
                   <td>
-                    <span className="font-monospace text-success fw-semibold badge bg-body border">
-                      {item.cantidad}
+                    <span className="font-monospace small text-muted badge bg-body border">
+                      {item.identificacion || item.IDENTIFICACION_PERSONA || '-'}
+                    </span>
+                  </td>
+                ),
+                correo: (item: any) => (
+                  <td>
+                    <span className="font-monospace small badge bg-body border text-muted">
+                      {item.correo || item.CORREO_PERSONA || '-'}
+                    </span>
+                  </td>
+                ),
+                edad: (item: any) => (
+                  <td >
+                    <span className="badge bg-body border text-primary font-monospace">
+                      {item.edad !== undefined && item.edad !== '' ? item.edad : '-'}
+                    </span>
+                  </td>
+                ),
+                genero: (item: any) => (
+                  <td>
+                    <span className="font-monospace small">
+                      {item.genero || item.NOMBRE_GENERO || '-'}
+                    </span>
+                  </td>
+                ),
+                fechaNacimiento: (item: any) => (
+                  <td>
+                    <span className="font-monospace small badge bg-body border text-primary">
+                      {item.fechaNacimiento || formatFechaDisplay(item.FECHA_PERSONA)}
+                    </span>
+                  </td>
+                ),
+                inicioInscripcion: (item: any) => (
+                  <td>
+                    <span className="font-monospace small badge bg-body border text-info">
+                      {item.inicioInscripcion || formatFechaDisplay(item.FECHAINICIO_INSCRIPCION)}
+                    </span>
+                  </td>
+                ),
+                finInscripcion: (item: any) => (
+                  <td>
+                    <span className="font-monospace small badge bg-body border text-info">
+                      {item.finInscripcion || formatFechaDisplay(item.FECHAFIN_INSCRIPCION)}
+                    </span>
+                  </td>
+                ),
+                costoInscripcion: (item: any) => (
+                  <td>
+                    <span className="font-monospace small text-success fw-semibold">
+                      {item.costoInscripcion}
+                    </span>
+                  </td>
+                ),
+                estadoInscripcion: (item: any) => {
+                  const esActiva = item.estadoInscripcion === 'Activa'
+                  return (
+                    <td>
+                      <span
+                        className={`badge font-monospace ${
+                          esActiva
+                            ? 'bg-success-subtle text-success border border-success-subtle'
+                            : 'bg-danger-subtle text-danger border border-danger-subtle'
+                        }`}
+                      >
+                        {item.estadoInscripcion}
+                      </span>
+                    </td>
+                  )
+                },
+                cantidad_prestamos: (item: any) => (
+                  <td >
+                    <span className="badge bg-body border text-primary font-monospace">
+                      {item.cantidad_prestamos ?? 0}
                     </span>
                   </td>
                 ),
@@ -253,7 +423,7 @@ const MejoresUModal: React.FC<UseMejoresProps> = ({ visible, setVisible }) => {
           Mostrando <strong>{usuarios.length}</strong> usuario(s)
         </div>
         <div className="d-flex gap-2">
-          <CButton size="sm" color="danger" variant="outline" className="hover:text-white shadow-sm" onClick={handleClose}>
+          <CButton size="sm" color="danger" variant="outline" className="hover:text-white shadow-sm" onClick={handleClose} disabled={isLoading}>
             <CIcon icon={cilExitToApp} className="me-1" />
             Cerrar
           </CButton>

@@ -71,12 +71,12 @@ const Category = () => {
       <ModalCate categoriaState={categoriaHook} />
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
         <div>
-          <h3 className="fw-bold mb-1 d-flex align-items-center gap-2">
-            <CIcon icon={cilBookmark} style={{ color: '#D97706' }} />
+          <h4 className="fw-bold mb-1 d-flex align-items-center gap-2">
+            <CIcon icon={cilBookmark} size="lg" style={{ color: '#D97706' }} />
             <span>Gestión de Categorías</span>
-          </h3>
-          <p className="text-body-secondary mb-0">
-            Administra el catálogo de categorías, clasifica y organiza los libros registrados.
+          </h4>
+          <p className="text-muted small mb-0">
+            Administra el cátalogo de categorías.
           </p>
         </div>
         <div className="d-flex align-items-center gap-2">
@@ -112,7 +112,7 @@ const Category = () => {
           <CCard className="h-100 border shadow-sm">
             <CCardHeader className="bg-body d-flex align-items-center justify-content-between py-2">
               <div className="d-flex align-items-center gap-2 fw-semibold text-body">
-                <CIcon icon={cilBookmark} size="lg" style={{ color: '#D97706' }} />
+                <CIcon icon={cilBookmark} style={{ color: '#D97706' }} />
                 <span>Catálogo de Categorías</span>
               </div>
               <div className="d-flex align-items-center gap-2">
@@ -248,31 +248,6 @@ const Category = () => {
                 <CIcon icon={cilInfo} className="text-primary" />
                 <span>Detalle de la Categoría</span>
               </div>
-              <div className="d-flex align-items-center gap-1">
-                <CButton
-                  color="secondary"
-                  variant="ghost"
-                  size="sm"
-                  disabled={loadingCategorias}
-                  className="p-1 text-muted"
-                  onClick={() => handleRecargar()}
-                  title="Refrescar información"
-                >
-                  <CIcon icon={cilSync} className={loadingCategorias ? 'rotate-animation' : ''} />
-                </CButton>
-                {categoriaSeleccionada && (
-                  <CButton
-                    color="secondary"
-                    variant="ghost"
-                    size="sm"
-                    className="p-1 text-muted"
-                    onClick={() => setCategoriaSeleccionada(null)}
-                    title="Cerrar detalle"
-                  >
-                    <CIcon icon={cilX} />
-                  </CButton>
-                )}
-              </div>
             </CCardHeader>
 
             <CCardBody className="p-4 d-flex flex-column justify-content-between">
@@ -336,31 +311,39 @@ const Category = () => {
                     </div>
                   </div>
 
-                  <div className="d-flex gap-2 justify-content-end">
-                    {canEliminarCategoria && (
-                      <CButton
-                        color="danger"
-                        variant="outline"
-                        size="sm"
-                        className="hover:text-white d-flex align-items-center gap-2 shadow-sm"
-                        onClick={() => handleEliminarCategoria(categoriaSeleccionada)}
-                      >
-                        <CIcon icon={cilTrash} />
-                        <span>Eliminar</span>
-                      </CButton>
-                    )}
+                  <div className="d-flex flex-wrap gap-2 justify-content-end align-items-center mt-3 pt-2 border-top">
+                    {canEliminarCategoria || canEditarCategoria ? (
+                      <>
+                        {canEliminarCategoria && (
+                          <CButton
+                            color="danger"
+                            variant="outline"
+                            size="sm"
+                            className="hover:text-white d-flex align-items-center gap-2 shadow-sm"
+                            onClick={() => handleEliminarCategoria(categoriaSeleccionada)}
+                          >
+                            <CIcon icon={cilTrash} />
+                            <span>Eliminar</span>
+                          </CButton>
+                        )}
 
-                    {canEditarCategoria && (
-                      <CButton
-                        color="success"
-                        size="sm"
-                        variant="outline"
-                        className="d-flex align-items-center gap-2 shadow-sm hover:text-white"
-                        onClick={() => handleOpen(categoriaSeleccionada)}
-                      >
-                        <CIcon icon={cilPencil} />
-                        <span>Editar Categoría</span>
-                      </CButton>
+                        {canEditarCategoria && (
+                          <CButton
+                            color="success"
+                            size="sm"
+                            variant="outline"
+                            className="d-flex align-items-center gap-2 shadow-sm hover:text-white"
+                            onClick={() => handleOpen(categoriaSeleccionada)}
+                          >
+                            <CIcon icon={cilPencil} />
+                            <span>Editar Categoría</span>
+                          </CButton>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-danger small fw-semibold py-1">
+                        No tienes acceso a las acciones de categorías.
+                      </span>
                     )}
                   </div>
                 </div>
