@@ -67,7 +67,13 @@ export const useReportePrestamosMensuales = () => {
         fechaMes,
       }
       const data = await Mes(params)
-      const rawList = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
+      const rawList = Array.isArray(data?.data)
+        ? data.data
+        : Array.isArray(data?.prestamos)
+          ? data.prestamos
+          : Array.isArray(data)
+            ? data
+            : []
       const filtrados = rawList.filter(
         (p: PrestamoReporteItem) => p.ESTADOINSCRIPCION_PERSONA !== 1,
       )

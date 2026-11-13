@@ -64,7 +64,13 @@ export const useReporteLibrosBaja = () => {
         fechaMes: anoBaja.trim(),
       }
       const data = await librosBaja(params)
-      const rawList = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
+      const rawList = Array.isArray(data?.data)
+        ? data.data
+        : Array.isArray(data?.libros)
+          ? data.libros
+          : Array.isArray(data)
+            ? data
+            : []
 
       const librosFiltrados: LibroInventarioItem[] = rawList
         .filter((item: LibroInventarioItem) => item.ESTADO_LIBRO !== 1)
@@ -151,7 +157,7 @@ export const useReporteLibrosBaja = () => {
     }
 
     if (excelLink) {
-      await descargarArchivo(`${STORAGE_BASE_URL}/prestamos/${excelLink}`)
+      await descargarArchivo(`${STORAGE_BASE_URL}/libros/${excelLink}`)
     }
   }, [canDescargarLibrosBaja, excelLink, verificarAccionEnServidor])
 

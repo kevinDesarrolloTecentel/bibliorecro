@@ -15,6 +15,7 @@ export const usePermisosMatriz = (rolesList: any[] = [], fetchRoles?: () => Prom
   const canVerAcciones = canDoAction('btn_ver_acciones')
   const canCheckboxPermisos = canDoAction('btn_checkbox_permisos')
   const canModificarAcciones = canVerAcciones && canDoAction('btn_modificar_acciones')
+  const canVerAccionesPorRol = canDoAction('btn_ver_acciones_por_rol')
 
   const [catalogo, setCatalogo] = useState<ModuloCatalogo[]>([])
   const [matrix, setMatrix] = useState<Record<number, number[]>>({})
@@ -230,9 +231,13 @@ export const usePermisosMatriz = (rolesList: any[] = [], fetchRoles?: () => Prom
 
   const checkIsAdminRol = useCallback(
     (rolId: number): boolean => {
-      if (rolId === 1) return true
+      if (Number(rolId) === 1) return true
       const found = rolesList.find((r: any) => Number(r.ID_ROL ?? r.id) === Number(rolId))
-      return Boolean(found?.ES_ADMINISTRADOR)
+      return (
+        Number(found?.NIVEL_ROL ?? found?.nivel ?? 0) === 1 ||
+        Boolean(found?.ES_ADMINISTRADOR) ||
+        String(found?.NOMBRE_ROL ?? found?.nombre ?? '').toUpperCase() === 'ADMINISTRADOR'
+      )
     },
     [rolesList],
   )
@@ -323,6 +328,17 @@ export const usePermisosMatriz = (rolesList: any[] = [], fetchRoles?: () => Prom
 
       const currentList = matrix[rolId] || []
       const isCurrentlyChecked = currentList.includes(idPermiso)
+
+      if (isCurrentlyChecked && checkIsAdminRol(rolId)) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Permiso protegido',
+          text: `No se pueden revocar permisos al rol de Nivel 1 (${nombreRol}).`,
+          confirmButtonColor: '#044c8c',
+          confirmButtonText: 'Entendido',
+        })
+        return
+      }
 
       const result = await Swal.fire({
         title: isCurrentlyChecked ? '¿Revocar permiso?' : '¿Otorgar permiso?',
@@ -463,6 +479,17 @@ export const usePermisosMatriz = (rolesList: any[] = [], fetchRoles?: () => Prom
       const pantallaIdNum = Number(pantalla.ID_PERMISO)
       const currentAcciones = accionesMatrix[rolId] || []
       const isCurrentlyActive = currentAcciones.includes(accionIdNum)
+
+      if (isCurrentlyActive && checkIsAdminRol(rolId)) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Acción protegida',
+          text: `No se pueden deshabilitar acciones para el rol de Nivel 1 (${nombreRol}).`,
+          confirmButtonColor: '#044c8c',
+          confirmButtonText: 'Entendido',
+        })
+        return
+      }
 
       const result = await Swal.fire({
         title: isCurrentlyActive ? '¿Deshabilitar botón/acción?' : '¿Habilitar botón/acción?',
@@ -674,6 +701,7 @@ export const usePermisosMatriz = (rolesList: any[] = [], fetchRoles?: () => Prom
     canVerAcciones,
     canCheckboxPermisos,
     canModificarAcciones,
+    canVerAccionesPorRol,
   }
 }
 

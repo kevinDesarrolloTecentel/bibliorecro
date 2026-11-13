@@ -80,7 +80,13 @@ export const useReporteNoDevueltosDanados = () => {
         fecha_hasta: fechaHasta,
       }
       const data = await Caducados(params)
-      const rawList = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
+      const rawList = Array.isArray(data?.data)
+        ? data.data
+        : Array.isArray(data?.prestamos)
+          ? data.prestamos
+          : Array.isArray(data)
+            ? data
+            : []
       const filtrados = rawList.filter(
         (p: PrestamoReporteItem) => p.ESTADOINSCRIPCION_PERSONA !== 1,
       )

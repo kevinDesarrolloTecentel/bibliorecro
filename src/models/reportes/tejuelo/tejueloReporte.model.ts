@@ -29,5 +29,7 @@ export interface UseReportTejReturn {
   setFiltroTexto?: (val: string) => void
   totalGenerados?: number
   totalFiltrados?: number
+  totalTejuelos?: number
+  totalPaginas?: number
   haBuscado?: boolean
 }

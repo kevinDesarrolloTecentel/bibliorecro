@@ -26,7 +26,6 @@ export const useDetalleAcciones = () => {
   const canDescripcionAccionesReportInventario = canDoAction('btn_descripcion_acciones_report_inventario')
   const canDescripcionAccionesReportTejuelos = canDoAction('btn_descripcion_acciones_report_tejuelos')
 
-  // Mapeo dinámico de permisos por acción (sin rutas quemadas)
   const mapaPermisos: Record<string, boolean> = useMemo(
     () => ({
       btn_descripcion_acciones_dashboard: canDescripcionAccionesDashboard,

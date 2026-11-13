@@ -116,13 +116,9 @@ export const ModalDetalleAccion: React.FC<ModalDetalleAccionProps> = ({
         </CModalBody>
 
         <CModalFooter className="border-top py-2 px-4 bg-body-tertiary">
-          <CButton
-            size="sm"
-            color="primary"
-            onClick={onClose}
-          >
-            Entendido
-          </CButton>
+        <CButton size="sm" color="secondary" className="hover:text-white shadow-sm" variant="ghost" onClick={onClose}>
+          Cerrar
+        </CButton>
         </CModalFooter>
       </CModal>
     </>

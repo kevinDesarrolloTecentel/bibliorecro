@@ -67,14 +67,20 @@ export const useReportePrestamosAnuales = () => {
         fechaMes: fechaAno,
       }
       const data = await Anio(params)
-      const rawList = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
+      const rawList = Array.isArray(data?.data)
+        ? data.data
+        : Array.isArray(data?.prestamos)
+          ? data.prestamos
+          : Array.isArray(data)
+            ? data
+            : []
       const filtrados = rawList.filter(
         (p: PrestamoReporteItem) => p.ESTADOINSCRIPCION_PERSONA !== 1,
       )
 
       setPrestamos(filtrados)
       const rutaExcel: string | null = data?.excel?.nombre || data?.excel_path || null
-      setExcelLink(rutaExcel)      
+      setExcelLink(rutaExcel)
       setHaBuscado(true)
 
       if (filtrados.length === 0) {

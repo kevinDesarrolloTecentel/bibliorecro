@@ -18,6 +18,9 @@ export const useReportTej = (): UseReportTejReturn => {
   const [startDate, setStartDate] = useState<string>('')
   const [endDate, setEndDate] = useState<string>('')
   const [pdfPath, setPdfPath] = useState<string | null>(null)
+  const [totalTejuelos, setTotalTejuelos] = useState<number>(0)
+  const [totalPaginas, setTotalPaginas] = useState<number>(0)
+  const [haBuscado, setHaBuscado] = useState<boolean>(false)
   const [libros, setLibros] = useState<LibroTejueloItem[]>([])
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [activeTab, setActiveTab] = useState<'etiquetas' | 'tabla' | 'pdf'>('etiquetas')
@@ -27,6 +30,9 @@ export const useReportTej = (): UseReportTejReturn => {
     setEndDate('')
     setLibros([])
     setPdfPath(null)
+    setTotalTejuelos(0)
+    setTotalPaginas(0)
+    setHaBuscado(false)
     setActiveTab('etiquetas')
   }, [])
 
@@ -88,25 +94,26 @@ export const useReportTej = (): UseReportTejReturn => {
         fechaHasta: endDate,
       })
 
+      
       const data = response?.data || response
 
-      if (!data || !data.pdf_path) {
-        throw new Error('No se encontró el archivo PDF en el reporte del Tejuelo')
-      }
-
-      const rawPdfPath = data.pdf_path
-      const fullPdfUrl = rawPdfPath.startsWith('http')
-        ? rawPdfPath
-        : `${STORAGE_BASE_URL}/${rawPdfPath.replace(/^\/+/, '')}`
+      const rutaPdf: string | null =
+        data?.pdf?.nombre || data?.pdf_path || data?.pdf?.ruta || null
 
       const librosData: LibroTejueloItem[] = Array.isArray(data.libros)
         ? data.libros
         : []
 
-      setLibros(librosData)
-      setPdfPath(fullPdfUrl)
+      const totalCount = Number(data?.total ?? librosData.length ?? 0)
+      const totalPags = Number(data?.total_paginas ?? 0)
 
-      if (librosData.length === 0) {
+      setLibros(librosData)
+      setPdfPath(rutaPdf)
+      setTotalTejuelos(totalCount)
+      setTotalPaginas(totalPags)
+      setHaBuscado(true)
+
+      if (!rutaPdf || (data?.total === 0 && librosData.length === 0)) {
         Swal.fire({
           icon: 'info',
           title: 'Sin tejuelos encontrados',
@@ -114,11 +121,22 @@ export const useReportTej = (): UseReportTejReturn => {
           confirmButtonColor: '#044c8c',
           confirmButtonText: 'Entendido',
         })
+      } else {
+        Swal.fire({
+          icon: 'success',
+          title: 'PDF de tejuelos generado',
+          text: `Se generó el PDF correctamente con ${totalCount} tejuelos.`,
+          confirmButtonColor: '#044c8c',
+          confirmButtonText: 'Aceptar',
+        })
       }
     } catch (error: any) {
       console.error(error)
       setLibros([])
       setPdfPath(null)
+      setTotalTejuelos(0)
+      setTotalPaginas(0)
+      setHaBuscado(true)
       const respData = error?.response?.data
       const errStr = typeof respData === 'string' ? respData : JSON.stringify(respData || '')
       const errorMsg =
@@ -181,7 +199,12 @@ export const useReportTej = (): UseReportTejReturn => {
     }
 
     if (pdfPath) {
-      window.open(pdfPath, '_blank')
+      const ruta = pdfPath.startsWith('http')
+        ? pdfPath
+        : pdfPath.startsWith('/tejuelos/')
+          ? `${STORAGE_BASE_URL}/${pdfPath}`
+          : `${STORAGE_BASE_URL}/tejuelos/${pdfPath}`
+      window.open(ruta, '_blank')
     }
   }, [canDescargarPdfTejuelos, pdfPath, verificarAccionEnServidor])
 
@@ -196,6 +219,9 @@ export const useReportTej = (): UseReportTejReturn => {
     setEndDate,
     pdfPath,
     setPdfPath,
+    totalTejuelos,
+    totalPaginas,
+    haBuscado,
     libros,
     setLibros,
     isLoading,

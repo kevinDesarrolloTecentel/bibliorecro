@@ -470,11 +470,14 @@ export const useRoles = () => {
       return
     }
 
-    if (Number(id) === 1) {
+    const rolEncontrado = roles.find((r: any) => Number(r.ID_ROL ?? r.id) === Number(id))
+    const nivelRol = Number(rolEncontrado?.NIVEL_ROL ?? rolEncontrado?.nivel ?? editFormData.nivel ?? 0)
+
+    if (nivelRol === 1) {
       Swal.fire({
         icon: 'warning',
         title: 'Acción no permitida',
-        text: 'El rol Administrador principal del sistema no puede ser eliminado.',
+        text: 'El rol con Nivel 1 no puede ser eliminado del sistema.',
         confirmButtonColor: '#dc3545',
         confirmButtonText: 'Entendido',
       })

@@ -3,6 +3,7 @@ import {
   useReporteHistorialLibrosUsuario,
   PrestamoReporteItem,
 } from '@/hooks/reportes/usuarios/useReporteHistorialLibros'
+import { formatFecha } from '@/utils/dateUtils'
 import {
   cilCloudDownload,
   cilExitToApp,
@@ -33,6 +34,12 @@ import {
 export interface HistLibProps {
   visible: boolean
   setVisible: (visible: boolean) => void
+}
+
+const formatFechaDisplay = (fecha?: string | null): string => {
+  if (!fecha) return 'Sin registrar'
+  const res = formatFecha(fecha)
+  return res === 'No registrada' || res === '-' ? 'Sin registrar' : res
 }
 
 const LibroUModal: React.FC<HistLibProps> = ({ visible, setVisible }) => {
@@ -70,94 +77,158 @@ const LibroUModal: React.FC<HistLibProps> = ({ visible, setVisible }) => {
 
   const tableItems = useMemo(() => {
     return libros.map((item: PrestamoReporteItem) => {
-      const nombre =
-        item.NOMBRE_PERSONA ||
-        item.nombre_persona ||
-        item.nombre ||
-        item.persona?.NOMBRE_PERSONA ||
-        item.persona?.nombre ||
-        ''
-      const apellido =
-        item.APELLIDO_PERSONA ||
-        item.apellido_persona ||
-        item.apellido ||
-        item.persona?.APELLIDO_PERSONA ||
-        item.persona?.apellido ||
-        ''
-      const isbn =
-        item.ISBN_LIBROS ||
-        item.isbn_libros ||
-        item.isbn ||
-        item.libro?.ISBN_LIBROS ||
-        item.libro?.isbn ||
-        ''
-      const titulo =
-        item.TITULO_LIBROS ||
-        item.titulo_libros ||
-        item.titulo ||
-        item.libro?.TITULO_LIBROS ||
-        item.libro?.titulo ||
-        ''
-      const nombreaut =
-        item.NOMBRE_AUTOR ||
-        item.nombre_autor ||
-        item.autor ||
-        item.libro?.NOMBRE_AUTOR ||
-        item.libro?.autor?.NOMBRE_AUTOR ||
-        item.libro?.autor?.nombre ||
-        item.libro?.autor ||
-        ''
-      const val =
-        item.PRECIO_LIBROS ??
-        item.precio_libros ??
-        item.precio ??
-        item.libro?.PRECIO_LIBROS ??
-        item.libro?.precio
-      const precio =
-        val !== undefined && val !== null && val !== '' ? `$${Number(val).toFixed(2)}` : '-'
+      const nombres = item.NOMBRE_PERSONA?.trim() || ''
+      const apellidos = item.APELLIDO_PERSONA?.trim() || ''
+      const identificacion = item.IDENTIFICACION_PERSONA?.trim() || ''
+      const correo = item.CORREO_PERSONA?.trim() || ''
+      const edad =
+        item.EDAD_PERSONA !== undefined && item.EDAD_PERSONA !== null
+          ? String(item.EDAD_PERSONA)
+          : ''
+      const celular = item.CELULAR_PERSONA?.trim() || ''
+      const telefono = item.TELEFONO_PERSONA?.trim() || ''
+      const tituloLibro = item.TITULO_LIBROS?.trim() || ''
+      const isbn = item.ISBN_LIBROS?.trim() || ''
+      const autor = item.NOMBRE_AUTOR?.trim() || ''
+
+      const val = item.PRECIO_LIBROS
+      const precioNum = Number(val)
+      const precioLibro =
+        val !== undefined && val !== null && val !== '' && !isNaN(precioNum)
+          ? `$${precioNum.toFixed(2)}`
+          : '$0.00'
+
+      const detallePrestamo = item.DETALLE_PRESTAMO?.trim() || 'Sin registrar'
+
+      let estadoPrestamo = 'En préstamo'
+      const estP = String(item.ESTADO_PRESTAMO ?? '').trim().toLowerCase()
+      if (estP === '0' || estP === 'devuelto') {
+        estadoPrestamo = 'Devuelto'
+      } else if (
+        estP === '1' ||
+        estP === 'en prestamo' ||
+        estP === 'en préstamo' ||
+        estP === 'activo'
+      ) {
+        estadoPrestamo = 'En préstamo'
+      } else if (estP === '2' || estP.includes('sancion')) {
+        estadoPrestamo = 'Sancionado'
+      } else if (estP) {
+        estadoPrestamo = String(item.ESTADO_PRESTAMO)
+      }
+
+      const inicioPrestamo =
+        item.FECHAINICIO_PRESTAMO_FORMATO ||
+        formatFechaDisplay(item.FECHAINICIO_PRESTAMO || item.FECHAPRESTAMO_PRESTAMO)
+      const finPrestamo =
+        item.FECHAFIN_PRESTAMO_FORMATO ||
+        formatFechaDisplay(item.FECHAFIN_PRESTAMO)
+      const fechaEntrega =
+        item.FECHAENTREGA_PRESTAMO_FORMATO ||
+        formatFechaDisplay(item.FECHAENTREGA_PRESTAMO)
 
       return {
         ...item,
-        nombre,
-        apellido,
+        nombres,
+        apellidos,
+        identificacion,
+        correo,
+        edad,
+        celular,
+        telefono,
+        tituloLibro,
         isbn,
-        titulo,
-        nombreaut,
-        precio,
+        autor,
+        precioLibro,
+        detallePrestamo,
+        estadoPrestamo,
+        inicioPrestamo,
+        finPrestamo,
+        fechaEntrega,
       }
     })
   }, [libros])
 
   const columns = [
     {
-      key: 'nombre',
-      label: 'Nombre',
-      _style: { width: '15%' },
+      key: 'nombres',
+      label: 'Nombres',
+      _style: { minWidth: '150px' },
     },
     {
-      key: 'apellido',
-      label: 'Apellido',
-      _style: { width: '15%' },
+      key: 'apellidos',
+      label: 'Apellidos',
+      _style: { minWidth: '150px' },
+    },
+    {
+      key: 'identificacion',
+      label: 'Identificación',
+      _style: { minWidth: '150px' },
+    },
+    {
+      key: 'correo',
+      label: 'Correo electrónico',
+      _style: { minWidth: '180px' },
+    },
+    {
+      key: 'edad',
+      label: 'Edad',
+      _style: { minWidth: '80px' },
+    },
+    {
+      key: 'celular',
+      label: 'Celular',
+      _style: { minWidth: '120px' },
+    },
+    {
+      key: 'telefono',
+      label: 'Teléfono',
+      _style: { minWidth: '120px' },
+    },
+    {
+      key: 'tituloLibro',
+      label: 'Título del libro',
+      _style: { minWidth: '180px' },
     },
     {
       key: 'isbn',
       label: 'ISBN',
-      _style: { width: '15%' },
+      _style: { minWidth: '130px' },
     },
     {
-      key: 'titulo',
-      label: 'Nombre del Libro',
-      _style: { width: '22%' },
+      key: 'autor',
+      label: 'Autor',
+      _style: { minWidth: '150px' },
     },
     {
-      key: 'nombreaut',
-      label: 'Autor del Libro',
-      _style: { width: '20%' },
+      key: 'precioLibro',
+      label: 'Precio del libro',
+      _style: { minWidth: '120px' },
     },
     {
-      key: 'precio',
-      label: 'Costo del Libro',
-      _style: { width: '13%' },
+      key: 'detallePrestamo',
+      label: 'Detalle del préstamo',
+      _style: { minWidth: '160px' },
+    },
+    {
+      key: 'estadoPrestamo',
+      label: 'Estado del préstamo',
+      _style: { minWidth: '140px' },
+    },
+    {
+      key: 'inicioPrestamo',
+      label: 'Inicio del préstamo',
+      _style: { minWidth: '135px' },
+    },
+    {
+      key: 'finPrestamo',
+      label: 'Fin del préstamo',
+      _style: { minWidth: '135px' },
+    },
+    {
+      key: 'fechaEntrega',
+      label: 'Fecha de entrega',
+      _style: { minWidth: '135px' },
     },
   ]
 
@@ -168,7 +239,8 @@ const LibroUModal: React.FC<HistLibProps> = ({ visible, setVisible }) => {
       visible={visible}
       onClose={() => {
         if (!isLoading) handleClose()
-      }} backdrop="static"
+      }}
+      backdrop="static"
     >
       <CModalHeader closeButton={!isLoading}>
         <CModalTitle className="d-flex align-items-center gap-2">
@@ -216,7 +288,8 @@ const LibroUModal: React.FC<HistLibProps> = ({ visible, setVisible }) => {
                     disabled={
                       isLoading ||
                       cedula.trim().length !== 10
-                    }                  >
+                    }
+                  >
                     {isLoading ? (
                       <>
                         <CSpinner size="sm" className="me-1" />
@@ -258,6 +331,7 @@ const LibroUModal: React.FC<HistLibProps> = ({ visible, setVisible }) => {
             <CSmartTable
               key={tableKey}
               activePage={1}
+              clickableRows
               columns={columns}
               columnSorter
               tableFilter={haBuscado && !isLoading && libros.length > 0}
@@ -270,43 +344,130 @@ const LibroUModal: React.FC<HistLibProps> = ({ visible, setVisible }) => {
               pagination
               noItemsLabel={
                 isLoading
-                  ? 'Cargando historial de lirbros...'
+                  ? 'Cargando historial de libros...'
                   : haBuscado
                     ? 'No se encontraron registros para la cédula ingresada'
                     : 'Ingrese un número de cédula y haga clic en Generar para ver el reporte'
               }
               scopedColumns={{
-                nombre: (item: any) => (
+                nombres: (item: any) => (
                   <td>
-                    <span className="font-monospace small">{item.nombre || '-'}</span>
+                    <span className="font-monospace small">
+                      {item.nombres && item.nombres !== '-' ? item.nombres : 'Sin registrar'}
+                    </span>
                   </td>
                 ),
-                apellido: (item: any) => (
+                apellidos: (item: any) => (
                   <td>
-                    <span className="font-monospace small">{item.apellido || '-'}</span>
+                    <span className="font-monospace small">
+                      {item.apellidos && item.apellidos !== '-' ? item.apellidos : 'Sin registrar'}
+                    </span>
+                  </td>
+                ),
+                identificacion: (item: any) => (
+                  <td>
+                    <span className="font-monospace small text-muted badge bg-body border">
+                      {item.identificacion && item.identificacion !== '-' ? item.identificacion : 'Sin registrar'}
+                    </span>
+                  </td>
+                ),
+                correo: (item: any) => (
+                  <td>
+                    <span className="font-monospace small badge bg-body border text-muted">
+                      {item.correo && item.correo !== '-' ? item.correo : 'Sin registrar'}
+                    </span>
+                  </td>
+                ),
+                edad: (item: any) => (
+                  <td>
+                    <span className="badge bg-body border text-primary font-monospace">
+                      {item.edad !== undefined && item.edad !== '' && item.edad !== '-' ? item.edad : 'Sin registrar'}
+                    </span>
+                  </td>
+                ),
+                celular: (item: any) => (
+                  <td>
+                    <span className="font-monospace small badge bg-body border text-success">
+                      {item.celular && item.celular !== '-' ? item.celular : 'Sin registrar'}
+                    </span>
+                  </td>
+                ),
+                telefono: (item: any) => (
+                  <td>
+                    <span className="font-monospace small badge bg-body border text-secondary">
+                      {item.telefono && item.telefono !== '-' ? item.telefono : 'Sin registrar'}
+                    </span>
+                  </td>
+                ),
+                tituloLibro: (item: any) => (
+                  <td>
+                    <span className="font-monospace small">
+                      {item.tituloLibro && item.tituloLibro !== '-' ? item.tituloLibro : 'Sin registrar'}
+                    </span>
                   </td>
                 ),
                 isbn: (item: any) => (
                   <td>
                     <span className="font-monospace small badge bg-body border text-muted">
-                      {item.isbn || '-'}
+                      {item.isbn && item.isbn !== '-' ? item.isbn : 'Sin registrar'}
                     </span>
                   </td>
                 ),
-                titulo: (item: any) => (
+                autor: (item: any) => (
                   <td>
-                    <span className="font-monospace small">{item.titulo || '-'}</span>
+                    <span className="font-monospace small">
+                      {item.autor && item.autor !== '-' ? item.autor : 'Sin registrar'}
+                    </span>
                   </td>
                 ),
-                nombreaut: (item: any) => (
+                precioLibro: (item: any) => (
                   <td>
-                    <span className="font-monospace small">{item.nombreaut || '-'}</span>
+                    <span className="font-monospace small text-success fw-semibold">
+                      {item.precioLibro}
+                    </span>
                   </td>
                 ),
-                precio: (item: any) => (
+                detallePrestamo: (item: any) => (
                   <td>
-                    <span className="font-monospace badge bg-body border text-success fw-semibold">
-                      {item.precio}
+                    <span className="font-monospace small text-muted">
+                      {item.detallePrestamo && item.detallePrestamo !== '-' ? item.detallePrestamo : 'Sin registrar'}
+                    </span>
+                  </td>
+                ),
+                estadoPrestamo: (item: any) => {
+                  const est = item.estadoPrestamo
+                  const badgeClass =
+                    est === 'Devuelto'
+                      ? 'bg-success-subtle text-success border border-success-subtle'
+                      : est === 'Sancionado'
+                        ? 'bg-danger-subtle text-danger border border-danger-subtle'
+                        : 'bg-warning-subtle text-warning border border-warning-subtle'
+                  return (
+                    <td>
+                      <span className={`badge font-monospace ${badgeClass}`}>
+                        {est}
+                      </span>
+                    </td>
+                  )
+                },
+                inicioPrestamo: (item: any) => (
+                  <td>
+                    <span className="font-monospace small badge bg-body border text-info">
+                      {item.inicioPrestamo && item.inicioPrestamo !== '-' ? item.inicioPrestamo : 'Sin registrar'}
+                    </span>
+                  </td>
+                ),
+                finPrestamo: (item: any) => (
+                  <td>
+                    <span className="font-monospace small badge bg-body border text-info">
+                      {item.finPrestamo && item.finPrestamo !== '-' ? item.finPrestamo : 'Sin registrar'}
+                    </span>
+                  </td>
+                ),
+                fechaEntrega: (item: any) => (
+                  <td>
+                    <span className="font-monospace small badge bg-body border text-primary">
+                      {item.fechaEntrega && item.fechaEntrega !== '-' ? item.fechaEntrega : 'Sin registrar'}
                     </span>
                   </td>
                 ),
@@ -359,7 +520,6 @@ const LibroUModal: React.FC<HistLibProps> = ({ visible, setVisible }) => {
               Descargar Excel
             </CButton>
           )}
-
         </div>
       </CModalFooter>
     </CModal>

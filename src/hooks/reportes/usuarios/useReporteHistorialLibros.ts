@@ -116,6 +116,55 @@ export const useReporteHistorialLibrosUsuario = () => {
             item.apellidos ??
             item.persona?.APELLIDO_PERSONA ??
             item.persona?.apellido,
+          IDENTIFICACION_PERSONA:
+            item.IDENTIFICACION_PERSONA ??
+            item.identificacion_persona ??
+            item.cedula ??
+            item.identificacion ??
+            item.persona?.IDENTIFICACION_PERSONA ??
+            item.persona?.identificacion,
+          CORREO_PERSONA:
+            item.CORREO_PERSONA ??
+            item.correo_persona ??
+            item.correo ??
+            item.email ??
+            item.persona?.CORREO_PERSONA ??
+            item.persona?.correo,
+          CELULAR_PERSONA:
+            item.CELULAR_PERSONA ??
+            item.celular_persona ??
+            item.celular ??
+            item.persona?.CELULAR_PERSONA ??
+            item.persona?.celular,
+          TELEFONO_PERSONA:
+            item.TELEFONO_PERSONA ??
+            item.telefono_persona ??
+            item.telefono ??
+            item.persona?.TELEFONO_PERSONA ??
+            item.persona?.telefono,
+          EDAD_PERSONA:
+            item.EDAD_PERSONA ??
+            item.edad_persona ??
+            item.edad ??
+            item.persona?.EDAD_PERSONA ??
+            item.persona?.edad,
+          DETALLE_PRESTAMO:
+            item.DETALLE_PRESTAMO ??
+            item.detalle_prestamo ??
+            item.detalle,
+          ESTADO_PRESTAMO:
+            item.ESTADO_PRESTAMO ??
+            item.estado_prestamo ??
+            item.estado,
+          FECHAINICIO_PRESTAMO_FORMATO:
+            item.FECHAINICIO_PRESTAMO_FORMATO ??
+            item.fechainicio_prestamo_formato,
+          FECHAFIN_PRESTAMO_FORMATO:
+            item.FECHAFIN_PRESTAMO_FORMATO ??
+            item.fechafin_prestamo_formato,
+          FECHAENTREGA_PRESTAMO_FORMATO:
+            item.FECHAENTREGA_PRESTAMO_FORMATO ??
+            item.fechaentrega_prestamo_formato,
           ISBN_LIBROS:
             item.ISBN_LIBROS ??
             item.isbn_libros ??

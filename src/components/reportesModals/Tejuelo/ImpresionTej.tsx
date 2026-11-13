@@ -53,6 +53,8 @@ const ImpresionTej: React.FC = () => {
     endDate,
     setEndDate,
     pdfPath,
+    totalTejuelos,
+    totalPaginas,
     libros,
     isLoading,
     activeTab,
@@ -197,7 +199,6 @@ const ImpresionTej: React.FC = () => {
                         title="Abrir o Descargar PDF"
                         disabled={
                           isLoading ||
-                          libros.length === 0 ||
                           !pdfPath
                         }
                       >
@@ -369,6 +370,31 @@ const ImpresionTej: React.FC = () => {
           <CSpinner style={{ color: '#0143a5ff' }} className="mb-3" />
           <h6 className="fw-bold">Generando tejuelos...</h6>
           <p className="small mb-0">Por favor espere mientras se procesa la información.</p>
+        </div>
+      ) : pdfPath ? (
+        <div className="text-center py-5 bg-body rounded border no-print shadow-sm">
+          <div
+            className="rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+            style={{ width: '64px', height: '64px', backgroundColor: '#e0f2fe', color: '#0369a1' }}
+          >
+            <CIcon icon={cilPrint} size="xxl" />
+          </div>
+          <h5 className="fw-bold text-body mb-2">PDF de Tejuelos Listo</h5>
+          <p className="text-secondary mb-3">
+            Se han procesado <strong>{totalTejuelos || 0}</strong> tejuelos correspondientes al periodo seleccionado
+            {totalPaginas ? ` (${totalPaginas} páginas generadas)` : ''}.
+          </p>
+          {canDescargarPdfTejuelos && (
+            <CButton
+              color="primary"
+              size="sm"
+              className="d-inline-flex align-items-center gap-2 shadow-sm px-3 py-2"
+              onClick={handleDescargarPdf}
+            >
+              <CIcon icon={cilCloudDownload} />
+              <span>Abrir / Descargar PDF</span>
+            </CButton>
+          )}
         </div>
       ) : (
         <div className="text-center py-5 bg-body rounded border text-muted no-print">

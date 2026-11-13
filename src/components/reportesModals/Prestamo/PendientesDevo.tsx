@@ -30,6 +30,12 @@ import {
 } from '@coreui/react-pro'
 import { aFechaLocal, parseDatePickerValue, formatFecha } from '@/utils/dateUtils'
 
+const formatFechaDisplay = (fecha?: string | null) => {
+  if (!fecha) return 'Sin registrar'
+  const res = formatFecha(fecha)
+  return res === 'No registrada' || res === '-' ? 'Sin registrar' : res
+}
+
 export interface LibPendientesProps {
   visible: boolean
   setVisible: (visible: boolean) => void
@@ -79,74 +85,158 @@ const PendientesModal: React.FC<LibPendientesProps> = ({ visible, setVisible }) 
 
   const tableItems = useMemo(() => {
     return prestamos.map((item: PrestamoReporteItem) => {
-      const titulo = item.TITULO_LIBROS || ''
-      const fechaEntrega = item.FECHAFIN_PRESTAMO
-        ? new Date(item.FECHAFIN_PRESTAMO).toLocaleDateString()
-        : '-'
-      const cedula = item.IDENTIFICACION_PERSONA || ''
-      const nombre =
-        [item.NOMBRE_PERSONA, item.APELLIDO_PERSONA].filter(Boolean).join(' ') ||
-        item.NOMBRE_PERSONA ||
-        ''
-      const correo = item.CORREO_PERSONA || ''
-      const celular = item.CELULAR_PERSONA || ''
-      const telefono = item.TELEFONO_PERSONA || ''
-      const referencias = item.DETALLE_PERSONA || ''
+      const nombres = item.NOMBRE_PERSONA?.trim() || 'Sin registrar'
+      const apellidos = item.APELLIDO_PERSONA?.trim() || 'Sin registrar'
+      const identificacion = item.IDENTIFICACION_PERSONA?.trim() || 'Sin registrar'
+      const correo = item.CORREO_PERSONA?.trim() || 'Sin registrar'
+      const edad =
+        item.EDAD_PERSONA !== undefined && item.EDAD_PERSONA !== null
+          ? String(item.EDAD_PERSONA)
+          : 'Sin registrar'
+      const celular = item.CELULAR_PERSONA?.trim() || 'Sin registrar'
+      const telefono = item.TELEFONO_PERSONA?.trim() || 'Sin registrar'
+      const tituloLibro = item.TITULO_LIBROS?.trim() || 'Sin registrar'
+      const isbn = item.ISBN_LIBROS?.trim() || 'Sin registrar'
+      const autor = item.NOMBRE_AUTOR?.trim() || 'Sin registrar'
+
+      const val = item.PRECIO_LIBROS
+      const precioNum = Number(val)
+      const precioLibro =
+        val !== undefined && val !== null && val !== '' && !isNaN(precioNum)
+          ? `$${precioNum.toFixed(2)}`
+          : '$0.00'
+
+      const detallePrestamo = item.DETALLE_PRESTAMO?.trim() || 'Sin registrar'
+
+      let estadoPrestamo = 'En préstamo'
+      const estP = String(item.ESTADO_PRESTAMO ?? '').trim().toLowerCase()
+      if (estP === '0' || estP === 'devuelto') {
+        estadoPrestamo = 'Devuelto'
+      } else if (
+        estP === '1' ||
+        estP === 'en prestamo' ||
+        estP === 'en préstamo' ||
+        estP === 'activo'
+      ) {
+        estadoPrestamo = 'En préstamo'
+      } else if (estP === '2' || estP.includes('sancion')) {
+        estadoPrestamo = 'Sancionado'
+      } else if (estP) {
+        estadoPrestamo = String(item.ESTADO_PRESTAMO)
+      }
+
+      const inicioPrestamo =
+        item.FECHAINICIO_PRESTAMO_FORMATO ||
+        formatFechaDisplay(item.FECHAINICIO_PRESTAMO || item.FECHAPRESTAMO_PRESTAMO)
+      const finPrestamo =
+        item.FECHAFIN_PRESTAMO_FORMATO ||
+        formatFechaDisplay(item.FECHAFIN_PRESTAMO)
+      const fechaEntrega =
+        item.FECHAENTREGA_PRESTAMO_FORMATO ||
+        formatFechaDisplay(item.FECHAENTREGA_PRESTAMO)
 
       return {
         ...item,
-        titulo,
-        fechaEntrega,
-        cedula,
-        nombre,
+        nombres,
+        apellidos,
+        identificacion,
         correo,
+        edad,
         celular,
         telefono,
-        referencias,
+        tituloLibro,
+        isbn,
+        autor,
+        precioLibro,
+        detallePrestamo,
+        estadoPrestamo,
+        inicioPrestamo,
+        finPrestamo,
+        fechaEntrega,
       }
     })
   }, [prestamos])
 
   const columns = [
     {
-      key: 'titulo',
-      label: 'Título',
-      _style: { width: '18%' },
+      key: 'nombres',
+      label: 'Nombres',
+      _style: { minWidth: '150px' },
     },
     {
-      key: 'fechaEntrega',
-      label: 'Fecha de Entrega',
-      _style: { width: '12%' },
+      key: 'apellidos',
+      label: 'Apellidos',
+      _style: { minWidth: '150px' },
     },
     {
-      key: 'cedula',
-      label: 'Cédula',
-      _style: { width: '10%' },
-    },
-    {
-      key: 'nombre',
-      label: 'Nombre',
-      _style: { width: '14%' },
+      key: 'identificacion',
+      label: 'Identificación',
+      _style: { minWidth: '150px' },
     },
     {
       key: 'correo',
-      label: 'Correo',
-      _style: { width: '16%' },
+      label: 'Correo electrónico',
+      _style: { minWidth: '180px' },
+    },
+    {
+      key: 'edad',
+      label: 'Edad',
+      _style: { minWidth: '80px' },
     },
     {
       key: 'celular',
       label: 'Celular',
-      _style: { width: '10%' },
+      _style: { minWidth: '120px' },
     },
     {
       key: 'telefono',
       label: 'Teléfono',
-      _style: { width: '10%' },
+      _style: { minWidth: '120px' },
     },
     {
-      key: 'referencias',
-      label: 'Referencias',
-      _style: { width: '10%' },
+      key: 'tituloLibro',
+      label: 'Titulo del libro',
+      _style: { minWidth: '180px' },
+    },
+    {
+      key: 'isbn',
+      label: 'ISBN',
+      _style: { minWidth: '130px' },
+    },
+    {
+      key: 'autor',
+      label: 'Autor',
+      _style: { minWidth: '150px' },
+    },
+    {
+      key: 'precioLibro',
+      label: 'Precio del libro',
+      _style: { minWidth: '120px' },
+    },
+    {
+      key: 'detallePrestamo',
+      label: 'Detalle del préstamo',
+      _style: { minWidth: '160px' },
+    },
+    {
+      key: 'estadoPrestamo',
+      label: 'Estado del préstamo',
+      _style: { minWidth: '140px' },
+    },
+    {
+      key: 'inicioPrestamo',
+      label: 'Inicio del préstamo',
+      _style: { minWidth: '135px' },
+    },
+    {
+      key: 'finPrestamo',
+      label: 'Fin del préstamo',
+      _style: { minWidth: '135px' },
+    },
+    {
+      key: 'fechaEntrega',
+      label: 'Fecha de entrega',
+      _style: { minWidth: '135px' },
     },
   ]
 
@@ -282,7 +372,7 @@ const PendientesModal: React.FC<LibPendientesProps> = ({ visible, setVisible }) 
               Libros Pendientes
             </span>
             <span className="text-body-secondary small">
-              Total recibidos: <strong>{prestamos.length}</strong>
+              Total libros: <strong>{prestamos.length}</strong>
             </span>
           </CCardHeader>
           <CCardBody className="p-0">
@@ -307,59 +397,124 @@ const PendientesModal: React.FC<LibPendientesProps> = ({ visible, setVisible }) 
                     : 'Seleccione un rango de fechas para generar el reporte'
               }
               scopedColumns={{
-                titulo: (item: any) => (
+                nombres: (item: any) => (
                   <td>
-                    <span className="font-monospace small fw-semibold">
-                      {item.titulo}
+                    <span className="font-monospace small">
+                      {item.nombres && item.nombres !== '-' ? item.nombres : 'Sin registrar'}
+                    </span>
+                  </td>
+                ),
+                apellidos: (item: any) => (
+                  <td>
+                    <span className="font-monospace small">
+                      {item.apellidos && item.apellidos !== '-' ? item.apellidos : 'Sin registrar'}
+                    </span>
+                  </td>
+                ),
+                identificacion: (item: any) => (
+                  <td>
+                    <span className="font-monospace small text-muted badge bg-body border">
+                      {item.identificacion && item.identificacion !== '-' ? item.identificacion : 'Sin registrar'}
+                    </span>
+                  </td>
+                ),
+                correo: (item: any) => (
+                  <td>
+                    <span className="font-monospace small badge bg-body border text-muted">
+                      {item.correo && item.correo !== '-' ? item.correo : 'Sin registrar'}
+                    </span>
+                  </td>
+                ),
+                edad: (item: any) => (
+                  <td>
+                    <span className="badge bg-body border text-primary font-monospace">
+                      {item.edad !== undefined && item.edad !== '' && item.edad !== '-' ? item.edad : 'Sin registrar'}
+                    </span>
+                  </td>
+                ),
+                celular: (item: any) => (
+                  <td>
+                    <span className="font-monospace small badge bg-body border text-success">
+                      {item.celular && item.celular !== '-' ? item.celular : 'Sin registrar'}
+                    </span>
+                  </td>
+                ),
+                telefono: (item: any) => (
+                  <td>
+                    <span className="font-monospace small badge bg-body border text-secondary">
+                      {item.telefono && item.telefono !== '-' ? item.telefono : 'Sin registrar'}
+                    </span>
+                  </td>
+                ),
+                tituloLibro: (item: any) => (
+                  <td>
+                    <span className="font-monospace small">
+                      {item.tituloLibro && item.tituloLibro !== '-' ? item.tituloLibro : 'Sin registrar'}
+                    </span>
+                  </td>
+                ),
+                isbn: (item: any) => (
+                  <td>
+                    <span className="font-monospace small badge bg-body border text-muted">
+                      {item.isbn && item.isbn !== '-' ? item.isbn : 'Sin registrar'}
+                    </span>
+                  </td>
+                ),
+                autor: (item: any) => (
+                  <td>
+                    <span className="font-monospace small">
+                      {item.autor && item.autor !== '-' ? item.autor : 'Sin registrar'}
+                    </span>
+                  </td>
+                ),
+                precioLibro: (item: any) => (
+                  <td>
+                    <span className="font-monospace small text-success fw-semibold">
+                      {item.precioLibro}
+                    </span>
+                  </td>
+                ),
+                detallePrestamo: (item: any) => (
+                  <td>
+                    <span className="font-monospace small text-muted">
+                      {item.detallePrestamo && item.detallePrestamo !== '-' ? item.detallePrestamo : 'Sin registrar'}
+                    </span>
+                  </td>
+                ),
+                estadoPrestamo: (item: any) => {
+                  const est = item.estadoPrestamo
+                  const badgeClass =
+                    est === 'Devuelto'
+                      ? 'bg-success-subtle text-success border border-success-subtle'
+                      : est === 'Sancionado'
+                        ? 'bg-danger-subtle text-danger border border-danger-subtle'
+                        : 'bg-warning-subtle text-warning border border-warning-subtle'
+                  return (
+                    <td>
+                      <span className={`badge font-monospace ${badgeClass}`}>
+                        {est}
+                      </span>
+                    </td>
+                  )
+                },
+                inicioPrestamo: (item: any) => (
+                  <td>
+                    <span className="font-monospace small badge bg-body border text-info">
+                      {item.inicioPrestamo && item.inicioPrestamo !== '-' ? item.inicioPrestamo : 'Sin registrar'}
+                    </span>
+                  </td>
+                ),
+                finPrestamo: (item: any) => (
+                  <td>
+                    <span className="font-monospace small badge bg-body border text-info">
+                      {item.finPrestamo && item.finPrestamo !== '-' ? item.finPrestamo : 'Sin registrar'}
                     </span>
                   </td>
                 ),
                 fechaEntrega: (item: any) => (
                   <td>
                     <span className="font-monospace small badge bg-body border text-primary">
-                      {item.fechaEntrega}
-                    </span>
-                  </td>
-                ),
-                cedula: (item: any) => (
-                  <td>
-                    <span className="font-monospace small text-muted badge bg-body border">
-                      {item.cedula}
-                    </span>
-                  </td>
-                ),
-                nombre: (item: any) => (
-                  <td>
-                    <span className="font-monospace small">
-                      {item.nombre}
-                    </span>
-                  </td>
-                ),
-                correo: (item: any) => (
-                  <td>
-                    <span className="font-monospace small badge bg-body border text-muted rounded-pill py-1 px-2">
-                      {item.correo || '-'}
-                    </span>
-                  </td>
-                ),
-                celular: (item: any) => (
-                  <td>
-                    <span className="font-monospace small badge bg-body border rounded-pill text-primary">
-                      {item.celular || '-'}
-                    </span>
-                  </td>
-                ),
-                telefono: (item: any) => (
-                  <td>
-                    <span className="font-monospace small badge bg-body border rounded-pill text-success">
-                      {item.telefono || '-'}
-                    </span>
-                  </td>
-                ),
-                referencias: (item: any) => (
-                  <td>
-                    <span className="font-monospace small text-muted" style={{ whiteSpace: 'pre-line' }}>
-                      {item.referencias || '-'}
+                      {item.fechaEntrega && item.fechaEntrega !== '-' ? item.fechaEntrega : 'Sin registrar'}
                     </span>
                   </td>
                 ),

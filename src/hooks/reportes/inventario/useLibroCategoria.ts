@@ -91,7 +91,13 @@ export const useReporteLibrosCategoria = () => {
         generoId: selectedValue.value,
       }
       const data = await librosPorCategoria(params)
-      const rawData: LibroInventarioItem[] = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
+      const rawData: LibroInventarioItem[] = Array.isArray(data?.data)
+        ? data.data
+        : Array.isArray(data?.libros)
+          ? data.libros
+          : Array.isArray(data)
+            ? data
+            : []
       const ordenados = rawData.sort(
         (a, b) => Number(a.ID_LIBROS || 0) - Number(b.ID_LIBROS || 0),
       )
@@ -173,7 +179,8 @@ export const useReporteLibrosCategoria = () => {
     }
 
     if (excelLink) {
-      await descargarArchivo(`${STORAGE_BASE_URL}/prestamos/${excelLink}`)
+      await descargarArchivo(`${STORAGE_BASE_URL}/libros/${excelLink}`)
+
     }
   }, [canDescargarLibrosCategoria, excelLink, verificarAccionEnServidor])
 

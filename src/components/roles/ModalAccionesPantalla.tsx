@@ -26,6 +26,7 @@ interface ModalAccionesPantallaProps {
   isPermisoAsignado?: (rolId: number, idPermiso: number) => boolean
   isAccionAsignada: (rolId: number, idAccion: number) => boolean
   canModificarAcciones?: boolean
+  canVerAccionesPorRol?: boolean
   onToggleAccion: (
     rolId: number,
     nombreRol: string,
@@ -43,6 +44,7 @@ export const ModalAccionesPantalla: React.FC<ModalAccionesPantallaProps> = ({
   isAccionAsignada,
   onToggleAccion,
   canModificarAcciones = false,
+  canVerAccionesPorRol = false,
 }) => {
   const [selectedRolId, setSelectedRolId] = useState<number | null>(null)
 
@@ -74,6 +76,8 @@ export const ModalAccionesPantalla: React.FC<ModalAccionesPantallaProps> = ({
   const currentRolNombre = currentRol
     ? String(currentRol.NOMBRE_ROL ?? currentRol.nombre ?? `Rol ${currentRolId}`)
     : ''
+  const currentRolNivel = currentRol ? Number(currentRol.NIVEL_ROL ?? currentRol.nivel ?? 1) : 1
+  const isRolNivel1 = currentRolNivel === 1 || currentRolId === 1
 
   // Filtrar acciones que pertenecen a la pantalla seleccionada
   const accionesPantalla = useMemo(() => {
@@ -122,59 +126,61 @@ export const ModalAccionesPantalla: React.FC<ModalAccionesPantallaProps> = ({
       </CModalHeader>
 
       <CModalBody className="p-4">
-        <div className="mb-4">
-          <label className="form-label text-uppercase text-secondary fw-bold small mb-2" style={{ letterSpacing: '0.5px' }}>
-            Selecciona el Rol a configurar:
-          </label>
-          <div className="d-flex flex-wrap gap-2">
-            {roles.map((rol: any) => {
-              const rId = Number(rol.ID_ROL ?? rol.id)
-              const rNombre = String(rol.NOMBRE_ROL ?? rol.nombre ?? `Rol ${rId}`)
-              const rNivel = Number(rol.NIVEL_ROL ?? rol.nivel ?? 1)
-              const isSelected = rId === selectedRolId
-              // Conteo de acciones activas para este rol en esta pantalla
-              const rActiveCount = accionesPantalla.filter((a) =>
-                isAccionAsignada(rId, Number(a.ID_ACCION ?? (a as any).id)),
-              ).length
+        {canVerAccionesPorRol && (
+          <div className="mb-4">
+            <label className="form-label text-uppercase text-secondary fw-bold small mb-2" style={{ letterSpacing: '0.5px' }}>
+              Selecciona el Rol a configurar:
+            </label>
+            <div className="d-flex flex-wrap gap-2">
+              {roles.map((rol: any) => {
+                const rId = Number(rol.ID_ROL ?? rol.id)
+                const rNombre = String(rol.NOMBRE_ROL ?? rol.nombre ?? `Rol ${rId}`)
+                const rNivel = Number(rol.NIVEL_ROL ?? rol.nivel ?? 1)
+                const isSelected = rId === selectedRolId
+                // Conteo de acciones activas para este rol en esta pantalla
+                const rActiveCount = accionesPantalla.filter((a) =>
+                  isAccionAsignada(rId, Number(a.ID_ACCION ?? (a as any).id)),
+                ).length
 
-              return (
-                <motion.button
-                  key={rId}
-                  type="button"
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                  className={`btn d-flex align-items-center gap-2 px-3 py-2 rounded-3 transition-all ${isSelected
-                      ? 'btn-primary text-white shadow-sm'
-                      : 'btn-outline-secondary bg-body text-body'
-                    }`}
-                  style={{
-                    fontSize: '0.sm',
-                    fontWeight: isSelected ? 600 : 500,
-                  }}
-                  onClick={() => setSelectedRolId(rId)}
-                >
-                  <span>{rNombre}</span>
-                  <span
-                    className={`badge rounded-pill ${isSelected ? 'bg-white text-primary' : 'bg-body-secondary text-body-secondary border'
+                return (
+                  <motion.button
+                    key={rId}
+                    type="button"
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
+                    className={`btn d-flex align-items-center gap-2 px-3 py-2 rounded-3 transition-all ${isSelected
+                        ? 'btn-primary text-white shadow-sm'
+                        : 'btn-outline-secondary bg-body text-body'
                       }`}
-                    style={{ fontSize: '0.7rem' }}
+                    style={{
+                      fontSize: '0.sm',
+                      fontWeight: isSelected ? 600 : 500,
+                    }}
+                    onClick={() => setSelectedRolId(rId)}
                   >
-                    Nivel {rNivel}
-                  </span>
-                  {accionesPantalla.length > 0 && (
+                    <span>{rNombre}</span>
                     <span
-                      className={`badge rounded-pill ms-1 ${isSelected ? 'bg-info text-white' : 'bg-secondary text-white'
+                      className={`badge rounded-pill ${isSelected ? 'bg-white text-primary' : 'bg-body-secondary text-body-secondary border'
                         }`}
-                      style={{ fontSize: '0.68rem' }}
+                      style={{ fontSize: '0.7rem' }}
                     >
-                      {rActiveCount}/{accionesPantalla.length}
+                      Nivel {rNivel}
                     </span>
-                  )}
-                </motion.button>
-              )
-            })}
+                    {accionesPantalla.length > 0 && (
+                      <span
+                        className={`badge rounded-pill ms-1 ${isSelected ? 'bg-info text-white' : 'bg-secondary text-white'
+                          }`}
+                        style={{ fontSize: '0.68rem' }}
+                      >
+                        {rActiveCount}/{accionesPantalla.length}
+                      </span>
+                    )}
+                  </motion.button>
+                )
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
         <div>
           <div className="d-flex align-items-center justify-content-between mb-3">
@@ -197,7 +203,7 @@ export const ModalAccionesPantalla: React.FC<ModalAccionesPantallaProps> = ({
               </motion.div>
             ) : (
               <motion.div
-                key={selectedRolId ?? 'roles-actions'}
+                key={canVerAccionesPorRol ? (selectedRolId ?? 'roles-actions') : 'acciones-catalogo'}
                 initial="hidden"
                 animate="visible"
                 exit="hidden"
@@ -224,10 +230,15 @@ export const ModalAccionesPantalla: React.FC<ModalAccionesPantallaProps> = ({
                         visible: { opacity: 1, y: 0, transition: { duration: 0.25 } },
                       }}
                       whileHover={{ scale: 1.01, boxShadow: '0 6px 16px rgba(0,0,0,0.06)' }}
-                      className={`p-3 rounded-3 border bg-body d-flex align-items-center justify-content-between gap-3 shadow-sm transition-all ${isActiva ? 'border-primary-subtle' : ''
-                        }`}
+                      className={`p-3 rounded-3 border bg-body d-flex align-items-center justify-content-between gap-3 shadow-sm transition-all ${
+                        canVerAccionesPorRol && isActiva ? 'border-primary-subtle' : ''
+                      }`}
                       style={{
-                        borderLeft: isActiva ? '4px solid #10b981' : '4px solid #cbd5e1',
+                        borderLeft: canVerAccionesPorRol
+                          ? isActiva
+                            ? '4px solid #10b981'
+                            : '4px solid #cbd5e1'
+                          : '4px solid #6366f1',
                       }}
                     >
                       <div
@@ -237,11 +248,25 @@ export const ModalAccionesPantalla: React.FC<ModalAccionesPantallaProps> = ({
                         title="Haz clic para ver la descripción y detalle de esta acción"
                       >
                         <div
-                          className={`rounded-circle d-flex align-items-center justify-content-center ${isActiva ? 'text-success bg-success-subtle' : 'text-secondary bg-body-secondary'
-                            }`}
+                          className={`rounded-circle d-flex align-items-center justify-content-center ${
+                            canVerAccionesPorRol
+                              ? isActiva
+                                ? 'text-success bg-success-subtle'
+                                : 'text-secondary bg-body-secondary'
+                              : 'text-primary bg-primary-subtle'
+                          }`}
                           style={{ width: '32px', height: '32px' }}
                         >
-                          <CIcon icon={isActiva ? cilCheckCircle : cilLockLocked} size="sm" />
+                          <CIcon
+                            icon={
+                              canVerAccionesPorRol
+                                ? isActiva
+                                  ? cilCheckCircle
+                                  : cilLockLocked
+                                : cilInfo
+                            }
+                            size="sm"
+                          />
                         </div>
                         <div>
                           <div className="d-flex align-items-center gap-1.5">
@@ -250,50 +275,77 @@ export const ModalAccionesPantalla: React.FC<ModalAccionesPantallaProps> = ({
                             </span>
                             <CIcon icon={cilInfo} size="sm" className="text-primary opacity-50" title="Ver descripción" />
                           </div>
-                          <span className="small text-secondary" style={{ fontSize: '0.78rem' }}>
-                            {isActiva ? 'Acción habilitada para este rol' : 'Acción restringida'}
-                          </span>
+                          {canVerAccionesPorRol && (
+                            <span className="small text-secondary" style={{ fontSize: '0.78rem' }}>
+                              {isActiva ? 'Acción habilitada para este rol' : 'Acción restringida'}
+                            </span>
+                          )}
                         </div>
                       </div>
 
-                      <div
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          if (!canModificarAcciones) {
-                            Swal.fire({
-                              icon: 'error',
-                              title: 'Acceso Denegado',
-                              text: 'No tienes permisos para modificar acciones porque la acción "Modificar Acciones" está deshabilitada.',
-                              confirmButtonColor: '#dc3545',
-                              confirmButtonText: 'Entendido',
-                            })
-                          }
-                        }}
-                        style={{ cursor: canModificarAcciones ? 'pointer' : 'not-allowed' }}
-                      >
-                        <CFormSwitch
-                          id={`switch-accion-${currentRolId}-${accionId}`}
-                          checked={isActiva}
-                          size="lg"
-                          disabled={!canModificarAcciones}
-                          onChange={() => {
-                            if (canModificarAcciones) {
-                              onToggleAccion(currentRolId, currentRolNombre, accion, pantalla)
+                      {/* Solo mostrar Switch si canVerAccionesPorRol está habilitado */}
+                      {canVerAccionesPorRol && (
+                        <div
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            if (isActiva && isRolNivel1) {
+                              Swal.fire({
+                                icon: 'warning',
+                                title: 'Acción protegida',
+                                text: `No se pueden deshabilitar acciones para el rol de Nivel 1 (${currentRolNombre}).`,
+                                confirmButtonColor: '#044c8c',
+                                confirmButtonText: 'Entendido',
+                              })
+                              return
+                            }
+                            if (!canModificarAcciones) {
+                              Swal.fire({
+                                icon: 'error',
+                                title: 'Acceso Denegado',
+                                text: 'No tienes permisos para modificar acciones porque la acción "Modificar Acciones" está deshabilitada.',
+                                confirmButtonColor: '#dc3545',
+                                confirmButtonText: 'Entendido',
+                              })
                             }
                           }}
                           style={{
-                            cursor: canModificarAcciones ? 'pointer' : 'not-allowed',
-                            transform: 'scale(1.2)',
+                            cursor: !canModificarAcciones ? 'not-allowed' : 'pointer',
                           }}
-                          title={
-                            !canModificarAcciones
-                              ? 'Solo lectura: no tienes permiso para modificar acciones'
-                              : isActiva
-                                ? `Deshabilitar ${accion.NOMBRE_ACCION}`
-                                : `Habilitar ${accion.NOMBRE_ACCION}`
-                          }
-                        />
-                      </div>
+                        >
+                          <CFormSwitch
+                            id={`switch-accion-${currentRolId}-${accionId}`}
+                            checked={isActiva}
+                            size="lg"
+                            disabled={!canModificarAcciones}
+                            onChange={() => {
+                              if (isActiva && isRolNivel1) {
+                                Swal.fire({
+                                  icon: 'warning',
+                                  title: 'Acción protegida',
+                                  text: `No se pueden deshabilitar acciones para el rol de Nivel 1 (${currentRolNombre}).`,
+                                  confirmButtonColor: '#044c8c',
+                                  confirmButtonText: 'Entendido',
+                                })
+                                return
+                              }
+                              if (canModificarAcciones) {
+                                onToggleAccion(currentRolId, currentRolNombre, accion, pantalla)
+                              }
+                            }}
+                            style={{
+                              cursor: !canModificarAcciones ? 'not-allowed' : 'pointer',
+                              transform: 'scale(1.2)',
+                            }}
+                            title={
+                              !canModificarAcciones
+                                ? 'Solo lectura: no tienes permiso para modificar acciones'
+                                : isActiva
+                                  ? `Deshabilitar ${accion.NOMBRE_ACCION}`
+                                  : `Habilitar ${accion.NOMBRE_ACCION}`
+                            }
+                          />
+                        </div>
+                      )}
                     </motion.div>
                   )
                 })}

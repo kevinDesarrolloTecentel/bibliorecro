@@ -1,4 +1,5 @@
 import { useRef, useEffect } from 'react'
+import Swal from 'sweetalert2'
 import { motion } from 'framer-motion'
 import {
   CBadge,
@@ -132,6 +133,7 @@ export const Roles = () => {
         isPermisoAsignado={permisos.isPermisoAsignado}
         isAccionAsignada={permisos.isAccionAsignada}
         canModificarAcciones={permisos.canModificarAcciones}
+        canVerAccionesPorRol={permisos.canVerAccionesPorRol}
         onToggleAccion={permisos.handleConfirmarCambioAccion}
       />
 
@@ -387,6 +389,8 @@ export const Roles = () => {
                           modulo.PANTALLAS.map((pantalla, pIdx) => {
                             const isChecked = permisos.isPermisoAsignado(rolId, pantalla.ID_PERMISO)
                             const isLastInModulo = pIdx === modulo.PANTALLAS.length - 1
+                            const isNivel1 = nivelRol === 1 || rolId === 1
+                            const isProtegido = isChecked && isNivel1
 
                             return (
                               <td
@@ -400,12 +404,36 @@ export const Roles = () => {
                                   backgroundColor: isChecked ? 'rgba(99, 102, 241, 0.12)' : undefined,
                                 }}
                               >
-                                <div className="d-flex justify-content-center align-items-center">
+                                <div
+                                  className="d-flex justify-content-center align-items-center"
+                                  onClick={(e) => {
+                                    if (isProtegido) {
+                                      e.stopPropagation()
+                                      Swal.fire({
+                                        icon: 'warning',
+                                        title: 'Permiso protegido',
+                                        text: `No se pueden revocar permisos al rol de Nivel 1 (${nombreRol}).`,
+                                        confirmButtonColor: '#044c8c',
+                                        confirmButtonText: 'Entendido',
+                                      })
+                                    }
+                                  }}
+                                >
                                   <CFormCheck
                                     id={`perm-${rolId}-${pantalla.ID_PERMISO}`}
                                     checked={isChecked}
                                     disabled={!permisos.canCheckboxPermisos}
                                     onChange={() => {
+                                      if (isProtegido) {
+                                        Swal.fire({
+                                          icon: 'warning',
+                                          title: 'Permiso protegido',
+                                          text: `No se pueden revocar permisos de pantallas al rol de Nivel 1 (${nombreRol}).`,
+                                          confirmButtonColor: '#044c8c',
+                                          confirmButtonText: 'Entendido',
+                                        })
+                                        return
+                                      }
                                       if (permisos.canCheckboxPermisos) {
                                         permisos.handleConfirmarCambioPermiso(
                                           rolId,
@@ -419,6 +447,13 @@ export const Roles = () => {
                                       cursor: permisos.canCheckboxPermisos ? 'pointer' : 'not-allowed',
                                       transform: 'scale(1.25)',
                                     }}
+                                    title={
+                                      !permisos.canCheckboxPermisos
+                                        ? 'Sin permiso para modificar'
+                                        : isChecked
+                                          ? `Quitar ${pantalla.NOMBRE_PERMISO}`
+                                          : `Asignar ${pantalla.NOMBRE_PERMISO}`
+                                    }
                                   />
                                 </div>
                               </td>

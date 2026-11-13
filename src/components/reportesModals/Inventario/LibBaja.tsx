@@ -62,60 +62,72 @@ const LibBajaModal: React.FC<LibBajaProps> = ({ visible, setVisible }) => {
 
   const tableItems = useMemo(() => {
     return libros.map((l: LibroInventarioItem) => {
-      const isbn = l.ISBN_LIBROS || l.isbn || ''
-      const titulo = l.TITULO_LIBROS || l.titulo || ''
-      const titulotej = l.TITULOTEJUELO_LIBROS || l.titulotej || ''
-      const autortej = l.AUTORTEJUELO_LIBROS || l.autortej || ''
-      const rawPrecio = l.PRECIO_LIBROS ?? l.precio
-      const precioDisplay =
-        rawPrecio !== undefined && rawPrecio !== null && rawPrecio !== ''
-          ? `$${Number(rawPrecio).toFixed(2)}`
+      const idLibro =
+        l.ID_LIBROS !== undefined && l.ID_LIBROS !== null && l.ID_LIBROS !== ''
+          ? String(l.ID_LIBROS)
+          : 'Sin registrar'
+      const isbn = l.ISBN_LIBROS?.trim() || 'Sin registrar'
+      const tituloLibro = l.TITULO_LIBROS?.trim() || 'Sin registrar'
+
+      const val = l.PRECIO_LIBROS
+      const precioNum = Number(val)
+      const precioLibro =
+        val !== undefined && val !== null && val !== '' && !isNaN(precioNum)
+          ? `$${precioNum.toFixed(2)}`
           : '$0.00'
-      const codigo = l.CODIGODEBARRAS_LIBROS || l.codigo || ''
+
+      const codigoBarras = l.CODIGODEBARRAS_LIBROS?.trim() || 'Sin registrar'
+      const tituloTejuelo = l.TITULOTEJUELO_LIBROS?.trim() || 'Sin registrar'
+      const autorTejuelo = l.AUTORTEJUELO_LIBROS?.trim() || 'Sin registrar'
 
       return {
         ...l,
+        idLibro,
         isbn,
-        titulo,
-        titulotej,
-        autortej,
-        precio: rawPrecio,
-        precioDisplay,
-        codigo,
+        tituloLibro,
+        precioLibro,
+        codigoBarras,
+        tituloTejuelo,
+        autorTejuelo,
       }
     })
   }, [libros])
 
   const columns = [
     {
+      key: 'idLibro',
+      label: 'ID libro',
+      _style: { minWidth: '100px' },
+    },
+    {
       key: 'isbn',
       label: 'ISBN',
-      _style: { width: '16%' },
+      _style: { minWidth: '140px' },
     },
     {
-      key: 'titulo',
-      label: 'Título',
-      _style: { width: '24%' },
+      key: 'tituloLibro',
+      label: 'Titulo del libro',
+      _style: { minWidth: '220px' },
     },
     {
-      key: 'titulotej',
-      label: 'Título Tejuelo',
-      _style: { width: '15%' },
+      key: 'precioLibro',
+      label: 'Precio del libro',
+      _style: { minWidth: '130px' },
     },
     {
-      key: 'autortej',
-      label: 'Autor Tejuelo',
-      _style: { width: '15%' },
+      key: 'codigoBarras',
+      label: 'Código de barras',
+      _style: { minWidth: '180px' },
     },
     {
-      key: 'precio',
-      label: 'Precio',
-      _style: { width: '12%' },
+      key: 'tituloTejuelo',
+      label: 'Titulo tejuelo',
+      _style: { minWidth: '150px' },
     },
     {
-      key: 'codigo',
-      label: 'Código de Barras',
-      _style: { width: '18%' },
+      key: 'autorTejuelo',
+      label: 'Autor tejuelo',
+      _style: { minWidth: '150px' },
     },
   ]
 
@@ -229,7 +241,7 @@ const LibBajaModal: React.FC<LibBajaProps> = ({ visible, setVisible }) => {
               Libros Dados de Baja
             </span>
             <span className="text-body-secondary small">
-              Total recibidos: <strong>{libros.length}</strong>
+              Total libros: <strong>{libros.length}</strong>
             </span>
           </CCardHeader>
           <CCardBody className="p-0">
@@ -254,39 +266,52 @@ const LibBajaModal: React.FC<LibBajaProps> = ({ visible, setVisible }) => {
                     : 'Seleccione un año y haga clic en Generar para ver el reporte'
               }
               scopedColumns={{
+                idLibro: (item: any) => (
+                  <td>
+                    <span className="font-monospace small badge bg-body border text-muted">
+                      {item.idLibro && item.idLibro !== '-' ? item.idLibro : 'Sin registrar'}
+                    </span>
+                  </td>
+                ),
                 isbn: (item: any) => (
                   <td>
-                    <span className="font-monospace small text-muted badge bg-body border">
-                      {item.isbn || '-'}
+                    <span className="font-monospace small badge bg-body border text-muted">
+                      {item.isbn && item.isbn !== '-' ? item.isbn : 'Sin registrar'}
                     </span>
                   </td>
                 ),
-                titulo: (item: any) => (
+                tituloLibro: (item: any) => (
                   <td>
-                    <span className="font-monospace small">{item.titulo || '-'}</span>
-                  </td>
-                ),
-                titulotej: (item: any) => (
-                  <td>
-                    <span className="font-monospace small">{item.titulotej || '-'}</span>
-                  </td>
-                ),
-                autortej: (item: any) => (
-                  <td>
-                    <span className="font-monospace small">{item.autortej || '-'}</span>
-                  </td>
-                ),
-                precio: (item: any) => (
-                  <td>
-                    <span className="font-monospace small text-success badge bg-body border">
-                      {item.precioDisplay}
+                    <span className="font-monospace small fw-semibold">
+                      {item.tituloLibro && item.tituloLibro !== '-' ? item.tituloLibro : 'Sin registrar'}
                     </span>
                   </td>
                 ),
-                codigo: (item: any) => (
+                precioLibro: (item: any) => (
+                  <td>
+                    <span className="font-monospace small text-success fw-semibold">
+                      {item.precioLibro}
+                    </span>
+                  </td>
+                ),
+                codigoBarras: (item: any) => (
                   <td>
                     <span className="font-monospace small text-primary badge bg-body border">
-                      {item.codigo || '-'}
+                      {item.codigoBarras && item.codigoBarras !== '-' ? item.codigoBarras : 'Sin registrar'}
+                    </span>
+                  </td>
+                ),
+                tituloTejuelo: (item: any) => (
+                  <td>
+                    <span className="font-monospace small badge bg-body border text-secondary">
+                      {item.tituloTejuelo && item.tituloTejuelo !== '-' ? item.tituloTejuelo : 'Sin registrar'}
+                    </span>
+                  </td>
+                ),
+                autorTejuelo: (item: any) => (
+                  <td>
+                    <span className="font-monospace small badge bg-body border text-secondary">
+                      {item.autorTejuelo && item.autorTejuelo !== '-' ? item.autorTejuelo : 'Sin registrar'}
                     </span>
                   </td>
                 ),

@@ -169,7 +169,8 @@ export const useReporteLibrosSistema = () => {
     }
 
     if (excelLink) {
-      await descargarArchivo(`${STORAGE_BASE_URL}/prestamos/${excelLink}`)
+      await descargarArchivo(`${STORAGE_BASE_URL}/libros/${excelLink}`)
+
     }
   }, [canDescargarLibrosSistema, excelLink, verificarAccionEnServidor])
 
