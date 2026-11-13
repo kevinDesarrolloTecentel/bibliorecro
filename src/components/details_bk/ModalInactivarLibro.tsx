@@ -101,8 +101,8 @@ export const ModalInactivarLibro: React.FC<ModalInactivarLibroProps> = ({
       return
     }
 
-    if (trimmedMotivo.length > 1000) {
-      setErrorMsg('El motivo no puede superar los 1000 caracteres.')
+    if (trimmedMotivo.length > 255) {
+      setErrorMsg('El motivo no puede superar los 255 caracteres.')
       return
     }
 
@@ -175,17 +175,21 @@ export const ModalInactivarLibro: React.FC<ModalInactivarLibroProps> = ({
                 <CFormLabel className="fw-semibold small mb-0">
                   Motivo de la inactivación del Libro <span className="text-danger">*</span>
                 </CFormLabel>
+                <span className="small text-muted font-monospace" style={{ fontSize: '0.72rem' }}>
+                  {motivo.length}/255
+                </span>
               </div>
               <CFormTextarea
-                rows={4}
-                placeholder="Especifique el motivo de la inactivación del libro"
+                rows={3}
+                maxLength={255}
+                placeholder="Especifique el motivo de la inactivación del libro (máx. 255 caracteres)"
                 value={motivo}
                 onChange={(e) => {
                   setMotivo(e.target.value)
                   if (errorMsg) setErrorMsg('')
                 }}
                 disabled={guardando}
-                invalid={Boolean(motivo.length > 0 && (motivo.trim().length < 5 || motivo.length > 1000))}
+                invalid={Boolean(motivo.length > 0 && (motivo.trim().length < 5 || motivo.length > 255))}
                 required
               />
               {motivo.length > 0 && motivo.trim().length < 5 && (

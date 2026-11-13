@@ -65,6 +65,7 @@ const Modal_Edit = (props: ModalEditProps) => {
     const {
         isVisible,
         formData,
+        errors,
         loading,
         tiposId,
         nacionalidades,
@@ -72,6 +73,7 @@ const Modal_Edit = (props: ModalEditProps) => {
         estadosCiviles,
         handleChange,
         handleDateChange,
+        handleBlur,
         handleClose,
         handleSubmit,
         previewFoto,
@@ -97,7 +99,7 @@ const Modal_Edit = (props: ModalEditProps) => {
                 </CModalTitle>
             </CModalHeader>
             <CModalBody className="px-3 px-md-4 py-3">
-                <CForm id="formEditUsuario" onSubmit={handleSubmit} className="row g-3">
+                <CForm id="formEditUsuario" onSubmit={handleSubmit} noValidate className="row g-3">
                     <fieldset disabled={readOnly} className="row g-3 p-0 m-0 border-0">
                         <CCol xs={12} className="mt-2">
                             <div className="d-flex align-items-center gap-2 pb-2 border-bottom fw-bold text-secondary">
@@ -107,7 +109,7 @@ const Modal_Edit = (props: ModalEditProps) => {
                         </CCol>
 
                         <CCol xs={12} sm={6} md={4}>
-                            <label className="form-label small fw-semibold text-muted">Tipo de Identificación</label>
+                            <label className="form-label small fw-semibold text-muted">Tipo de Identificación <span className="text-danger">*</span></label>
                             <CInputGroup>
                                 <CInputGroupText>
                                     <CIcon icon={cilContact} />
@@ -116,6 +118,8 @@ const Modal_Edit = (props: ModalEditProps) => {
                                     name="ID_TIPOIDENTIFICACION"
                                     value={String(formData.ID_TIPOIDENTIFICACION || '')}
                                     onChange={handleChange}
+                                    onBlur={() => handleBlur('ID_TIPOIDENTIFICACION')}
+                                    invalid={!!errors.ID_TIPOIDENTIFICACION}
                                 >
                                     <option value="">Seleccione tipo...</option>
                                     {tiposId.map(tipo => (
@@ -125,11 +129,14 @@ const Modal_Edit = (props: ModalEditProps) => {
                                     ))}
                                 </CFormSelect>
                             </CInputGroup>
+                            {errors.ID_TIPOIDENTIFICACION && (
+                                <div className="text-danger small mt-1">{errors.ID_TIPOIDENTIFICACION}</div>
+                            )}
                         </CCol>
 
                         <CCol xs={12} sm={6} md={4}>
                             <div className="d-flex justify-content-between align-items-center mb-1">
-                                <label className="form-label small fw-semibold text-muted mb-0">Nº de Identificación</label>
+                                <label className="form-label small fw-semibold text-muted mb-0">Nº de Identificación <span className="text-danger">*</span></label>
                             </div>
                             <CInputGroup>
                                 <CInputGroupText>
@@ -143,13 +150,17 @@ const Modal_Edit = (props: ModalEditProps) => {
                                     placeholder="Ej: 1725608090"
                                     value={formData.IDENTIFICACION_PERSONA || ''}
                                     onChange={handleChange}
-                                    required
+                                    onBlur={() => handleBlur('IDENTIFICACION_PERSONA')}
+                                    invalid={!!errors.IDENTIFICACION_PERSONA}
                                 />
                             </CInputGroup>
+                            {errors.IDENTIFICACION_PERSONA && (
+                                <div className="text-danger small mt-1">{errors.IDENTIFICACION_PERSONA}</div>
+                            )}
                         </CCol>
 
                         <CCol xs={12} sm={6} md={4}>
-                            <label className="form-label small fw-semibold text-muted">Fecha de Nacimiento</label>
+                            <label className="form-label small fw-semibold text-muted">Fecha de Nacimiento <span className="text-danger">*</span></label>
                             <CDatePicker
                                 key={datePickerKey}
                                 locale="es-ES"
@@ -160,11 +171,15 @@ const Modal_Edit = (props: ModalEditProps) => {
                                 onDateChange={(val) => handleDateChange(val)}
                                 cleaner={!readOnly}
                                 disabled={readOnly}
+                                invalid={!!errors.FECHA_PERSONA}
                             />
+                            {errors.FECHA_PERSONA && (
+                                <div className="text-danger small mt-1">{errors.FECHA_PERSONA}</div>
+                            )}
                         </CCol>
 
                         <CCol xs={12} md={4}>
-                            <label className="form-label small fw-semibold text-muted">Nombres:</label>
+                            <label className="form-label small fw-semibold text-muted">Nombres: <span className="text-danger">*</span></label>
                             <CInputGroup>
                                 <CInputGroupText>
                                     <CIcon icon={cilUser} />
@@ -172,17 +187,22 @@ const Modal_Edit = (props: ModalEditProps) => {
                                 <CFormInput
                                     type="text"
                                     name="NOMBRE_PERSONA"
+                                    maxLength={25}
                                     placeholder="Ej: JUAN CARLOS"
                                     value={formData.NOMBRE_PERSONA || ''}
                                     onChange={handleChange}
-                                    required
+                                    onBlur={() => handleBlur('NOMBRE_PERSONA')}
+                                    invalid={!!errors.NOMBRE_PERSONA}
                                     style={{ textTransform: 'uppercase' }}
                                 />
                             </CInputGroup>
+                            {errors.NOMBRE_PERSONA && (
+                                <div className="text-danger small mt-1">{errors.NOMBRE_PERSONA}</div>
+                            )}
                         </CCol>
 
                         <CCol xs={12} md={4}>
-                            <label className="form-label small fw-semibold text-muted">Apellidos:</label>
+                            <label className="form-label small fw-semibold text-muted">Apellidos: <span className="text-danger">*</span></label>
                             <CInputGroup>
                                 <CInputGroupText>
                                     <CIcon icon={cilUser} />
@@ -192,11 +212,16 @@ const Modal_Edit = (props: ModalEditProps) => {
                                     name="APELLIDO_PERSONA"
                                     placeholder="Ej: PÉREZ GÓMEZ"
                                     value={formData.APELLIDO_PERSONA || ''}
+                                    maxLength={25}
                                     onChange={handleChange}
-                                    required
+                                    onBlur={() => handleBlur('APELLIDO_PERSONA')}
+                                    invalid={!!errors.APELLIDO_PERSONA}
                                     style={{ textTransform: 'uppercase' }}
                                 />
                             </CInputGroup>
+                            {errors.APELLIDO_PERSONA && (
+                                <div className="text-danger small mt-1">{errors.APELLIDO_PERSONA}</div>
+                            )}
                         </CCol>
 
                         <CCol xs={12} sm={6} md={4}>
@@ -224,7 +249,7 @@ const Modal_Edit = (props: ModalEditProps) => {
                         </CCol>
 
                         <CCol xs={12} sm={6} md={4}>
-                            <label className="form-label small fw-semibold text-muted">Nacionalidad:</label>
+                            <label className="form-label small fw-semibold text-muted">Nacionalidad: <span className="text-danger">*</span></label>
                             <CInputGroup>
                                 <CInputGroupText>
                                     <CIcon icon={cilGlobeAlt} />
@@ -233,6 +258,8 @@ const Modal_Edit = (props: ModalEditProps) => {
                                     name="ID_NACIONALIDAD"
                                     value={String(formData.ID_NACIONALIDAD || '')}
                                     onChange={handleChange}
+                                    onBlur={() => handleBlur('ID_NACIONALIDAD')}
+                                    invalid={!!errors.ID_NACIONALIDAD}
                                 >
                                     <option value="">Seleccione nacionalidad...</option>
                                     {nacionalidades.map(nac => (
@@ -242,10 +269,13 @@ const Modal_Edit = (props: ModalEditProps) => {
                                     ))}
                                 </CFormSelect>
                             </CInputGroup>
+                            {errors.ID_NACIONALIDAD && (
+                                <div className="text-danger small mt-1">{errors.ID_NACIONALIDAD}</div>
+                            )}
                         </CCol>
 
                         <CCol xs={12} sm={6} md={4}>
-                            <label className="form-label small fw-semibold text-muted">Género:</label>
+                            <label className="form-label small fw-semibold text-muted">Género: <span className="text-danger">*</span></label>
                             <CInputGroup>
                                 <CInputGroupText>
                                     <CIcon icon={cilPeople} />
@@ -254,6 +284,8 @@ const Modal_Edit = (props: ModalEditProps) => {
                                     name="ID_GENERO"
                                     value={String(formData.ID_GENERO || '')}
                                     onChange={handleChange}
+                                    onBlur={() => handleBlur('ID_GENERO')}
+                                    invalid={!!errors.ID_GENERO}
                                 >
                                     <option value="">Seleccione género...</option>
                                     {generos.map(gen => (
@@ -263,10 +295,13 @@ const Modal_Edit = (props: ModalEditProps) => {
                                     ))}
                                 </CFormSelect>
                             </CInputGroup>
+                            {errors.ID_GENERO && (
+                                <div className="text-danger small mt-1">{errors.ID_GENERO}</div>
+                            )}
                         </CCol>
 
                         <CCol xs={12} sm={6} md={4}>
-                            <label className="form-label small fw-semibold text-muted">Estado Civil:</label>
+                            <label className="form-label small fw-semibold text-muted">Estado Civil: <span className="text-danger">*</span></label>
                             <CInputGroup>
                                 <CInputGroupText>
                                     <CIcon icon={cilHeart} />
@@ -275,6 +310,8 @@ const Modal_Edit = (props: ModalEditProps) => {
                                     name="ID_ESTADOCIVIL"
                                     value={String(formData.ID_ESTADOCIVIL || '')}
                                     onChange={handleChange}
+                                    onBlur={() => handleBlur('ID_ESTADOCIVIL')}
+                                    invalid={!!errors.ID_ESTADOCIVIL}
                                 >
                                     <option value="">Seleccione estado civil...</option>
                                     {estadosCiviles.map(est => (
@@ -284,17 +321,31 @@ const Modal_Edit = (props: ModalEditProps) => {
                                     ))}
                                 </CFormSelect>
                             </CInputGroup>
+                            {errors.ID_ESTADOCIVIL && (
+                                <div className="text-danger small mt-1">{errors.ID_ESTADOCIVIL}</div>
+                            )}
                         </CCol>
 
                         <CCol xs={12}>
+                            <div className="d-flex justify-content-between align-items-center mb-1">
+                                <label className="form-label small fw-semibold text-muted mb-0">Descripción / Detalle: <span className="text-danger">*</span></label>
+                                <span className="small text-muted font-monospace" style={{ fontSize: '0.72rem' }}>
+                                    {(formData.DETALLE_PERSONA || '').length}/255
+                                </span>
+                            </div>
                             <CFormTextarea
                                 name="DETALLE_PERSONA"
-                                label="Descripción:"
-                                placeholder="Ingrese descripción del usuario..."
+                                maxLength={255}
+                                placeholder="Ingrese descripción del usuario (máx. 255 caracteres)..."
                                 rows={3}
                                 value={formData.DETALLE_PERSONA || ''}
                                 onChange={handleChange}
+                                onBlur={() => handleBlur('DETALLE_PERSONA')}
+                                invalid={!!errors.DETALLE_PERSONA}
                             />
+                            {errors.DETALLE_PERSONA && (
+                                <div className="text-danger small mt-1">{errors.DETALLE_PERSONA}</div>
+                            )}
                         </CCol>
 
                         <CCol xs={12} sm={12}>
@@ -309,8 +360,12 @@ const Modal_Edit = (props: ModalEditProps) => {
                                         name="FOTO_PERSONA"
                                         accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
                                         onChange={handleFotoChange}
+                                        invalid={!!errors.FOTO_PERSONA}
                                     />
                                 </CInputGroup>
+                            )}
+                            {errors.FOTO_PERSONA && (
+                                <div className="text-danger small mt-1">{errors.FOTO_PERSONA}</div>
                             )}
                             {(previewFoto || fotoActual) ? (
                                 <div className="mt-2 d-flex align-items-center gap-3 p-2 bg-body rounded border shadow-sm">
@@ -348,7 +403,7 @@ const Modal_Edit = (props: ModalEditProps) => {
                         </CCol>
 
                         <CCol xs={12} md={4}>
-                            <label className="form-label small fw-semibold text-muted">Correo Electrónico:</label>
+                            <label className="form-label small fw-semibold text-muted">Correo Electrónico: <span className="text-danger">*</span></label>
                             <CInputGroup>
                                 <CInputGroupText>
                                     <CIcon icon={cilEnvelopeClosed} />
@@ -358,14 +413,20 @@ const Modal_Edit = (props: ModalEditProps) => {
                                     name="CORREO_PERSONA"
                                     placeholder="Ej: usuario@correo.com"
                                     value={formData.CORREO_PERSONA || ''}
+                                    maxLength={100}
                                     onChange={handleChange}
+                                    onBlur={() => handleBlur('CORREO_PERSONA')}
+                                    invalid={!!errors.CORREO_PERSONA}
                                 />
                             </CInputGroup>
+                            {errors.CORREO_PERSONA && (
+                                <div className="text-danger small mt-1">{errors.CORREO_PERSONA}</div>
+                            )}
                         </CCol>
 
                         <CCol xs={12} sm={6} md={4}>
                             <div className="d-flex justify-content-between align-items-center mb-1">
-                                <label className="form-label small fw-semibold text-muted mb-0">Teléfono fijo:</label>
+                                <label className="form-label small fw-semibold text-muted mb-0">Teléfono fijo: <span className="text-danger">*</span></label>
                             </div>
                             <CInputGroup>
                                 <CInputGroupText>
@@ -379,13 +440,18 @@ const Modal_Edit = (props: ModalEditProps) => {
                                     placeholder="Ej: 2073303 o 022345678"
                                     value={formData.TELEFONO_PERSONA || ''}
                                     onChange={handleChange}
+                                    onBlur={() => handleBlur('TELEFONO_PERSONA')}
+                                    invalid={!!errors.TELEFONO_PERSONA}
                                 />
                             </CInputGroup>
+                            {errors.TELEFONO_PERSONA && (
+                                <div className="text-danger small mt-1">{errors.TELEFONO_PERSONA}</div>
+                            )}
                         </CCol>
 
                         <CCol xs={12} sm={6} md={4}>
                             <div className="d-flex justify-content-between align-items-center mb-1">
-                                <label className="form-label small fw-semibold text-muted mb-0">Teléfono Celular:</label>
+                                <label className="form-label small fw-semibold text-muted mb-0">Teléfono Celular: <span className="text-danger">*</span></label>
                             </div>
                             <CInputGroup>
                                 <CInputGroupText>
@@ -399,12 +465,17 @@ const Modal_Edit = (props: ModalEditProps) => {
                                     placeholder="Ej: 0991234567"
                                     value={formData.CELULAR_PERSONA || ''}
                                     onChange={handleChange}
+                                    onBlur={() => handleBlur('CELULAR_PERSONA')}
+                                    invalid={!!errors.CELULAR_PERSONA}
                                 />
                             </CInputGroup>
+                            {errors.CELULAR_PERSONA && (
+                                <div className="text-danger small mt-1">{errors.CELULAR_PERSONA}</div>
+                            )}
                         </CCol>
 
                         <CCol xs={12}>
-                            <label className="form-label small fw-semibold text-muted">Dirección Domiciliaria:</label>
+                            <label className="form-label small fw-semibold text-muted">Dirección Domiciliaria: <span className="text-danger">*</span></label>
                             <CInputGroup>
                                 <CInputGroupText>
                                     <CIcon icon={cilLocationPin} />
@@ -414,9 +485,15 @@ const Modal_Edit = (props: ModalEditProps) => {
                                     name="DIRECCION_PERSONA"
                                     placeholder="Ej: Av. Maldonado y El Recreo, Quito"
                                     value={formData.DIRECCION_PERSONA || ''}
+                                    maxLength={100}
                                     onChange={handleChange}
+                                    onBlur={() => handleBlur('DIRECCION_PERSONA')}
+                                    invalid={!!errors.DIRECCION_PERSONA}
                                 />
                             </CInputGroup>
+                            {errors.DIRECCION_PERSONA && (
+                                <div className="text-danger small mt-1">{errors.DIRECCION_PERSONA}</div>
+                            )}
                         </CCol>
                     </fieldset>
                 </CForm>

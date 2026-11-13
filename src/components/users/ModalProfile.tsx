@@ -36,11 +36,15 @@ const ModalProfile = ({ profileState }: ModalProfileProps) => {
                         />
                     </CCol>
                     <CCol md={6}>
-                        <label className="form-label">Contraseña</label>
+                        <div className="d-flex justify-content-between align-items-center mb-1">
+                            <label className="form-label mb-0">Contraseña</label>
+
+                        </div>
                         <CInputGroup>
                             <CFormInput
                                 type={state.showPassword ? 'text' : 'password'}
                                 placeholder="••••••••"
+                                maxLength={25}
                                 value={state.formData.password}
                                 onChange={(e) => state.setFormData({ ...state.formData, password: e.target.value })}
                             />
@@ -56,8 +60,13 @@ const ModalProfile = ({ profileState }: ModalProfileProps) => {
                         </CInputGroup>
                     </CCol>
                     <CCol xs={12}>
+                        <div className="d-flex justify-content-between align-items-center mb-1">
+                            <label className="form-label mb-0">Nombre Completo</label>
+
+                        </div>
                         <CFormInput
-                            label="Nombre Completo"
+                            maxLength={25}
+                            placeholder="Ingrese su nombre completo (máx. 25 caracteres)"
                             value={state.formData.nombres}
                             onChange={(e) => state.setFormData({ ...state.formData, nombres: e.target.value })}
                         />

@@ -502,11 +502,17 @@ const Modal_Edit_bk: React.FC<ModalEditBkProps> = (props) => {
           </CCol>
 
           <CCol xs={12}>
-            <label className="form-label small fw-semibold text-muted">Detalles:</label>
+            <div className="d-flex justify-content-between align-items-center mb-1">
+              <label className="form-label small fw-semibold text-muted mb-0">Detalles:</label>
+              <span className="small text-muted font-monospace" style={{ fontSize: '0.72rem' }}>
+                {(formData.DESCRIPCION_LIBROS || '').length}/255
+              </span>
+            </div>
             <CFormTextarea
               name="DESCRIPCION_LIBROS"
+              maxLength={255}
               rows={3}
-              placeholder="Notas o descripción adicional del libro..."
+              placeholder="Notas o descripción adicional del libro (máx. 255 caracteres)..."
               value={formData.DESCRIPCION_LIBROS}
               onChange={handleChange}
             />

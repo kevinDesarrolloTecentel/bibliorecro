@@ -162,6 +162,7 @@ const Modal_Register = (props: ModalRegisterProps) => {
                                 name="NOMBRE_PERSONA"
                                 placeholder="Ej: JUAN CARLOS"
                                 value={formData.NOMBRE_PERSONA || ''}
+                                maxLength={25}
                                 onChange={handleChange}
                                 onBlur={() => handleBlur('NOMBRE_PERSONA')}
                                 invalid={!!errors.NOMBRE_PERSONA}
@@ -184,6 +185,7 @@ const Modal_Register = (props: ModalRegisterProps) => {
                                 name="APELLIDO_PERSONA"
                                 placeholder="Ej: PÉREZ GÓMEZ"
                                 value={formData.APELLIDO_PERSONA || ''}
+                                maxLength={25}
                                 onChange={handleChange}
                                 onBlur={() => handleBlur('APELLIDO_PERSONA')}
                                 invalid={!!errors.APELLIDO_PERSONA}
@@ -306,10 +308,16 @@ const Modal_Register = (props: ModalRegisterProps) => {
                         )}
                     </CCol>
                     <CCol xs={12}>
+                        <div className="d-flex justify-content-between align-items-center mb-1">
+                            <label className="form-label small fw-semibold text-muted mb-0">Descripción / Detalle:</label>
+                            <span className="small text-muted font-monospace" style={{ fontSize: '0.72rem' }}>
+                                {(formData.DETALLE_PERSONA || '').length}/255
+                            </span>
+                        </div>
                         <CFormTextarea
                             name="DETALLE_PERSONA"
-                            label="Descripción:"
-                            placeholder="Ingrese información adicional del usuario..."
+                            maxLength={255}
+                            placeholder="Ingrese información adicional del usuario (máx. 255 caracteres)..."
                             rows={3}
                             value={formData.DETALLE_PERSONA || ''}
                             onChange={handleChange}
@@ -339,6 +347,7 @@ const Modal_Register = (props: ModalRegisterProps) => {
                                 placeholder="Ej: usuario@correo.com"
                                 value={formData.CORREO_PERSONA || ''}
                                 onChange={handleChange}
+                                maxLength={100}
                                 onBlur={() => handleBlur('CORREO_PERSONA')}
                                 invalid={!!errors.CORREO_PERSONA}
                             />
@@ -409,6 +418,7 @@ const Modal_Register = (props: ModalRegisterProps) => {
                                 name="DIRECCION_PERSONA"
                                 placeholder="Ej: Av. Maldonado y El Recreo, Quito"
                                 value={formData.DIRECCION_PERSONA || ''}
+                                maxLength={250}
                                 onChange={handleChange}
                                 onBlur={() => handleBlur('DIRECCION_PERSONA')}
                                 invalid={!!errors.DIRECCION_PERSONA}

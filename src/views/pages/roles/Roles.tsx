@@ -407,6 +407,9 @@ export const Roles = () => {
                                 <div
                                   className="d-flex justify-content-center align-items-center"
                                   onClick={(e) => {
+                                    if (!permisos.canCheckboxPermisos) {
+                                      return
+                                    }
                                     if (isProtegido) {
                                       e.stopPropagation()
                                       Swal.fire({
@@ -424,6 +427,9 @@ export const Roles = () => {
                                     checked={isChecked}
                                     disabled={!permisos.canCheckboxPermisos}
                                     onChange={() => {
+                                      if (!permisos.canCheckboxPermisos) {
+                                        return
+                                      }
                                       if (isProtegido) {
                                         Swal.fire({
                                           icon: 'warning',
@@ -434,14 +440,12 @@ export const Roles = () => {
                                         })
                                         return
                                       }
-                                      if (permisos.canCheckboxPermisos) {
-                                        permisos.handleConfirmarCambioPermiso(
-                                          rolId,
-                                          nombreRol,
-                                          pantalla.ID_PERMISO,
-                                          pantalla.NOMBRE_PERMISO,
-                                        )
-                                      }
+                                      permisos.handleConfirmarCambioPermiso(
+                                        rolId,
+                                        nombreRol,
+                                        pantalla.ID_PERMISO,
+                                        pantalla.NOMBRE_PERMISO,
+                                      )
                                     }}
                                     style={{
                                       cursor: permisos.canCheckboxPermisos ? 'pointer' : 'not-allowed',

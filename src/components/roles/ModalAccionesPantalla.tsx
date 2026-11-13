@@ -128,10 +128,22 @@ export const ModalAccionesPantalla: React.FC<ModalAccionesPantallaProps> = ({
       <CModalBody className="p-4">
         {canVerAccionesPorRol && (
           <div className="mb-4">
+            <style>{`
+              .modal-roles-grid {
+                display: grid;
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                gap: 0.5rem;
+              }
+              @media (max-width: 576px) {
+                .modal-roles-grid {
+                  grid-template-columns: 1fr;
+                }
+              }
+            `}</style>
             <label className="form-label text-uppercase text-secondary fw-bold small mb-2" style={{ letterSpacing: '0.5px' }}>
               Selecciona el Rol a configurar:
             </label>
-            <div className="d-flex flex-wrap gap-2">
+            <div className="modal-roles-grid">
               {roles.map((rol: any) => {
                 const rId = Number(rol.ID_ROL ?? rol.id)
                 const rNombre = String(rol.NOMBRE_ROL ?? rol.nombre ?? `Rol ${rId}`)
@@ -146,35 +158,37 @@ export const ModalAccionesPantalla: React.FC<ModalAccionesPantallaProps> = ({
                   <motion.button
                     key={rId}
                     type="button"
-                    whileHover={{ scale: 1.03 }}
-                    whileTap={{ scale: 0.97 }}
-                    className={`btn d-flex align-items-center gap-2 px-3 py-2 rounded-3 transition-all ${isSelected
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className={`btn d-flex align-items-center justify-content-between gap-1 px-2.5 py-2 rounded-3 text-start w-100 transition-all ${isSelected
                         ? 'btn-primary text-white shadow-sm'
                         : 'btn-outline-secondary bg-body text-body'
                       }`}
                     style={{
-                      fontSize: '0.sm',
+                      fontSize: '0.82rem',
                       fontWeight: isSelected ? 600 : 500,
                     }}
                     onClick={() => setSelectedRolId(rId)}
                   >
-                    <span>{rNombre}</span>
-                    <span
-                      className={`badge rounded-pill ${isSelected ? 'bg-white text-primary' : 'bg-body-secondary text-body-secondary border'
-                        }`}
-                      style={{ fontSize: '0.7rem' }}
-                    >
-                      Nivel {rNivel}
-                    </span>
-                    {accionesPantalla.length > 0 && (
+                    <span className="text-truncate me-1" title={rNombre}>{rNombre}</span>
+                    <div className="d-flex align-items-center gap-1 flex-shrink-0">
                       <span
-                        className={`badge rounded-pill ms-1 ${isSelected ? 'bg-info text-white' : 'bg-secondary text-white'
+                        className={`badge rounded-pill ${isSelected ? 'bg-white text-primary' : 'bg-body-secondary text-body-secondary border'
                           }`}
-                        style={{ fontSize: '0.68rem' }}
+                        style={{ fontSize: '0.68rem', padding: '0.25em 0.45em' }}
                       >
-                        {rActiveCount}/{accionesPantalla.length}
+                        Nivel {rNivel}
                       </span>
-                    )}
+                      {accionesPantalla.length > 0 && (
+                        <span
+                          className={`badge rounded-pill ${isSelected ? 'bg-info text-white' : 'bg-secondary text-white'
+                            }`}
+                          style={{ fontSize: '0.68rem', padding: '0.25em 0.45em' }}
+                        >
+                          {rActiveCount}/{accionesPantalla.length}
+                        </span>
+                      )}
+                    </div>
                   </motion.button>
                 )
               })}
@@ -288,6 +302,9 @@ export const ModalAccionesPantalla: React.FC<ModalAccionesPantallaProps> = ({
                         <div
                           onClick={(e) => {
                             e.stopPropagation()
+                            if (!canModificarAcciones) {
+                              return
+                            }
                             if (isActiva && isRolNivel1) {
                               Swal.fire({
                                 icon: 'warning',
@@ -297,15 +314,6 @@ export const ModalAccionesPantalla: React.FC<ModalAccionesPantallaProps> = ({
                                 confirmButtonText: 'Entendido',
                               })
                               return
-                            }
-                            if (!canModificarAcciones) {
-                              Swal.fire({
-                                icon: 'error',
-                                title: 'Acceso Denegado',
-                                text: 'No tienes permisos para modificar acciones porque la acción "Modificar Acciones" está deshabilitada.',
-                                confirmButtonColor: '#dc3545',
-                                confirmButtonText: 'Entendido',
-                              })
                             }
                           }}
                           style={{
@@ -318,6 +326,7 @@ export const ModalAccionesPantalla: React.FC<ModalAccionesPantallaProps> = ({
                             size="lg"
                             disabled={!canModificarAcciones}
                             onChange={() => {
+                              if (!canModificarAcciones) return
                               if (isActiva && isRolNivel1) {
                                 Swal.fire({
                                   icon: 'warning',
@@ -328,9 +337,7 @@ export const ModalAccionesPantalla: React.FC<ModalAccionesPantallaProps> = ({
                                 })
                                 return
                               }
-                              if (canModificarAcciones) {
-                                onToggleAccion(currentRolId, currentRolNombre, accion, pantalla)
-                              }
+                              onToggleAccion(currentRolId, currentRolNombre, accion, pantalla)
                             }}
                             style={{
                               cursor: !canModificarAcciones ? 'not-allowed' : 'pointer',

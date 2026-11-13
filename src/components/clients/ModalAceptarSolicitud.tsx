@@ -109,13 +109,19 @@ const ModalAceptarSolicitud: React.FC<ModalAceptarSolicitudProps> = ({
         </div>
         <CForm className="row g-3" onSubmit={handleValidarYAceptar}>
           <CCol xs={12}>
-            <CFormLabel htmlFor="inputDetalleInscripcion" className="fw-semibold">
-              Detalle u observaciones de la activación <span className="text-danger">*</span>:
-            </CFormLabel>
+            <div className="d-flex justify-content-between align-items-center mb-1">
+              <CFormLabel htmlFor="inputDetalleInscripcion" className="fw-semibold mb-0">
+                Detalle u observaciones de la activación <span className="text-danger">*</span>:
+              </CFormLabel>
+              <span className="small text-muted font-monospace" style={{ fontSize: '0.72rem' }}>
+                {detalleRenovacion.length}/255
+              </span>
+            </div>
             <CFormTextarea
               id="inputDetalleInscripcion"
-              rows={4}
-              placeholder="Ingrese notas u observaciones adicionales sobre la aprobación..."
+              rows={3}
+              maxLength={255}
+              placeholder="Ingrese notas u observaciones adicionales sobre la aprobación (máx. 255 caracteres)..."
               value={detalleRenovacion}
               onChange={(e) => {
                 setDetalleRenovacion(e.target.value)

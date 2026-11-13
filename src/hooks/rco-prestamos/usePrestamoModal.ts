@@ -119,6 +119,7 @@ export const usePrestamoModal = ({
   const [selectedUsuario, setSelectedUsuario] = useState<UsuarioOption | null>(null)
   const [busquedaLibro, setBusquedaLibro] = useState('')
   const [busquedaUsuario, setBusquedaUsuario] = useState('')
+  const [detallePrestamo, setDetallePrestamo] = useState('')
   const [guardando, setGuardando] = useState(false)
 
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null)
@@ -363,6 +364,7 @@ export const usePrestamoModal = ({
     setSelectedUsuario(null)
     setBusquedaLibro('')
     setBusquedaUsuario('')
+    setDetallePrestamo('')
     if (searchDebounceRef.current) {
       clearTimeout(searchDebounceRef.current)
     }
@@ -458,6 +460,10 @@ export const usePrestamoModal = ({
       formData.append('ID_INSCRIPCION', String(selectedUsuario.value))
       formData.append('ID_LIBROS', String(selectedLibro.value))
       formData.append('ESTADO_PRESTAMO', '1')
+      if (detallePrestamo.trim()) {
+        formData.append('DETALLE_PRESTAMO', detallePrestamo.trim())
+        formData.append('detalle_prestamo', detallePrestamo.trim())
+      }
 
       await NuevoPrestamo(formData)
 
@@ -572,6 +578,8 @@ export const usePrestamoModal = ({
     handleBuscarLibroText,
     busquedaUsuario,
     setBusquedaUsuario,
+    detallePrestamo,
+    setDetallePrestamo,
     guardando,
     handleGuardarPrestamo,
     canGuardarPrestamo,

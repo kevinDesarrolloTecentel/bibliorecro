@@ -29,11 +29,12 @@ const ModalCreate = ({ userState }: { userState: ReturnType<typeof useRoles> }) 
                             type="text"
                             id="inputNombreRol"
                             label="Nombre del Rol *"
+                            maxLength={25}
                             placeholder="Ej. Administrador, Bibliotecario, Supervisor..."
                             value={userState.formData.nombre}
-                            invalid={nombreDuplicado}
-                            feedbackInvalid="Ya existe un rol registrado con este nombre."
-                            onChange={(e) => userState.setFormData({ ...userState.formData, nombre: e.target.value })}
+                            invalid={nombreDuplicado || userState.formData.nombre.length > 25}
+                            feedbackInvalid={userState.formData.nombre.length > 25 ? "El nombre del rol no puede superar los 25 caracteres." : "Ya existe un rol registrado con este nombre."}
+                            onChange={(e) => userState.setFormData({ ...userState.formData, nombre: e.target.value.slice(0, 25) })}
                         />
                     </CCol>
                     <CCol xs={12}>
@@ -61,7 +62,7 @@ const ModalCreate = ({ userState }: { userState: ReturnType<typeof useRoles> }) 
                         variant="outline"
                         size="sm"
                         className="hover:text-white shadow-sm" onClick={userState.handleGuardarRol}
-                        disabled={userState.guardando || nombreDuplicado || !nombreLimpio}
+                        disabled={userState.guardando || nombreDuplicado || !nombreLimpio || nombreLimpio.length > 25}
                     >
                         {userState.guardando ? <CSpinner size="sm" className="me-1" /> : null}
                         <CIcon icon={cilPenNib} className="me-1" />

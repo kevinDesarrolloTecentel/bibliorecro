@@ -222,13 +222,19 @@ const ModalRenova: React.FC<ModalRenovaProps> = ({
             }}
           >
             <div className="col-12">
-              <CFormLabel htmlFor="inputDetalleInscripcion" className="fw-semibold">
-                Detalle de la Renovación <span className="text-danger">*</span>:
-              </CFormLabel>
+              <div className="d-flex justify-content-between align-items-center mb-1">
+                <CFormLabel htmlFor="inputDetalleInscripcion" className="fw-semibold mb-0">
+                  Detalle de la Renovación <span className="text-danger">*</span>:
+                </CFormLabel>
+                <span className="small text-muted font-monospace" style={{ fontSize: '0.72rem' }}>
+                  {detalle.length}/255
+                </span>
+              </div>
               <CFormTextarea
                 id="inputDetalleInscripcion"
                 rows={3}
-                placeholder="Ingrese detalles u observaciones de la renovación..."
+                maxLength={255}
+                placeholder="Ingrese detalles u observaciones de la renovación (máx. 255 caracteres)..."
                 value={detalle}
                 onChange={(e) => {
                   setDetalle(e.target.value)

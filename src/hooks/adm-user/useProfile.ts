@@ -20,6 +20,8 @@ export const validateProfileData = (
 
   if (!formData.nombres || !formData.nombres.trim()) {
     errors.push('El nombre completo es obligatorio.')
+  } else if (formData.nombres.trim().length > 25) {
+    errors.push('El nombre completo no puede superar los 25 caracteres.')
   }
 
   if (formData.password && formData.password.trim() !== '') {
@@ -27,6 +29,8 @@ export const validateProfileData = (
     if (pass !== '••••••••' && !isBcryptHash(pass)) {
       if (pass.length < 6) {
         errors.push('La contraseña debe tener al menos 6 caracteres.')
+      } else if (pass.length > 25) {
+        errors.push('La contraseña no puede superar los 25 caracteres.')
       }
     }
   }

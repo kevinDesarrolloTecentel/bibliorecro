@@ -46,6 +46,7 @@ export interface PrestamoFormData {
   ID_INSCRIPCION: string | number
   ID_LIBROS: string | number
   ESTADO_PRESTAMO: string | number
+  DETALLE_PRESTAMO?: string | null
 }
 
 export interface LibroOption {

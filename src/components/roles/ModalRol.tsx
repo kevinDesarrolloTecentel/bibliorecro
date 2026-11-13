@@ -53,10 +53,11 @@ const ModalRolActu = ({ userState }: { userState: ReturnType<typeof useRoles> })
                             type="text"
                             id="editNombreRol"
                             label="Nombre del Rol *"
+                            maxLength={25}
                             value={userState.editFormData.nombre}
-                            invalid={nombreDuplicado}
-                            feedbackInvalid="Ya existe otro rol registrado con este nombre."
-                            onChange={(e) => userState.setEditFormData({ ...userState.editFormData, nombre: e.target.value })}
+                            invalid={nombreDuplicado || userState.editFormData.nombre.length > 25}
+                            feedbackInvalid={userState.editFormData.nombre.length > 25 ? "El nombre del rol no puede superar los 25 caracteres." : "Ya existe otro rol registrado con este nombre."}
+                            onChange={(e) => userState.setEditFormData({ ...userState.editFormData, nombre: e.target.value.slice(0, 25) })}
                         />
                     </CCol>
                     <CCol xs={12}>
@@ -97,7 +98,7 @@ const ModalRolActu = ({ userState }: { userState: ReturnType<typeof useRoles> })
                         size="sm"
                         className="hover:text-white shadow-sm"
                         onClick={handleActualizar}
-                        disabled={isBusy || nombreDuplicado || !nombreLimpio}
+                        disabled={isBusy || nombreDuplicado || !nombreLimpio || nombreLimpio.length > 25}
                         variant="outline"
                     >
                         {actionLoading === 'actualizar' ? <CSpinner size="sm" className="me-1" /> : null}

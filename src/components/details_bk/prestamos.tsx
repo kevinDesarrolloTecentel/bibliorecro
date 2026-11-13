@@ -17,9 +17,10 @@ import {
   CModalTitle,
   CRow,
   CSpinner,
+  CFormTextarea,
 } from '@coreui/react-pro'
 import CIcon from '@coreui/icons-react'
-import { cilBook, cilExitToApp, cilSave, cilSearch, cilUser } from '@coreui/icons'
+import { cilBook, cilExitToApp, cilPencil, cilSave, cilSearch, cilUser } from '@coreui/icons'
 import usePrestamoModal, { UsePrestamoModalProps } from '@/hooks/rco-prestamos/usePrestamoModal'
 
 interface ModalPrestamoProps extends UsePrestamoModalProps { }
@@ -37,6 +38,8 @@ const Modal_prestamo: React.FC<ModalPrestamoProps> = (props) => {
     handleBuscarLibro,
     busquedaUsuario,
     setBusquedaUsuario,
+    detallePrestamo,
+    setDetallePrestamo,
     guardando,
     handleGuardarPrestamo,
     canGuardarPrestamo,
@@ -216,6 +219,36 @@ const Modal_prestamo: React.FC<ModalPrestamoProps> = (props) => {
                       })
                     )}
                   </div>
+                </CCardBody>
+              </CCard>
+            </CCol>
+
+            <CCol xs={12}>
+              <CCard className="border rounded-3 shadow-none mb-0 bg-body">
+                <CCardBody className="p-3">
+                  <div className="d-flex align-items-center justify-content-between mb-2">
+                    <label className="form-label text-secondary fw-semibold mb-0 d-flex align-items-center gap-1">
+                      <CIcon icon={cilPencil} className="text-primary me-1" />
+                      <span>Detalle del Préstamo:</span>
+                    </label>
+                    <div className="d-flex align-items-center gap-2">
+                      <span className="small text-muted font-monospace" style={{ fontSize: '0.72rem' }}>
+                        {detallePrestamo.length}/255
+                      </span>
+                      <CBadge color="secondary" shape="rounded-pill" className="px-2 py-0.5" style={{ fontSize: '0.72rem' }}>
+                        Opcional
+                      </CBadge>
+                    </div>
+                  </div>
+                  <CFormTextarea
+                    rows={2}
+                    maxLength={255}
+                    placeholder="Ej: Libro con portada desgastada, préstamo especial para fin de semana, etc."
+                    value={detallePrestamo}
+                    onChange={(e) => setDetallePrestamo(e.target.value)}
+                    className="bg-body text-body"
+                    style={{ resize: 'none' }}
+                  />
                 </CCardBody>
               </CCard>
             </CCol>

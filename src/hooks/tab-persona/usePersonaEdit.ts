@@ -2,7 +2,13 @@ import React, { useState, useEffect } from 'react'
 import Swal from 'sweetalert2'
 import { useCatalogos } from '../tab-catalogos/useCatalogos'
 import { getUserImageUrl } from '@/utils/imageUtils'
-import { filterOnlyDigits, filterOnlyLetters } from '@/utils/validations'
+import {
+  filterOnlyDigits,
+  filterOnlyLetters,
+  validatePersonaField,
+  validateAllPersonaEdit,
+  FormErrors,
+} from '@/utils/validations'
 import usePersonas from './usePersonas'
 import { initialPersona, Persona } from '@/models/tab/persona.model'
 import { ActualizarPersonaNueva } from '@/Service/tab/Persona'
@@ -49,6 +55,8 @@ export const usePersonaEdit = ({
       : true
 
   const [formData, setFormData] = useState<Persona>(initialPersona)
+  const [errors, setErrors] = useState<FormErrors>({})
+  const [touched, setTouched] = useState<{ [key: string]: boolean }>({})
   const [loading, setLoading] = useState(false)
   const [previewFoto, setPreviewFoto] = useState<string | null>(null)
   const [fotoActual, setFotoActual] = useState<string>('')
@@ -63,6 +71,8 @@ export const usePersonaEdit = ({
 
   const handleClose = () => {
     setPreviewFoto(null)
+    setErrors({})
+    setTouched({})
     if (setVisible) {
       setVisible(false)
     } else if (personaState) {
@@ -72,6 +82,8 @@ export const usePersonaEdit = ({
 
   useEffect(() => {
     if (currentUser && isVisible) {
+      setErrors({})
+      setTouched({})
       const raw = currentUser.raw || currentUser || {}
       const fotoRaw =
         raw.FOTO_PERSONA ||
@@ -164,6 +176,19 @@ export const usePersonaEdit = ({
     }
 
     setFormData((prev) => ({ ...prev, [name]: finalValue }))
+
+    if (errors[name] || touched[name]) {
+      const fieldError = validatePersonaField(name, finalValue)
+      setErrors((prev) => {
+        const updated = { ...prev }
+        if (fieldError) {
+          updated[name] = fieldError
+        } else {
+          delete updated[name]
+        }
+        return updated
+      })
+    }
   }
 
   const handleDateChange = async (date: Date | string | null) => {
@@ -212,6 +237,35 @@ export const usePersonaEdit = ({
       FECHA_PERSONA: finalValue,
       EDAD_PERSONA: String(age),
     }))
+
+    if (errors.FECHA_PERSONA || touched.FECHA_PERSONA) {
+      const fieldError = validatePersonaField('FECHA_PERSONA', finalValue)
+      setErrors((prev) => {
+        const updated = { ...prev }
+        if (fieldError) {
+          updated.FECHA_PERSONA = fieldError
+        } else {
+          delete updated.FECHA_PERSONA
+        }
+        return updated
+      })
+    }
+  }
+
+  const handleBlur = (name: string) => {
+    setTouched((prev) => ({ ...prev, [name]: true }))
+    const fieldError = validatePersonaField(name, (formData as any)[name], {
+      file: formData.FOTO_PERSONA instanceof File ? formData.FOTO_PERSONA : null,
+    })
+    setErrors((prev) => {
+      const updated = { ...prev }
+      if (fieldError) {
+        updated[name] = fieldError
+      } else {
+        delete updated[name]
+      }
+      return updated
+    })
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -228,66 +282,39 @@ export const usePersonaEdit = ({
       return
     }
 
-    if (
-      !formData.IDENTIFICACION_PERSONA?.toString().trim() ||
-      !formData.NOMBRE_PERSONA?.trim() ||
-      !formData.APELLIDO_PERSONA?.trim()
-    ) {
+    const { isValid, errors: validationErrors } = validateAllPersonaEdit(
+      formData,
+      formData.FOTO_PERSONA instanceof File ? formData.FOTO_PERSONA : null,
+      Boolean(fotoActual)
+    )
+
+    if (!isValid) {
+      setErrors(validationErrors)
+      const allTouched: { [key: string]: boolean } = {}
+      Object.keys(validationErrors).forEach((key) => {
+        allTouched[key] = true
+      })
+      setTouched((prev) => ({ ...prev, ...allTouched }))
+
+      const errorMessages = Object.values(validationErrors)
+        .map((msg) => `<li>${msg}</li>`)
+        .join('')
+
       Swal.fire({
         icon: 'warning',
-        title: 'Campos requeridos',
-        text: 'Por favor complete la identificación, nombres y apellidos del usuario.',
+        title: 'Campos requeridos o inválidos',
+        html: `
+          <div style="text-align: left; font-size: 0.9rem;">
+            <p>Por favor revise los siguientes datos antes de actualizar:</p>
+            <ul style="color: #dc3545; padding-left: 1.2rem; line-height: 1.6;">
+              ${errorMessages}
+            </ul>
+          </div>
+        `,
+        confirmButtonColor: '#0d6efd',
+        confirmButtonText: 'Entendido',
       })
       return
-    }
-
-    if (formData.IDENTIFICACION_PERSONA?.toString().trim().length !== 10) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Identificación inválida',
-        text: 'La identificación debe contener exactamente 10 dígitos numéricos.',
-      })
-      return
-    }
-
-    if (formData.CELULAR_PERSONA?.toString().trim() && formData.CELULAR_PERSONA.toString().trim().length !== 10) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Celular inválido',
-        text: 'El número de celular debe contener exactamente 10 dígitos numéricos.',
-      })
-      return
-    }
-
-    const telFijo = formData.TELEFONO_PERSONA?.toString().trim()
-    if (telFijo && (telFijo.length < 7 || telFijo.length > 10)) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Teléfono fijo inválido',
-        text: 'El teléfono fijo debe contener entre 7 y 10 dígitos numéricos (ej: 7 dígitos para número de casa local).',
-      })
-      return
-    }
-
-    if (formData.FOTO_PERSONA instanceof File) {
-      const validExtensions = ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'gif']
-      const ext = (formData.FOTO_PERSONA.name.split('.').pop() || '').toLowerCase()
-      if (!formData.FOTO_PERSONA.type.startsWith('image/') || !validExtensions.includes(ext)) {
-        Swal.fire({
-          icon: 'warning',
-          title: 'Formato de fotografía inválido',
-          text: 'Por favor seleccione un archivo de imagen válido (.jpg, .jpeg, .png, .webp).',
-        })
-        return
-      }
-      if (formData.FOTO_PERSONA.size > 5 * 1024 * 1024) {
-        Swal.fire({
-          icon: 'warning',
-          title: 'Imagen demasiado grande',
-          text: 'El tamaño de la imagen no debe superar los 5MB.',
-        })
-        return
-      }
     }
 
     const idPersona = formData.ID_PERSONA || currentUser?.id || currentUser?.raw?.ID_PERSONA
@@ -488,6 +515,7 @@ export const usePersonaEdit = ({
     isVisible,
     currentUser,
     formData,
+    errors,
     loading: loading || loadingCatalogos,
     tiposId,
     nacionalidades,
@@ -497,6 +525,7 @@ export const usePersonaEdit = ({
     fotoActual,
     handleChange,
     handleDateChange,
+    handleBlur,
     handleClose,
     handleSubmit,
     handleFotoChange,

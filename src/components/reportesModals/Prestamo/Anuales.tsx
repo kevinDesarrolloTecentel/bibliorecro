@@ -194,13 +194,13 @@ const PrestamoAModal: React.FC<PrestamoAProps> = ({ visible, setVisible }) => {
     },
     {
       key: 'precioLibro',
-      label: 'Precio del libro',
+      label: 'Precio',
       _style: { minWidth: '120px' },
     },
     {
       key: 'detallePrestamo',
       label: 'Detalle del préstamo',
-      _style: { minWidth: '160px' },
+      _style: { minWidth: '250px' },
     },
     {
       key: 'estadoPrestamo',

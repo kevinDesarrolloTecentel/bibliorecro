@@ -103,6 +103,28 @@ export const useRoles = () => {
       return false
     }
 
+    const nombreLimpio = String(formData?.nombre || '').trim()
+    if (!nombreLimpio) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Campo requerido',
+        text: 'Por favor, ingresa el nombre del rol.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return false
+    }
+
+    if (nombreLimpio.length > 25) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Nombre demasiado largo',
+        text: 'El nombre del rol no puede superar los 25 caracteres.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return false
+    }
 
     setGuardando(true)
     try {
@@ -289,6 +311,17 @@ export const useRoles = () => {
       return
     }
 
+    if (nombreLimpio.length > 25) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Nombre demasiado largo',
+        text: 'El nombre del rol no puede superar los 25 caracteres.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return
+    }
+
     // Validar que no exista ya un rol con el mismo nombre
     const nombreNormalizado = nombreLimpio.toLowerCase()
     const existeDuplicadoCrear = roles.some((r: any) => {
@@ -385,6 +418,17 @@ export const useRoles = () => {
         icon: 'warning',
         title: 'Campo requerido',
         text: 'Por favor, ingresa el nombre del rol.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return
+    }
+
+    if (nombreLimpio.length > 25) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Nombre demasiado largo',
+        text: 'El nombre del rol no puede superar los 25 caracteres.',
         confirmButtonColor: '#dc3545',
         confirmButtonText: 'Entendido',
       })

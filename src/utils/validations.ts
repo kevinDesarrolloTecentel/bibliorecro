@@ -194,3 +194,52 @@ export const validateAllPersonaRegister = (
     errors,
   }
 }
+
+// valida todos los campos del formulario de edición de usuarios
+export const validateAllPersonaEdit = (
+  formData: any,
+  fotoFile?: File | null,
+  tieneFotoPrevia: boolean = true
+): { isValid: boolean; errors: FormErrors } => {
+  const errors: FormErrors = {}
+
+  const fieldsToValidate = [
+    'ID_TIPOIDENTIFICACION',
+    'IDENTIFICACION_PERSONA',
+    'FECHA_PERSONA',
+    'NOMBRE_PERSONA',
+    'APELLIDO_PERSONA',
+    'ID_NACIONALIDAD',
+    'ID_GENERO',
+    'ID_ESTADOCIVIL',
+    'CORREO_PERSONA',
+    'TELEFONO_PERSONA',
+    'CELULAR_PERSONA',
+    'DIRECCION_PERSONA',
+    'DETALLE_PERSONA',
+  ]
+
+  fieldsToValidate.forEach((field) => {
+    const error = validatePersonaField(field, formData[field])
+    if (error) {
+      errors[field] = error
+    }
+  })
+
+  // Validar foto sólo si se seleccionó un archivo nuevo
+  if (fotoFile instanceof File) {
+    const fotoError = validatePersonaField('FOTO_PERSONA', formData.FOTO_PERSONA, {
+      file: fotoFile,
+    })
+    if (fotoError) {
+      errors.FOTO_PERSONA = fotoError
+    }
+  } else if (!tieneFotoPrevia && !formData.FOTO_PERSONA) {
+    errors.FOTO_PERSONA = 'La foto del usuario es requerida.'
+  }
+
+  return {
+    isValid: Object.keys(errors).length === 0,
+    errors,
+  }
+}

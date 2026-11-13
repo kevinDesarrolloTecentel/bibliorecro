@@ -156,14 +156,20 @@ export const ModalSancionarDePorVida: React.FC<ModalSancionarDePorVidaProps> = (
           )}
 
           <div>
-            <CFormLabel className="fw-semibold small mb-1">
-              Detalle de la sanción <span className="text-danger">*</span>
-            </CFormLabel>
+            <div className="d-flex justify-content-between align-items-center mb-1">
+              <CFormLabel className="fw-semibold small mb-0">
+                Detalle de la sanción <span className="text-danger">*</span>
+              </CFormLabel>
+              <span className="small text-muted font-monospace" style={{ fontSize: '0.72rem' }}>
+                {motivo.length}/255
+              </span>
+            </div>
             <CFormTextarea
-              rows={4}
+              rows={3}
+              maxLength={255}
               value={motivo}
               onChange={(e) => setMotivo(e.target.value)}
-              placeholder="Escriba aquí el detalle de la sanción..."
+              placeholder="Escriba aquí el detalle de la sanción (máx. 255 caracteres)..."
               required
               disabled={guardando}
               autoFocus

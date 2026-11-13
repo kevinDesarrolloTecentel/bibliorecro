@@ -36,12 +36,16 @@ const Newuser = ({ userState, onUserCreated }: NewuserProps) => {
                             autoComplete="off"
                             label="Usuario"
                             placeholder="Usuario"
+                            maxLength={25}
+
                             value={userState.formData.usuario}
                             onChange={(e) => userState.setFormData({ ...userState.formData, usuario: e.target.value })}
                         />
                     </CCol>
                     <CCol md={6}>
-                        <label className="form-label">Contraseña</label>
+                        <div className="d-flex justify-content-between align-items-center mb-1">
+                            <label className="form-label mb-0">Contraseña</label>
+                        </div>
                         <CInputGroup>
                             <CFormInput
                                 type={userState.showPassword ? 'text' : 'password'}
@@ -49,6 +53,7 @@ const Newuser = ({ userState, onUserCreated }: NewuserProps) => {
                                 name="nueva_contrasena_cuenta"
                                 autoComplete="new-password"
                                 placeholder="••••••••"
+                                maxLength={25}
                                 value={userState.formData.password}
                                 onChange={(e) => userState.setFormData({ ...userState.formData, password: e.target.value })}
                             />
@@ -67,15 +72,18 @@ const Newuser = ({ userState, onUserCreated }: NewuserProps) => {
                         </CInputGroup>
                     </CCol>
                     <CCol xs={12}>
+                        <div className="d-flex justify-content-between align-items-center mb-1">
+                            <label className="form-label mb-0" htmlFor="inputNuevoNombres">Nombres Completos</label>
+                        </div>
                         <CFormInput
                             id="inputNuevoNombres"
                             name="nuevo_usuario_nombres"
                             autoComplete="off"
-                            label="Nombres Completos"
                             placeholder="Nombre Completo"
+                            maxLength={25}
                             value={userState.formData.nombres}
                             onChange={(e) => {
-                                const val = e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '')
+                                const val = e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '').slice(0, 25)
                                 userState.setFormData({ ...userState.formData, nombres: val })
                             }}
                         />

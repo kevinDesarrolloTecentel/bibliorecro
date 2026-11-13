@@ -95,19 +95,22 @@ const ModalEdit = ({ userState, onUserChanged }: ModalEditProps) => {
                         />
                     </CCol>
                     <CCol md={6}>
-                        <label className='form-label'>Contraseña</label>
+                        <div className="d-flex justify-content-between align-items-center mb-1">
+                            <label className="form-label mb-0">Contraseña</label>
+                        </div>
                         <CInputGroup>
                             <CFormInput
                                 type={userState.showPassword ? 'text' : 'password'}
-                                placeholder='Dejar en blanco para conservar'
+                                placeholder="Dejar en blanco para conservar"
+                                maxLength={25}
                                 value={userState.editFormData.password}
                                 onChange={(e) => userState.setEditFormData({ ...userState.editFormData, password: e.target.value })}
                             />
                             {userState.verContraseñaUsuario && (
                                 <CButton
-                                    type='button'
-                                    color='secondary'
-                                    variant='outline'
+                                    type="button"
+                                    color="secondary"
+                                    variant="outline"
                                     onClick={() => userState.setShowPassword(!userState.showPassword)}
                                     title={userState.showPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
                                 >
@@ -117,12 +120,15 @@ const ModalEdit = ({ userState, onUserChanged }: ModalEditProps) => {
                         </CInputGroup>
                     </CCol>
                     <CCol xs={12}>
+                        <div className="d-flex justify-content-between align-items-center mb-1">
+                            <label className="form-label mb-0" htmlFor="editNombres">Nombres Completos</label>
+                        </div>
                         <CFormInput
                             id="editNombres"
-                            label="Nombres Completos"
+                            maxLength={25}
                             value={userState.editFormData.nombres}
                             onChange={(e) => {
-                                const val = e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '')
+                                const val = e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '').slice(0, 25)
                                 userState.setEditFormData({ ...userState.editFormData, nombres: val })
                             }}
                         />

@@ -252,12 +252,18 @@ export const ModalDevolverSancion: React.FC<ModalDevolverSancionProps> = ({
             </CCol>
 
             <CCol xs={12}>
-              <CFormLabel className="fw-semibold small mb-1">
-                Detalle de la Sanción <span className="text-danger">*</span>
-              </CFormLabel>
+              <div className="d-flex justify-content-between align-items-center mb-1">
+                <CFormLabel className="fw-semibold small mb-0">
+                  Detalle de la Sanción <span className="text-danger">*</span>
+                </CFormLabel>
+                <span className="small text-muted font-monospace" style={{ fontSize: '0.72rem' }}>
+                  {detalle.length}/255
+                </span>
+              </div>
               <CFormTextarea
                 rows={3}
-                placeholder="Especifique el motivo de la sanción"
+                maxLength={255}
+                placeholder="Especifique el motivo de la sanción (máx. 255 caracteres)"
                 value={detalle}
                 onChange={(e) => setDetalle(e.target.value)}
                 disabled={guardando}

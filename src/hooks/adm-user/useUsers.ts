@@ -294,7 +294,9 @@ export const useUsers = (options: { fetchAll?: boolean } = { fetchAll: true }) =
       errors.push('El nombre de usuario debe tener al menos 3 caracteres.')
     } else if (/\s/.test(userClean)) {
       errors.push('El nombre de usuario no debe contener espacios en blanco.')
-    }
+    } else if (userClean.length > 25) {
+          errors.push('El nombre de usuario no puede superar los 25 caracteres.')
+        }
 
     // 2. Validación de contraseña
     if (!isEdit) {
@@ -302,12 +304,16 @@ export const useUsers = (options: { fetchAll?: boolean } = { fetchAll: true }) =
         errors.push('El campo "Contraseña" es obligatorio.')
       } else if (passClean.length < 6) {
         errors.push('La contraseña debe tener al menos 6 caracteres.')
+      } else if (passClean.length > 25) {
+        errors.push('La contraseña no puede superar los 25 caracteres.')
       }
     } else {
       // En edición la contraseña es opcional, pero si la escribe debe tener mínimo 6 caracteres
       if (passClean && passClean.trim() !== '' && passClean !== '••••••••' && !isBcryptHash(passClean)) {
         if (passClean.length < 6) {
           errors.push('La nueva contraseña debe tener al menos 6 caracteres.')
+        } else if (passClean.length > 25) {
+          errors.push('La nueva contraseña no puede superar los 25 caracteres.')
         }
       }
     }
@@ -317,6 +323,8 @@ export const useUsers = (options: { fetchAll?: boolean } = { fetchAll: true }) =
       errors.push('El campo "Nombres Completos" es obligatorio.')
     } else if (nombresClean.length < 3) {
       errors.push('Los nombres completos deben tener al menos 3 caracteres.')
+    } else if (nombresClean.length > 25) {
+      errors.push('Los nombres completos no pueden superar los 25 caracteres.')
     } else if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/.test(nombresClean)) {
       errors.push('El campo "Nombres Completos" solo debe contener letras.')
     }
