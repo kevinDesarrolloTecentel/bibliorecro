@@ -131,7 +131,7 @@ export const ModalNoDevuelto: React.FC<ModalNoDevueltoProps> = ({
       Swal.fire({
         icon: 'success',
         title: '¡Baja registrada!',
-        text: 'El libro fue marcado como No Devuelto y dado de baja en inventario.',
+        text: 'El libro fue registrado como Devuelto pero Dañado y dado de baja en inventario.',
         timer: 1800,
         showConfirmButton: false,
       })
@@ -170,7 +170,7 @@ export const ModalNoDevuelto: React.FC<ModalNoDevueltoProps> = ({
       <CModalHeader closeButton className="border-bottom bg-danger bg-opacity-10 py-3">
         <CModalTitle className="d-flex align-items-center gap-2 text-danger fs-5 fw-bold">
           <CIcon icon={cilBan} />
-          <span>Dar de Baja Libro</span>
+          <span>Registrar Libro No Devuelto / Dar de Baja</span>
         </CModalTitle>
       </CModalHeader>
 

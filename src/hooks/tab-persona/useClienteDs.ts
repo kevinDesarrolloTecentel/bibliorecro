@@ -47,7 +47,7 @@ export const mapearPersona = (item: any, index: number): ClienteItem => {
   const apellido = item.APELLIDO_PERSONA ?? item.apellidos ?? ''
   const email = item.CORREO_PERSONA ?? item.correo ?? ''
 
-  // Identificar si existe inscripción formal (compatible con array inscripciones, objeto o campos directos)
+  // Identificar si existe inscripción
   const inscActual = extraerInscripcion(item)
   const rawIdInscripcion = inscActual?.ID_INSCRIPCION ?? item.ID_INSCRIPCION ?? item.inscripcion?.ID_INSCRIPCION
   const rawInicio = inscActual?.FECHAINICIO_INSCRIPCION ?? item.FECHAINICIO_INSCRIPCION ?? item.inscripcion?.FECHAINICIO_INSCRIPCION
@@ -89,113 +89,37 @@ export const mapearPersona = (item: any, index: number): ClienteItem => {
     costo = '0.00'
   }
 
-  // Procesar y sanitizar historial de sanciones
+  // Procesar y sanitizar historial de sanciones y vetos
   const rawListSanciones: any[] = []
-  if (Array.isArray(item.sanciones) && item.sanciones.length > 0) {
+  if (Array.isArray(item.sanciones)) {
     rawListSanciones.push(...item.sanciones)
-  } else if (Array.isArray(item.raw?.sanciones) && item.raw.sanciones.length > 0) {
-    rawListSanciones.push(...item.raw.sanciones)
   }
-
-  if (Array.isArray(item.vetos) && item.vetos.length > 0) {
+  if (Array.isArray(item.vetos)) {
     rawListSanciones.push(...item.vetos)
-  } else if (Array.isArray(item.raw?.vetos) && item.raw.vetos.length > 0) {
-    rawListSanciones.push(...item.raw.vetos)
   }
-
-  if (rawListSanciones.length === 0) {
-    if (Array.isArray(item.historial_sanciones) && item.historial_sanciones.length > 0) {
-      rawListSanciones.push(...item.historial_sanciones)
-    } else if (Array.isArray(item.raw?.historial_sanciones) && item.raw.historial_sanciones.length > 0) {
-      rawListSanciones.push(...item.raw.historial_sanciones)
-    }
-  }
-
-  // Solo si no hay sanciones en los arreglos se revisan campos individuales del objeto plano
-  if (rawListSanciones.length === 0 && (item.ID_SANCION || item.id_sancion || item.ID_VETO || item.id_veto || (item.FECHAINICIO_SANCION && item.FECHAINICIO_SANCION !== 'No registrada'))) {
-    rawListSanciones.push({
-      id: item.ID_SANCION ?? item.id_sancion ?? item.ID_VETO ?? item.id_veto,
-      inicio: item.FECHAINICIO_SANCION ?? item.FECHA_VETO ?? item.fecha_veto,
-      fin: item.FECHAFIN_SANCION ?? ((item.ESTADO_VETO === 2 || item.ESTADO_VETO === '2' || item.estado_veto === 2 || item.estado_veto === '2' || item.TIENE_VETO_PERMANENTE === 1 || item.TIENE_VETO_PERMANENTE === '1') ? 'Indefinido' : ''),
-      detalle: item.DETALLE_SANCION ?? item.MOTIVO_VETO ?? item.motivo_veto,
-      estado: item.ESTADO_VETO ?? item.ESTADO_SANCION,
-    })
+  if (rawListSanciones.length === 0 && Array.isArray(item.historial_sanciones)) {
+    rawListSanciones.push(...item.historial_sanciones)
   }
 
   const historial_sanciones = sanitizarHistorialSanciones(rawListSanciones)
 
-  // Comprobar si el usuario tiene realmente un veto de por vida registrado:
-  const vetoObj =
-    (Array.isArray(item.vetos) && item.vetos.find((v: any) => v.ESTADO_VETO === 2 || v.ESTADO_VETO === '2' || v.estado_veto === 2 || v.estado_veto === '2')) ||
-    (Array.isArray(item.raw?.vetos) && item.raw.vetos.find((v: any) => v.ESTADO_VETO === 2 || v.ESTADO_VETO === '2' || v.estado_veto === 2 || v.estado_veto === '2')) ||
-    null
-
+  //TIENE_VETO_PERMANENTE
   const esVetado = Boolean(
-    vetoObj ||
-    item.ESTADO_VETO === 2 ||
-    item.ESTADO_VETO === '2' ||
-    item.estado_veto === 2 ||
-    item.estado_veto === '2' ||
-    item.TIENE_VETO_PERMANENTE === 1 ||
-    item.TIENE_VETO_PERMANENTE === '1' ||
-    item.esVetado ||
-    item.es_vetado ||
-    item.esDePorVida ||
-    item.vetado === 'Sí' ||
-    item.status === 'Vetado' ||
-    (Array.isArray(historial_sanciones) &&
-      historial_sanciones.some(
-        (s: any) =>
-          s.estado === 2 ||
-          s.estado === '2' ||
-          s.ESTADO_VETO === 2 ||
-          s.ESTADO_VETO === '2' ||
-          s.fin === 'Indefinido'
-      ))
+    Number(item.TIENE_VETO_PERMANENTE) === 1 ||
+    Number(item.ESTADO_VETO) === 2 ||
+    (Array.isArray(item.vetos) && item.vetos.some((v: any) => Number(v.ESTADO_VETO) === 2))
   )
 
-  const esSinSancionExplicito = Boolean(
-    item.sancion === 0 ||
-    item.sancion === '0' ||
-    item.TIENE_SANCION === 0 ||
-    item.TIENE_SANCION === '0' ||
-    item.ESTADO_SANCION === 0 ||
-    item.ESTADO_SANCION === '0' ||
-    item.estado_sancion === 0 ||
-    item.estado_sancion === '0'
+  // TIENE_SANCION
+  const tieneSancion = !esVetado && Boolean(
+    Number(item.TIENE_SANCION) === 1 ||
+    (Array.isArray(item.sanciones) && item.sanciones.some((s: any) => Number(s.ESTADO_SANCION) === 1))
   )
 
-  const esConSancionExplicito = Boolean(
-    item.sancion === 1 ||
-    item.sancion === '1' ||
-    item.TIENE_SANCION === 1 ||
-    item.TIENE_SANCION === '1' ||
-    item.ESTADO_SANCION === 1 ||
-    item.ESTADO_SANCION === '1' ||
-    item.estado_sancion === 1 ||
-    item.estado_sancion === '1' ||
-    (Array.isArray(historial_sanciones) &&
-      historial_sanciones.some((s: any) => s.estado === 1 || s.estado === '1' || s.ESTADO_SANCION === 1 || s.ESTADO_SANCION === '1')) ||
-    (Array.isArray(item.sanciones) &&
-      item.sanciones.some((s: any) => s.estado === 1 || s.estado === '1' || s.ESTADO_SANCION === 1 || s.ESTADO_SANCION === '1')) ||
-    (Array.isArray(item.raw?.sanciones) &&
-      item.raw.sanciones.some((s: any) => s.estado === 1 || s.estado === '1' || s.ESTADO_SANCION === 1 || s.ESTADO_SANCION === '1'))
-  )
+  // SANCIONES PREVIAS
+  const tieneSancionPrevia = !esVetado && !tieneSancion && historial_sanciones.length > 0
 
-  const tieneSancion = !esSinSancionExplicito && esConSancionExplicito
-
-  // Detectar si el usuario NO tiene sanción activa actualmente, pero SÍ registra sanciones previas en su historial:
-  const tieneSancionPrevia = !tieneSancion && (
-    historial_sanciones.length > 0 ||
-    Boolean(
-      (item.FECHAINICIO_SANCION && item.FECHAINICIO_SANCION !== 'No registrada') ||
-      (item.FECHAFIN_SANCION && item.FECHAFIN_SANCION !== 'No registrada') ||
-      (item.DETALLE_SANCION &&
-        !String(item.DETALLE_SANCION).toLowerCase().includes('sin sancion') &&
-        String(item.DETALLE_SANCION).trim() !== '')
-    )
-  )
-
+  // ETIQUETA Y BADGE DE SANCIÓN
   let sancionado: 'Con sanción' | 'Sin sanción' | 'Vetado' = 'Sin sanción'
   if (esVetado) {
     sancionado = 'Vetado'
@@ -205,39 +129,42 @@ export const mapearPersona = (item: any, index: number): ClienteItem => {
     sancionado = 'Sin sanción'
   }
 
+  // 5. FECHAS Y MOTIVOS
   const masActualSancion = historial_sanciones[0]
-  const inicio_sancion =
-    masActualSancion?.inicio ||
-    formatFecha(item.FECHAINICIO_SANCION || item.FECHA_VETO || item.fecha_veto) ||
-    ''
-  const fin_sancion = esVetado
-    ? 'Indefinido'
-    : (masActualSancion?.fin || formatFecha(item.FECHAFIN_SANCION) || '')
-  const total_sanciones = historial_sanciones.length
+  const vetoMasActual = historial_sanciones.find((s: any) => Number(s.estado) === 2 || s.fin === 'Indefinido')
+  const sancionActiva = historial_sanciones.find((s: any) => Number(s.estado) === 1)
 
+  let inicio_sancion = ''
+  let fin_sancion = ''
   let motivo_sancion_actual = ''
-  const motivoMasActual = (masActualSancion?.detalle && masActualSancion.detalle !== 'Sin motivo especificado' && masActualSancion.detalle !== 'Sin detalle especificado')
-    ? masActualSancion.detalle
-    : ''
 
   if (esVetado) {
-    motivo_sancion_actual = item.MOTIVO_VETO || motivoMasActual || 'Veto permanente registrado en el sistema'
+    inicio_sancion = vetoMasActual?.inicio || formatFecha(item.FECHA_VETO) || masActualSancion?.inicio || ''
+    fin_sancion = 'Indefinido'
+    motivo_sancion_actual =
+      (Array.isArray(item.vetos) && item.vetos[0]?.MOTIVO_VETO) ||
+      vetoMasActual?.detalle ||
+      item.MOTIVO_VETO ||
+      'Veto permanente registrado en el sistema'
   } else if (tieneSancion) {
-    motivo_sancion_actual = motivoMasActual || item.DETALLE_SANCION || item.ESTADO || item.raw?.ESTADO || 'Usuario con sanción activa'
+    const sAct = sancionActiva || masActualSancion
+    inicio_sancion = sAct?.inicio || formatFecha(item.FECHAINICIO_SANCION) || ''
+    fin_sancion = sAct?.fin || formatFecha(item.FECHAFIN_SANCION) || ''
+    motivo_sancion_actual = sAct?.detalle || item.DETALLE_SANCION || item.ESTADO || 'Usuario con sanción activa'
   } else if (tieneSancionPrevia) {
-    motivo_sancion_actual = motivoMasActual || item.DETALLE_SANCION || (String(item.ESTADO || item.raw?.ESTADO || '').toLowerCase().includes('sancion') ? (item.ESTADO || item.raw?.ESTADO) : '') || 'Sanción anterior registrada en el sistema'
+    inicio_sancion = masActualSancion?.inicio || ''
+    fin_sancion = masActualSancion?.fin || ''
+    motivo_sancion_actual = masActualSancion?.detalle || item.DETALLE_SANCION || 'Sanción anterior registrada en el sistema'
   } else {
     motivo_sancion_actual = 'Sin sanciones vigentes'
   }
 
   const sancion = motivo_sancion_actual
   const otras_sanciones = historial_sanciones.slice(1)
+  const total_sanciones = historial_sanciones.length
 
-  const estadoRaw = String(item.ESTADO_PERSONA ?? item.estado ?? 'Activo')
-  let estado: 'Activo' | 'Inactivo' = 'Activo'
-  if (estadoRaw.toLowerCase().includes('inactiv') || estadoRaw === '0') {
-    estado = 'Inactivo'
-  }
+  //ESTADO DE LA PERSONA
+  const estado: 'Activo' | 'Inactivo' = Number(item.ESTADO_PERSONA) === 1 ? 'Activo' : 'Inactivo'
 
   const fotoRaw = item.FOTO_PERSONA || item.IMAGEN_PERSONA || ''
   const fotografia = getUserImageUrl(fotoRaw)

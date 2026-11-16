@@ -262,9 +262,7 @@ export const useUsers = (options: { fetchAll?: boolean } = { fetchAll: true }) =
     }
   }, [])
 
-  const fetchRoles = useCallback(async () => {
-    // Roles ya no se consultan en el módulo de usuarios
-  }, [])
+
 
   const handleRecargar = useCallback(async () => {
     setLoading(true)
@@ -486,7 +484,6 @@ export const useUsers = (options: { fetchAll?: boolean } = { fetchAll: true }) =
         payload.password = editFormData.password.trim()
       }
 
-      console.log('[handleActualizarUsuario] Payload a enviar al backend:', payload)
       await actualizar(id, payload)
       marcarCambioPermisos()
       Swal.fire({
@@ -1001,7 +998,6 @@ export const useUsers = (options: { fetchAll?: boolean } = { fetchAll: true }) =
     editFormData,
     setEditFormData,
     fetchUsuarios,
-    fetchRoles,
     handleRecargar,
     handleCrearUsuario,
     handleActualizarUsuario,

@@ -90,11 +90,17 @@ export const removeAuthCookie = (): void => {
 export const saveUserStorage = (user: any, _isRemember: boolean = true): void => {
   if (!user || typeof window === 'undefined') return
   try {
-    const safeUser = {
+    const safeUser: any = {
+      ID_USUARIO: user.ID_USUARIO ?? '',
       NICK_USUARIO: user.NICK_USUARIO ?? '',
       NOMBRES_USUARIO: user.NOMBRES_USUARIO ?? '',
       expires_in: user.expires_in ?? 3600,
     }
+
+    if (user.ID_ROL !== undefined && user.ID_ROL !== '') safeUser.ID_ROL = user.ID_ROL
+    if (user.NOMBRE_ROL !== undefined && user.NOMBRE_ROL !== '') safeUser.NOMBRE_ROL = user.NOMBRE_ROL
+    if (user.NIVEL_ROL !== undefined && user.NIVEL_ROL !== '') safeUser.NIVEL_ROL = user.NIVEL_ROL
+    if (user.ESTADO_USUARIO !== undefined && user.ESTADO_USUARIO !== '') safeUser.ESTADO_USUARIO = user.ESTADO_USUARIO
 
     const serialized = JSON.stringify(safeUser)
 

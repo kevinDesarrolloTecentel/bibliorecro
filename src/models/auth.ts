@@ -18,6 +18,7 @@ export interface UserData {
   ID_USUARIO?: string | number
   ID_ROL?: string | number
   NOMBRE_ROL?: string
+  NIVEL_ROL?: string | number
   NICK_USUARIO?: string
   NOMBRES_USUARIO?: string
   FECHA_REGISTRO?: string

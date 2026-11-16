@@ -77,7 +77,7 @@ export const ModalAccionesPantalla: React.FC<ModalAccionesPantallaProps> = ({
     ? String(currentRol.NOMBRE_ROL ?? currentRol.nombre ?? `Rol ${currentRolId}`)
     : ''
   const currentRolNivel = currentRol ? Number(currentRol.NIVEL_ROL ?? currentRol.nivel ?? 1) : 1
-  const isRolNivel1 = currentRolNivel === 1 || currentRolId === 1
+  const isRolNivel1 = currentRolNivel === 1 || Boolean(currentRol?.ES_ADMINISTRADOR)
 
   // Filtrar acciones que pertenecen a la pantalla seleccionada
   const accionesPantalla = useMemo(() => {

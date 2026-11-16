@@ -151,7 +151,6 @@ const App = () => {
       <UrlSanitizer />
 
       <PermissionsProvider>
-        {/* Actualización automática de permisos */}
         <SincronizadorPermisos />
 
         <Suspense

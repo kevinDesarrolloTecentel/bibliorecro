@@ -29,21 +29,36 @@ export const Personas = async (
     page?: number,
     per_page?: number,
     search?: string,
-    estado?: number | string,
-    sancion?: number | string,
+    estado?: number | string | null,
+    sancion?: number | string | null,
     estado_veto?: number | string | null
 ) => {
-    let valorEstadoVeto: number | string | null = null;
+    let valorEstadoVeto: number | null = null;
     if (estado_veto !== undefined && estado_veto !== '' && estado_veto !== null) {
         valorEstadoVeto = Number(estado_veto);
     }
 
-    const payload: Record<string, any> = {
+    let valorEstado: number | null = null;
+    if (estado !== undefined && estado !== '' && estado !== null) {
+        valorEstado = Number(estado);
+    }
+
+    let valorSancion: number | null = null;
+    if (sancion !== undefined && sancion !== '' && sancion !== null) {
+        valorSancion = Number(sancion);
+    }
+
+    const filtrosObj = {
         nombre: search && search.trim() !== '' ? search.trim() : '',
-        estado: (estado !== undefined && estado !== '') ? String(estado) : null,
-        sancion: (sancion !== undefined && sancion !== '') ? String(sancion) : null,
+        estado: valorEstado,
+        sancion: valorSancion,
         estado_veto: valorEstadoVeto,
         per_page: per_page || 10,
+    };
+
+    const payload: Record<string, any> = {
+        ...filtrosObj,
+        filtros: filtrosObj,
         page: page || 1,
     };
 
@@ -182,10 +197,7 @@ export const EliminarPersona = async (id: any) => {
 };
 
 // Aceptación / Renovación de Inscripción
-export const AceptarInscripcion = async (payload?: any) => {
-    const { data } = await apiClient.post(`${API_BASE_URL_PERSONA}/aceoptar`, payload);
-    return data;
-};
+
 
 export const AceptarInscripcionNew = async (payload?: any) => {
     const { data } = await apiClient.post(`${API_BASE_URL_PERSONA}/aceptarNew`, payload);

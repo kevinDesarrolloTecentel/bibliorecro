@@ -81,8 +81,6 @@ export const useReportActivosMesDia = () => {
 
       setUsuarios(personasFiltradas)
 
-      //setExcelLink(data?.excel_path || null)
-
       const rutaExcel: string | null = data?.excel?.nombre || data?.excel_path || null
       setExcelLink(rutaExcel)
 

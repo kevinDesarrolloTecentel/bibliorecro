@@ -1,6 +1,8 @@
 import React, { useState } from 'react'
-import { cilBarcode, cilBook,
-  cilBookmark, cilDescription, cilDollar, cilExitToApp, cilGlobeAlt, cilLayers, cilLibraryBuilding, cilSave, cilTag, cilTruck, cilUser } from '@coreui/icons'
+import {
+  cilBarcode, cilBook,
+  cilBookmark, cilDescription, cilDollar, cilExitToApp, cilGlobeAlt, cilLayers, cilLibraryBuilding, cilSave, cilTag, cilTruck, cilUser
+} from '@coreui/icons'
 import CIcon from '@coreui/icons-react'
 import { CButton, CCol, CDatePicker, CForm, CFormInput, CFormTextarea, CInputGroup, CInputGroupText, CModal, CModalBody, CModalFooter, CModalHeader, CModalTitle, CSpinner } from '@coreui/react-pro'
 import useLibroRegister, { UseLibroRegisterProps } from '@/hooks/rco-libros/useLibroRegister'
@@ -8,7 +10,7 @@ import SearchableSelect from '@/components/details_bk/SearchableSelect'
 import PaisSelect from '@/components/details_bk/PaisSelect'
 import { aFechaLocal, parseDatePickerValue } from '@/utils/dateUtils'
 
-interface RegisterBkProps extends UseLibroRegisterProps {}
+interface RegisterBkProps extends UseLibroRegisterProps { }
 
 const Registro_bk: React.FC<RegisterBkProps> = (props) => {
   const {
@@ -83,7 +85,7 @@ const Registro_bk: React.FC<RegisterBkProps> = (props) => {
     >
       <CModalHeader closeButton className="bg-body">
         <CModalTitle id="ModalRegistroLibroLabel" className="d-flex align-items-center gap-2 fs-5 fw-bold text-body">
-          <CIcon icon={cilBook} size="lg" className='text-body'/>
+          <CIcon icon={cilBook} size="lg" className='text-body' />
           <span className='text-body'>Registrar Libro</span>
         </CModalTitle>
       </CModalHeader>
@@ -111,6 +113,9 @@ const Registro_bk: React.FC<RegisterBkProps> = (props) => {
                 invalid={!!errors.ID_CATEGORIA}
                 loading={catalogos.loading && catalogos.categorias.length === 0}
                 placeholder="Seleccionar categoría o buscar..."
+                maxLength={50}
+
+
               />
             </CInputGroup>
             {errors.ID_CATEGORIA && (
@@ -133,6 +138,8 @@ const Registro_bk: React.FC<RegisterBkProps> = (props) => {
                 invalid={!!errors.ID_RCOGENERO}
                 loading={catalogos.loading && catalogos.generos.length === 0}
                 placeholder="Seleccionar género o buscar..."
+                maxLength={30}
+
               />
             </CInputGroup>
             {errors.ID_RCOGENERO && (
@@ -154,6 +161,7 @@ const Registro_bk: React.FC<RegisterBkProps> = (props) => {
                 onChange={(val) => handleSelectChange('ID_PROVEEDOR', val)}
                 invalid={!!errors.ID_PROVEEDOR}
                 loading={catalogos.loading && catalogos.proveedores.length === 0}
+                maxLength={30}
                 placeholder="Seleccionar proveedor o buscar..."
               />
             </CInputGroup>
@@ -181,6 +189,7 @@ const Registro_bk: React.FC<RegisterBkProps> = (props) => {
                 onChange={handleChange}
                 invalid={!!errors.TITULO_LIBROS}
                 required
+                maxLength={75}
               />
             </CInputGroup>
             {errors.TITULO_LIBROS && (
@@ -203,6 +212,7 @@ const Registro_bk: React.FC<RegisterBkProps> = (props) => {
                 invalid={!!errors.ID_AUTOR}
                 loading={catalogos.loading && catalogos.autores.length === 0}
                 placeholder="Seleccionar autor o buscar..."
+                maxLength={30}
               />
             </CInputGroup>
             {errors.ID_AUTOR && (
@@ -225,6 +235,7 @@ const Registro_bk: React.FC<RegisterBkProps> = (props) => {
                 invalid={!!errors.ID_EDITORIAL}
                 loading={catalogos.loading && catalogos.editoriales.length === 0}
                 placeholder="Seleccionar editorial o buscar..."
+                maxLength={30}
               />
             </CInputGroup>
             {errors.ID_EDITORIAL && (
@@ -283,6 +294,7 @@ const Registro_bk: React.FC<RegisterBkProps> = (props) => {
                 value={formData.VOLUMEN_LIBROS}
                 onChange={handleChange}
                 invalid={!!errors.VOLUMEN_LIBROS}
+                maxLength={30}
               />
             </CInputGroup>
             {errors.VOLUMEN_LIBROS && (
@@ -326,6 +338,8 @@ const Registro_bk: React.FC<RegisterBkProps> = (props) => {
                 value={formData.PAIS_LIBROS || ''}
                 onChange={(val) => handleSelectChange('PAIS_LIBROS', val)}
                 invalid={!!errors.PAIS_LIBROS}
+                maxLength={25}
+
               />
             </CInputGroup>
             {errors.PAIS_LIBROS && (
@@ -348,6 +362,7 @@ const Registro_bk: React.FC<RegisterBkProps> = (props) => {
                 disabled={barcodeSN}
                 invalid={!!errors.CODIGODEBARRAS_LIBROS}
                 inputMode="numeric"
+                maxLength={13}
               />
               <CInputGroupText
                 title="Marcar Sin código de barras"
@@ -384,6 +399,8 @@ const Registro_bk: React.FC<RegisterBkProps> = (props) => {
                 value={formData.PRECIO_LIBROS}
                 onChange={handlePrecioChange}
                 invalid={!!errors.PRECIO_LIBROS}
+                maxLength={10}
+
               />
             </CInputGroup>
             {errors.PRECIO_LIBROS && (

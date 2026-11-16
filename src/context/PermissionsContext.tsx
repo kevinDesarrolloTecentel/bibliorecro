@@ -144,14 +144,11 @@ export const PermissionsProvider: React.FC<{
 
   const isUserAdmin = Boolean(
     user &&
-      (Boolean(user.ES_ADMINISTRADOR) ||
-        Number(user.ID_ROL) === 1 ||
+      (Number(user.NIVEL_ROL ?? user.nivel ?? 0) === 1 ||
         user.ROLES?.some(
-          (r: any) =>
-            Number(r.ID_ROL) === 1 ||
-            String(r.NOMBRE_ROL).toUpperCase() === 'ADMINISTRADOR',
+          (r: any) => Number(r.NIVEL_ROL ?? r.nivel ?? 0) === 1,
         ) ||
-        user.IDS_ROLES?.includes(1)),
+        Boolean(user.ES_ADMINISTRADOR)),
   )
 
   // Inicializar permisos desde caché
@@ -246,15 +243,11 @@ export const PermissionsProvider: React.FC<{
         const userRoles = data?.ROLES || []
 
         const admin = Boolean(
-          data?.ES_ADMINISTRADOR ||
-            Number(data?.ID_ROL) === 1 ||
-            data?.IDS_ROLES?.includes(1) ||
+          Number(data?.NIVEL_ROL ?? data?.nivel ?? 0) === 1 ||
             userRoles.some(
-              (r: any) =>
-                Number(r.ID_ROL) === 1 ||
-                String(r.NOMBRE_ROL).toUpperCase() ===
-                  'ADMINISTRADOR',
-            ),
+              (r: any) => Number(r.NIVEL_ROL ?? r.nivel ?? 0) === 1,
+            ) ||
+            data?.ES_ADMINISTRADOR,
         )
 
         const rutas = new Set<string>()
@@ -423,14 +416,11 @@ export const PermissionsProvider: React.FC<{
 
         const userRoles = data?.ROLES || []
         const admin = Boolean(
-          data?.ES_ADMINISTRADOR ||
-            Number(data?.ID_ROL) === 1 ||
-            data?.IDS_ROLES?.includes(1) ||
+          Number(data?.NIVEL_ROL ?? data?.nivel ?? 0) === 1 ||
             userRoles.some(
-              (r: any) =>
-                Number(r.ID_ROL) === 1 ||
-                String(r.NOMBRE_ROL).toUpperCase() === 'ADMINISTRADOR',
-            ),
+              (r: any) => Number(r.NIVEL_ROL ?? r.nivel ?? 0) === 1,
+            ) ||
+            data?.ES_ADMINISTRADOR,
         )
 
         const rutas = new Set<string>()

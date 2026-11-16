@@ -6,7 +6,7 @@ import { NuevoPrestamo } from '@/Service/rco/Prestamos'
 import { BuscarLibros } from '@/Service/rco/Libros'
 import { Personas } from '@/Service/tab/Persona'
 import { formatFecha } from '@/utils/dateUtils'
-import { deduplicarPersonas } from '../tab-persona/usePersonas'
+import { deduplicarPersonas, isUserSancionado, isUserVetado } from '../tab-persona/usePersonas'
 import { sanitizarHistorialSanciones } from '@/utils/sancionUtils'
 import { usePermissions } from '@/context/PermissionsContext'
 
@@ -37,47 +37,30 @@ export const isUserActivoYDisponible = (u: any): boolean => {
     (!estInscRaw.includes('inactiv') && estInscRaw !== '0' && Boolean(u.ID_INSCRIPCION))
   const isInscrito = hasInscripcionActiva || Boolean(u.ID_INSCRIPCION)
 
-  const isSancionado = Boolean(
-    u.ESTADO_SANCION === 1 ||
-    u.ESTADO_SANCION === '1' ||
-    u.ESTADO_SANCION === 2 ||
-    u.ESTADO_SANCION === '2' ||
-    u.ESTADO_PERSONA === 2 ||
-    u.ESTADO_PERSONA === '2' ||
-    u.TIENE_SANCION === 1 ||
-    u.TIENE_SANCION === '1' ||
-    (Array.isArray(u.historial_sanciones) &&
-      u.historial_sanciones.some(
-        (s: any) =>
-          s.estado === 1 ||
-          s.estado === '1' ||
-          s.estado === 2 ||
-          s.estado === '2' ||
-          s.ESTADO_SANCION === 1 ||
-          s.ESTADO_SANCION === '1'
-      )) ||
-    (String(u.ESTADO || '').toLowerCase().includes('sancion') &&
-      !String(u.ESTADO || '').toLowerCase().includes('sin sancion'))
-  )
-  return isActivo && isInscrito && !isSancionado
+  const esVetado = isUserVetado(u)
+  const esSancionado = isUserSancionado(u)
+
+  return isActivo && isInscrito && !esVetado && !esSancionado
 }
 
 export const isLibroDisponible = (l: any): boolean => {
-  const activo = Number(l.ESTADO_LIBROS ?? 1) === 1 && String(l.ESTADO_LIBRO ?? 'Activo').toLowerCase() !== 'inactivo'
+  const activo =
+    Number(l.ESTADO_LIBROS ?? l.ESTADO_LIBRO ?? 1) === 1 &&
+    String(l.ESTADO_LIBRO ?? 'Activo').toLowerCase() !== 'inactivo'
   const prestado =
     Number(l.EN_PRESTAMO ?? 0) === 1 ||
-    String(l.ESTADO_PRESTAMO || '').toLowerCase().includes('préstamo')
+    Number(l.DISPONIBILIDAD_LIBRO ?? 1) === 0 ||
+    String(l.ESTADO_PRESTAMO || '').toLowerCase().includes('préstamo') ||
+    String(l.DISPONIBILIDAD || '').toLowerCase().includes('préstamo')
   return activo && !prestado
 }
 
 const fetchInscripcionesData = async (busqueda: string = ''): Promise<any[]> => {
   try {
     const q = busqueda.trim()
-    // 1. Consultamos enviando estado: 1 y sancion: 0 para obtener directamente los usuarios activos
-    const res = await Personas(1, 50, q || undefined, 1, 0)
+    const res = await Personas(1, 50, q || undefined, 1, 0, 0)
     let list = toArray(res)
 
-    // 2. Si el backend devolvió vacío por el filtro compuesto, consultamos sin el filtro de estado estricto
     if (list.length === 0) {
       const fallbackRes = await Personas(1, 50, q || undefined)
       list = toArray(fallbackRes)
@@ -180,7 +163,7 @@ export const usePrestamoModal = ({
             ...(p.FECHAINICIO_SANCION || p.FECHAFIN_SANCION || p.DETALLE_SANCION || p.MOTIVO_VETO || p.FECHA_VETO ? [{
               id: p.ID_SANCION ?? p.id_sancion ?? p.id,
               inicio: p.FECHAINICIO_SANCION ?? p.FECHA_VETO,
-              fin: p.FECHAFIN_SANCION ?? ((p.ESTADO_VETO === 2 || p.ESTADO_VETO === '2' || p.TIENE_VETO_PERMANENTE === 1 || p.TIENE_VETO_PERMANENTE === '1') ? 'Indefinido' : ''),
+              fin: p.FECHAFIN_SANCION ?? (isUserVetado(p) ? 'Indefinido' : ''),
               detalle: p.DETALLE_SANCION ?? p.MOTIVO_VETO ?? p.detalle_sancion,
               estado: p.ESTADO_VETO ?? p.ESTADO_SANCION,
             }] : [])
@@ -201,8 +184,7 @@ export const usePrestamoModal = ({
               rawSancion.fin ||
               (rawSancion.detalle && !String(rawSancion.detalle).toLowerCase().includes('sin sancion')) ||
               rawSancion.id ||
-              p.TIENE_SANCION === 1 ||
-              p.TIENE_SANCION === '1' ||
+              isUserSancionado(p) ||
               historialSanitizado.length > 0
             )
           )

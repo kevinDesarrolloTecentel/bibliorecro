@@ -68,50 +68,58 @@ export const useAuth = () => {
         return
       }
 
+      // Leer permisos directamente de la respuesta del login si están presentes
+      const misPermisosData = response?.permisos || response?.data?.permisos
+      const primerRol = misPermisosData?.ROLES?.[0] || rawUser?.ROLES?.[0]
+
+      // Determinar si es administrador por NIVEL_ROL = 1
+      const rolNivel = Number(
+        rawUser?.NIVEL_ROL ??
+        rawUser?.nivel ??
+        misPermisosData?.NIVEL_ROL ??
+        primerRol?.NIVEL_ROL ??
+        0
+      )
+      const tieneRolNivel1 = 
+        rolNivel === 1 ||
+        rawUser?.ROLES?.some((r: any) => Number(r.NIVEL_ROL ?? r.nivel ?? 0) === 1) ||
+        misPermisosData?.ROLES?.some((r: any) => Number(r.NIVEL_ROL ?? r.nivel ?? 0) === 1)
+
+      const isUserAdmin = Boolean(
+        tieneRolNivel1 ||
+        rawUser?.ES_ADMINISTRADOR ||
+        misPermisosData?.ES_ADMINISTRADOR
+      )
+
+      const rolIdFinal = rawUser?.ID_ROL || misPermisosData?.ID_ROL || primerRol?.ID_ROL || (isUserAdmin ? 1 : '')
+      const rolNombreFinal = rawUser?.NOMBRE_ROL || misPermisosData?.NOMBRE_ROL || primerRol?.NOMBRE_ROL || (isUserAdmin ? 'ADMINISTRADOR' : '')
+      const rolNivelFinal = tieneRolNivel1 ? 1 : (rolNivel > 0 ? rolNivel : (isUserAdmin ? 1 : 2))
+
       const fullUserData: UserData = {
         ...rawUser,
         ID_USUARIO: rawUser?.ID_USUARIO,
         NICK_USUARIO: rawUser?.NICK_USUARIO || cleanNick,
         NOMBRES_USUARIO: rawUser?.NOMBRES_USUARIO || '',
         FECHA_REGISTRO: rawUser?.FECHA_REGISTRO || '',
-        ESTADO_USUARIO: rawUser?.ESTADO_USUARIO,
+        ESTADO_USUARIO: rawUser?.ESTADO_USUARIO ?? 1,
+        ID_ROL: rolIdFinal,
+        NOMBRE_ROL: rolNombreFinal,
+        NIVEL_ROL: rolNivelFinal,
         expires_in: rawExpiresIn,
         token: rawToken,
         timestamp: Date.now(),
       }
 
-      setAuthSession(fullUserData, rawToken, Boolean(data.rememberMe), rawExpiresIn)
+      // Eliminar cualquier rastro de contraseña o hash del objeto del usuario en memoria
+      delete (fullUserData as any).PASSWORD_USUARIO
+      delete (fullUserData as any).password
 
-      // Determinar si es administrador
-      const isUserAdmin = Boolean(
-        rawUser?.ES_ADMINISTRADOR ||
-        Number(rawUser?.ID_ROL) === 1 ||
-        rawUser?.ROLES?.some(
-          (r: any) =>
-            Number(r.ID_ROL) === 1 ||
-            String(r.NOMBRE_ROL).toUpperCase() === 'ADMINISTRADOR',
-        ) ||
-        rawUser?.IDS_ROLES?.includes(1)
-      )
+      setAuthSession(fullUserData, rawToken, Boolean(data.rememberMe), rawExpiresIn)
 
       let targetRoute = '/dashboard'
 
-      // Leer permisos directamente de la respuesta del login (sin hacer petición extra)
-      const misPermisosData = response?.permisos || response?.data?.permisos
-
       if (misPermisosData) {
-        const isAdminFromPermisos = Boolean(
-          misPermisosData?.ES_ADMINISTRADOR ||
-          Number(misPermisosData?.ID_ROL) === 1 ||
-          misPermisosData?.IDS_ROLES?.includes(1) ||
-          misPermisosData?.ROLES?.some(
-            (r: any) =>
-              Number(r.ID_ROL) === 1 ||
-              String(r.NOMBRE_ROL).toUpperCase() === 'ADMINISTRADOR',
-          )
-        )
-
-        const esAdminFinal = isUserAdmin || isAdminFromPermisos
+        const esAdminFinal = isUserAdmin
 
         let totalPantallas = 0
         const rutasDisponibles: string[] = []
@@ -137,7 +145,7 @@ export const useAuth = () => {
           })
         }
 
-        // Guardar permisos en caché local para que PermissionsContext los tenga de inmediato sin re-consultar
+        // Guardar permisos en caché
         try {
           const cachedPayload = {
             esAdmin: esAdminFinal,
@@ -145,7 +153,7 @@ export const useAuth = () => {
               {
                 ID_ROL: rawUser?.ID_ROL || misPermisosData?.ID_ROL,
                 NOMBRE_ROL: rawUser?.NOMBRE_ROL || misPermisosData?.NOMBRE_ROL,
-                NIVEL_ROL: 1,
+                NIVEL_ROL: Number(rawUser?.NIVEL_ROL ?? rawUser?.nivel ?? misPermisosData?.NIVEL_ROL ?? (esAdminFinal ? 1 : 2)),
               },
             ],
             modulos: misPermisosData?.MODULOS || [],
@@ -174,7 +182,7 @@ export const useAuth = () => {
           return
         }
 
-        // Si no tiene acceso al dashboard, redirigir a su primera ruta disponible desde la base de datos
+        // Si no tiene acceso al dashboard, redirigir a su primera ruta disponible
         if (!rutasDisponibles.includes('/dashboard')) {
           targetRoute = rutasDisponibles[0] || '/dashboard'
         }

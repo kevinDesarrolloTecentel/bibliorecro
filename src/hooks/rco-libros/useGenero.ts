@@ -181,7 +181,7 @@ export const useGeneroL = ({
     },[busquedaGenerol,  listaGenerol])
 
     const [paginaActual, setPaginaActual] = useState(1)
-    const itemsPorPagina = 20
+    const itemsPorPagina = 10
 
     useEffect(()=>{ 
         setPaginaActual(1)

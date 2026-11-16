@@ -283,11 +283,11 @@ const Renovate = () => {
                               {isRenovacion ? 'Solicitud Renovación' : 'Usuario Nuevo'}
                             </CBadge>
                             <CBadge
-                              color={item.ESTADO_PERSONA === 1 ? 'success' : 'warning'}
+                              color={Number(item.ESTADO_PERSONA) === 1 ? 'success' : 'warning'}
                               shape="rounded-pill"
                               className="px-3 py-1"
                             >
-                              {item.ESTADO_PERSONA === 1 ? 'Activo' : 'Pendiente'}
+                              {Number(item.ESTADO_PERSONA) === 1 ? 'Activo' : 'Pendiente'}
                             </CBadge>
                           </div>
                         </CCol>
@@ -374,7 +374,7 @@ const Renovate = () => {
                           </CRow>
 
                           {/* Acciones dentro del detalle */}
-                          {(canVerUsuario || (item.ESTADO_PERSONA === 0 && canAceptarSolicitud)) ? (
+                          {(canVerUsuario || (Number(item.ESTADO_PERSONA) === 0 && canAceptarSolicitud)) ? (
                             <div className="d-flex flex-wrap gap-2 justify-content-end mt-3 pt-2 border-top">
                               {canVerUsuario && (
                                 <CButton
@@ -392,7 +392,7 @@ const Renovate = () => {
                                 </CButton>
                               )}
 
-                              {item.ESTADO_PERSONA === 0 && canAceptarSolicitud && (
+                              {Number(item.ESTADO_PERSONA) === 0 && canAceptarSolicitud && (
                                 <CButton
                                   color="warning"
                                   variant="outline"

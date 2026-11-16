@@ -24,24 +24,18 @@ const formatApiError = (error: any, defaultMsg: string): string => {
 }
 
 export const ordenarRoles = (lista: any[]) => {
+  if (!Array.isArray(lista)) return []
   return [...lista].sort((a: any, b: any) => {
-    const idA = Number(a.ID_ROL ?? a.id ?? 0)
-    const idB = Number(b.ID_ROL ?? b.id ?? 0)
-    const nivelA = Number(a.NIVEL_ROL ?? a.nivel ?? 1)
-    const nivelB = Number(b.NIVEL_ROL ?? b.nivel ?? 1)
+    const nivelA = Number(a.NIVEL_ROL ?? a.nivel ?? a.Nivel ?? 999)
+    const nivelB = Number(b.NIVEL_ROL ?? b.nivel ?? b.Nivel ?? 999)
 
-    //El ADMINISTRADOR siempre de primero
-    const isPrincipalA = idA === 1 || Boolean(a.ES_ADMINISTRADOR)
-    const isPrincipalB = idB === 1 || Boolean(b.ES_ADMINISTRADOR)
-    if (isPrincipalA && !isPrincipalB) return -1
-    if (!isPrincipalA && isPrincipalB) return 1
-
-    // Ordenar por nivel ascendente 
     if (nivelA !== nivelB) {
       return nivelA - nivelB
     }
 
-    // A mismo nivel, por ID ascendente
+    // Respaldo de seguridad
+    const idA = Number(a.ID_ROL ?? a.id ?? 0)
+    const idB = Number(b.ID_ROL ?? b.id ?? 0)
     return idA - idB
   })
 }

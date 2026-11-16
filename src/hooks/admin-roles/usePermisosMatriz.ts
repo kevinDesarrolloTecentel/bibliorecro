@@ -27,10 +27,6 @@ export const usePermisosMatriz = (rolesList: any[] = [], fetchRoles?: () => Prom
   const [errorPermisos, setErrorPermisos] = useState<string | null>(null)
   const isFetchingPermisosRef = useRef<boolean>(false)
 
-  // Filtros de búsqueda y módulo
-  const [filtroModulo, setFiltroModulo] = useState<string>('TODOS')
-  const [busqueda, setBusqueda] = useState<string>('')
-
   // Estado para el modal de acciones/botones de una pantalla
   const [pantallaSeleccionada, setPantallaSeleccionada] = useState<Pantalla | null>(null)
   const [modalAccionesVisible, setModalAccionesVisible] = useState<boolean>(false)
@@ -73,38 +69,6 @@ export const usePermisosMatriz = (rolesList: any[] = [], fetchRoles?: () => Prom
     return catalogo.map((m) => m.MODULO)
   }, [catalogo])
 
-  // Catálogo filtrado según búsqueda y módulo seleccionado
-  const catalogoFiltrado = useMemo<ModuloCatalogo[]>(() => {
-    const query = busqueda.trim().toLowerCase()
-
-    return catalogo
-      .filter((modulo) => {
-        if (filtroModulo !== 'TODOS' && modulo.MODULO !== filtroModulo) {
-          return false
-        }
-        return true
-      })
-      .map((modulo) => {
-        if (!query) return modulo
-        const pantallasFiltradas = modulo.PANTALLAS.filter((p) => {
-          const matchNombre = (p.NOMBRE_PERMISO || '').toLowerCase().includes(query)
-          const matchPath = (p.PATH_PERMISO || '').toLowerCase().includes(query)
-          const matchCluster = (p.CLUSTER_PERMISO || '').toLowerCase().includes(query)
-          return matchNombre || matchPath || matchCluster
-        })
-        return {
-          ...modulo,
-          PANTALLAS: pantallasFiltradas,
-        }
-      })
-      .filter((modulo) => modulo.PANTALLAS.length > 0)
-  }, [catalogo, filtroModulo, busqueda])
-
-  // Cantidad de pantallas visibles tras aplicar filtros
-  const totalPantallasVisibles = useMemo<number>(() => {
-    return catalogoFiltrado.flatMap((m) => m.PANTALLAS).length
-  }, [catalogoFiltrado])
-
   // Cargar catálogo de pantallas y módulos desde la base de datos
   const cargarCatalogo = useCallback(async () => {
     try {
@@ -126,7 +90,7 @@ export const usePermisosMatriz = (rolesList: any[] = [], fetchRoles?: () => Prom
           : []
 
       if (catalogoData.length > 0) {
-        // Ordenar módulos y pantallas tal como en la base de datos (Dashboard primero, seguido por sus IDs)
+        // Ordenar módulos y pantallas
         const ordenado = [...catalogoData]
           .map((modulo: ModuloCatalogo) => ({
             ...modulo,
@@ -231,13 +195,8 @@ export const usePermisosMatriz = (rolesList: any[] = [], fetchRoles?: () => Prom
 
   const checkIsAdminRol = useCallback(
     (rolId: number): boolean => {
-      if (Number(rolId) === 1) return true
       const found = rolesList.find((r: any) => Number(r.ID_ROL ?? r.id) === Number(rolId))
-      return (
-        Number(found?.NIVEL_ROL ?? found?.nivel ?? 0) === 1 ||
-        Boolean(found?.ES_ADMINISTRADOR) ||
-        String(found?.NOMBRE_ROL ?? found?.nombre ?? '').toUpperCase() === 'ADMINISTRADOR'
-      )
+      return Number(found?.NIVEL_ROL ?? found?.nivel ?? 0) === 1 || Boolean(found?.ES_ADMINISTRADOR)
     },
     [rolesList],
   )
@@ -520,7 +479,6 @@ export const usePermisosMatriz = (rolesList: any[] = [], fetchRoles?: () => Prom
         return
       }
 
-      // Si se activa una acción, la pantalla DEBE estar en PANTALLAS (regla backend)
       const currentPantallas = matrix[rolId] || []
       const nuevasPantallas = isCurrentlyActive
         ? currentPantallas
@@ -534,17 +492,12 @@ export const usePermisosMatriz = (rolesList: any[] = [], fetchRoles?: () => Prom
 
       // Identificar si la acción actual es "Ver Acciones" o "Modificar Acciones"
       const codigoActual = String(accion.CODIGO_ACCION || '').trim().toLowerCase()
-      const nombreActual = String(accion.NOMBRE_ACCION || '').trim().toLowerCase()
 
       const esVerAcciones =
-        codigoActual === 'btn_ver_acciones' ||
-        nombreActual === 'ver acciones' ||
-        nombreActual.includes('ver accion')
+        codigoActual === 'btn_ver_acciones'
 
       const esModificarAcciones =
-        codigoActual === 'btn_modificar_acciones' ||
-        nombreActual === 'modificar acciones' ||
-        nombreActual.includes('modificar accion')
+        codigoActual === 'btn_modificar_acciones'
 
       let mensajeExtra = ''
 
@@ -552,11 +505,8 @@ export const usePermisosMatriz = (rolesList: any[] = [], fetchRoles?: () => Prom
       if (isCurrentlyActive && esVerAcciones) {
         const accionModObj = allAcciones.find((a: any) => {
           const c = String(a.CODIGO_ACCION || '').trim().toLowerCase()
-          const n = String(a.NOMBRE_ACCION || '').trim().toLowerCase()
           return (
-            c === 'btn_modificar_acciones' ||
-            n === 'modificar acciones' ||
-            n.includes('modificar accion')
+            c === 'btn_modificar_acciones'
           )
         })
         if (accionModObj) {
@@ -570,11 +520,8 @@ export const usePermisosMatriz = (rolesList: any[] = [], fetchRoles?: () => Prom
       if (!isCurrentlyActive && esModificarAcciones) {
         const accionVerObj = allAcciones.find((a: any) => {
           const c = String(a.CODIGO_ACCION || '').trim().toLowerCase()
-          const n = String(a.NOMBRE_ACCION || '').trim().toLowerCase()
           return (
-            c === 'btn_ver_acciones' ||
-            n === 'ver acciones' ||
-            n.includes('ver accion')
+            c === 'btn_ver_acciones'
           )
         })
         if (accionVerObj) {
@@ -643,9 +590,6 @@ export const usePermisosMatriz = (rolesList: any[] = [], fetchRoles?: () => Prom
     [accionesMatrix, matrix, allAcciones, checkIsAdminRol, canModificarAcciones, verificarAccionEnServidor],
   )
 
-
-
-
   // Refrescar todos los datos desde el backend
   const handleRefrescarTodo = useCallback(async () => {
     try {
@@ -662,7 +606,6 @@ export const usePermisosMatriz = (rolesList: any[] = [], fetchRoles?: () => Prom
 
   return {
     catalogo,
-    catalogoFiltrado,
     matrix,
     accionesMatrix,
     allAcciones,
@@ -670,17 +613,12 @@ export const usePermisosMatriz = (rolesList: any[] = [], fetchRoles?: () => Prom
     allPantallasIds,
     totalPantallas,
     totalClusters,
-    totalPantallasVisibles,
     modulosNombres,
     loadingMatriz,
     errorPermisos,
     savingMatriz,
     modifiedRoleIds,
     hasUnsavedChanges: modifiedRoleIds.size > 0,
-    filtroModulo,
-    setFiltroModulo,
-    busqueda,
-    setBusqueda,
     checkIsAdminRol,
     isPermisoAsignado,
     isAccionAsignada,

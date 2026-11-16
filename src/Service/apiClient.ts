@@ -3,13 +3,13 @@ import { getStoredToken, clearAuthSession } from '../utils/auth'
 import store from '../store'
 import { sessionExpired } from '../authSlice'
 
-// Determinar la URL base del backend apuntando a /server.php/api
+// Determinar la URL base del backend
 const getBackendApiBase = (): string => {
   const customBase = import.meta.env.VITE_API_BASE_URL
   if (customBase) return customBase
 
   if (import.meta.env.VITE_USE_PROXY === 'false') {
-    const apiUrl = import.meta.env.VITE_API_URL || 'https://bibliobackend.ccelrecreo.com:1500'
+    const apiUrl = import.meta.env.VITE_API_URL
     const cleanUrl = String(apiUrl).replace(/\/+$/, '')
     return cleanUrl.includes('/server.php/api') ? cleanUrl : `${cleanUrl}/server.php/api`
   }

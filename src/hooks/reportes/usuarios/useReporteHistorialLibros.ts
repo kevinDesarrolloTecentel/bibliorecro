@@ -80,7 +80,6 @@ export const useReporteHistorialLibrosUsuario = () => {
         cedula: cleanCedula,
       }
       const data = await listarPrestamosCedula(params)
-      console.log('Datos recibidos de reporte por cédula:', data)
 
       const rawList: any[] = Array.isArray(data)
         ? data

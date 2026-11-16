@@ -41,7 +41,7 @@ import ModalInactivarLibro from '@/components/details_bk/ModalInactivarLibro'
 
 
 const Inventary: React.FC = () => {
-  // Precarga de catálogos en caché en memoria una sola vez al entrar al módulo
+
   useCatalogosLibros(true)
 
   const libroState = useLibro()
@@ -89,7 +89,7 @@ const Inventary: React.FC = () => {
       {
         key: 'ESTADOS_PRESTAMO',
         label: 'Disponibilidad',
-        _style: { width: '12%' },
+        _style: { width: '10.5%' },
         filter: (_values: unknown[], onChange: (val: string | number) => void, filterValue?: string | number) => (
           <select
             className="form-select form-select-sm"
@@ -97,7 +97,7 @@ const Inventary: React.FC = () => {
             onChange={(e) => onChange(e.target.value)}
             aria-label="Filtrar por disponibilidad"
           >
-            <option value="">Todas</option>
+            <option value="">Todo</option>
             <option value="disponible">Disponible</option>
             <option value="prestamo">En préstamo</option>
           </select>
@@ -106,7 +106,7 @@ const Inventary: React.FC = () => {
       {
         key: 'ESTADO',
         label: 'Estado',
-        _style: { width: '10%' },
+        _style: { width: '6%' },
         filter: (_values: unknown[], onChange: (val: string | number) => void, filterValue?: string | number) => (
           <select
             className="form-select form-select-sm"
@@ -114,7 +114,7 @@ const Inventary: React.FC = () => {
             onChange={(e) => onChange(e.target.value)}
             aria-label="Filtrar por estado"
           >
-            <option value="">Todos los estados</option>
+            <option value="">Todo</option>
             <option value="activo">Activo</option>
             <option value="inactivo">Inactivo</option>
           </select>
@@ -297,7 +297,6 @@ const Inventary: React.FC = () => {
                   <CCollapse visible={isOpened} className="user-details-collapse">
                     <div className="p-3 p-md-4 bg-body-tertiary border-top border-bottom rounded-bottom">
                       <CRow className="g-3">
-                        {/* Lado izquierdo: Ícono grande y resumen del libro */}
                         <CCol
                           xs={12}
                           md={4}

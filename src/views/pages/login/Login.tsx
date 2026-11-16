@@ -42,7 +42,7 @@ const Login = () => {
     }
 
     clearAuthSession()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <AuthFormSplitScreen

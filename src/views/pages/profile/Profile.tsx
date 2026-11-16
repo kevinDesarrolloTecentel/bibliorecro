@@ -162,7 +162,6 @@ const Profile = () => {
                                                         </CButton>
                                                     )}
 
-                                                    {/* Botón Ver Permisos protegido con canVermisPermisos */}
                                                     {profileState.canVermisPermisos && (
                                                         <CButton
                                                             color="success"
@@ -179,7 +178,6 @@ const Profile = () => {
                                                         </CButton>
                                                     )}
 
-                                                    {/* Botón Editar Perfil o Mensaje de permiso denegado */}
                                                     {profileState.canEditarPerfil && (
                                                         <CButton
                                                             color="primary"

@@ -25,7 +25,6 @@ export const User = () => {
 
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
-  // Scroll horizontal suave con rueda del mouse idéntico a Roles.tsx
   useEffect(() => {
     const el = scrollContainerRef.current
     if (!el) return

@@ -49,12 +49,12 @@ export const sanitizarHistorialSanciones = (lista: any[]): SancionHistorialItem[
       const hasIdS = sancionItem.id !== undefined && sancionItem.id !== null && String(sancionItem.id).trim() !== ''
       const hasIdPrev = prev.id !== undefined && prev.id !== null && String(prev.id).trim() !== ''
 
-      // 1. Si ambos tienen ID numérico de base de datos
+      //Si ambos tienen ID numérico de base de datos
       if (hasIdS && hasIdPrev) {
         return String(sancionItem.id).trim() === String(prev.id).trim()
       }
 
-      // 2. Si no hay ID en uno o ambos para comparar, deben coincidir fecha inicio, fin y detalle
+      // Si no hay ID en uno o ambos para comparar, deben coincidir fecha inicio, fin y detalle
       const mismasFechas = Boolean(sancionItem.inicio && sancionItem.fin && sancionItem.inicio === prev.inicio && sancionItem.fin === prev.fin)
       if (!mismasFechas) return false
 
@@ -67,7 +67,7 @@ export const sanitizarHistorialSanciones = (lista: any[]): SancionHistorialItem[
   }
 
   // Ordenar:
-  // 1. Prioridad: Veto permanente (estado 2 o fin 'Indefinido') > Sanción activa (estado 1) > Inactiva (estado 0)
+  // Veto permanente
   unicos.sort((a, b) => {
     const getPrio = (item: SancionHistorialItem) => {
       const est = Number(item.estado)
@@ -79,14 +79,14 @@ export const sanitizarHistorialSanciones = (lista: any[]): SancionHistorialItem[
     const prioB = getPrio(b)
     if (prioA !== prioB) return prioB - prioA
 
-    // 2. Por ID numérico descendente (el ID mayor es la sanción más reciente en la BD)
+    // Por ID numérico descendente
     const idA = Number(a.id) || 0
     const idB = Number(b.id) || 0
     if (idA > 0 && idB > 0 && idA !== idB) {
       return idB - idA
     }
 
-    // 3. Fallback por fecha descendente
+    //  Fallback por fecha descendente
     const tA = parseDateToTimestamp(a.rawFin || a.fin || a.inicio)
     const tB = parseDateToTimestamp(b.rawFin || b.fin || b.inicio)
     return tB - tA

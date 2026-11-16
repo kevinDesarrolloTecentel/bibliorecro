@@ -25,27 +25,21 @@ export interface PersonaColumnFilters {
 
 export const isUserSancionado = (u: any): boolean => {
   if (!u) return false
-  const esSinSancion = Boolean(
-    u.sancion === 0 ||
-    u.sancion === '0' ||
-    u.TIENE_SANCION === 0 ||
-    u.TIENE_SANCION === '0' ||
-    u.ESTADO_SANCION === 0 ||
-    u.ESTADO_SANCION === '0' ||
-    u.estado_sancion === 0 ||
-    u.estado_sancion === '0'
+  return (
+    Number(u.TIENE_SANCION) === 1 ||
+    Number(u.ESTADO_SANCION) === 1 ||
+    (Array.isArray(u.sanciones) && u.sanciones.some((s: any) => Number(s.ESTADO_SANCION ?? s.estado) === 1)) ||
+    (Array.isArray(u.historial_sanciones) && u.historial_sanciones.some((s: any) => Number(s.ESTADO_SANCION ?? s.estado) === 1))
   )
-  if (esSinSancion) return false
+}
 
-  return Boolean(
-    u.sancion === 1 ||
-    u.sancion === '1' ||
-    u.TIENE_SANCION === 1 ||
-    u.TIENE_SANCION === '1' ||
-    u.ESTADO_SANCION === 1 ||
-    u.ESTADO_SANCION === '1' ||
-    u.estado_sancion === 1 ||
-    u.estado_sancion === '1'
+export const isUserVetado = (u: any): boolean => {
+  if (!u) return false
+  return (
+    Number(u.TIENE_VETO_PERMANENTE) === 1 ||
+    Number(u.ESTADO_VETO) === 2 ||
+    Boolean(u.esVetado) ||
+    (Array.isArray(u.vetos) && u.vetos.some((v: any) => Number(v.ESTADO_VETO ?? v.estado) === 2))
   )
 }
 
@@ -146,12 +140,13 @@ export const extraerInscripcion = (item: any): any | null => {
 
 export const extraerSancionDeFila = (raw: any): any | null => {
   if (!raw) return null
-  const idSancion = raw.ID_SANCION ?? raw.id_sancion
-  const idVeto = raw.ID_VETO ?? raw.id_veto
-  const inicio = raw.FECHAINICIO_SANCION ?? raw.inicio_sancion ?? raw.FECHA_VETO ?? raw.fecha_veto ?? raw.inicio ?? ''
-  const fin = raw.FECHAFIN_SANCION ?? raw.fin_sancion ?? raw.fin ?? ((raw.ESTADO_VETO === 2 || raw.ESTADO_VETO === '2' || raw.estado_veto === 2 || raw.estado_veto === '2' || raw.TIENE_VETO_PERMANENTE === 1 || raw.TIENE_VETO_PERMANENTE === '1') ? 'Indefinido' : '')
-  let detalle = (raw.DETALLE_SANCION ?? raw.detalle_sancion ?? raw.MOTIVO_VETO ?? raw.motivo_veto ?? raw.detalle ?? '').trim()
-  const estado = raw.ESTADO_VETO ?? raw.ESTADO_SANCION ?? ((raw.ESTADO_VETO === 2 || raw.ESTADO_VETO === '2' || raw.estado_veto === 2 || raw.estado_veto === '2') ? 2 : 1)
+  const idSancion = raw.ID_SANCION
+  const idVeto = raw.ID_VETO
+  const inicio = raw.FECHAINICIO_SANCION ?? raw.FECHA_VETO ?? raw.inicio ?? ''
+  const esVeto = Number(raw.ESTADO_VETO) === 2 || Number(raw.TIENE_VETO_PERMANENTE) === 1
+  const fin = raw.FECHAFIN_SANCION ?? raw.fin ?? (esVeto ? 'Indefinido' : '')
+  const detalle = (raw.DETALLE_SANCION ?? raw.MOTIVO_VETO ?? raw.detalle ?? '').trim()
+  const estado = raw.ESTADO_VETO !== undefined ? Number(raw.ESTADO_VETO) : (raw.ESTADO_SANCION !== undefined ? Number(raw.ESTADO_SANCION) : (esVeto ? 2 : 1))
 
   // Solo se considera sanción real si tiene ID de sanción/veto o fechas de sanción específicas
   if (!idSancion && !idVeto && !inicio && !fin) {
@@ -288,84 +283,29 @@ export const deduplicarPersonas = (lista: any[]): any[] => {
       }
 
       // Si cualquiera de las filas tiene sanción activa o veto permanente, prevalece
-      if (
-        item.ESTADO_VETO === 2 ||
-        item.ESTADO_VETO === '2' ||
-        item.ID_VETO ||
-        item.id_veto ||
-        item.TIENE_VETO ||
-        item.tiene_veto ||
-        Boolean(item.veto) ||
-        (Array.isArray(item.vetos) && item.vetos.length > 0) ||
-        Boolean(item.MOTIVO_VETO) ||
-        Boolean(item.FECHA_VETO) ||
-        item.ESTADO_SANCION === 1 ||
-        item.ESTADO_SANCION === '1' ||
-        item.ESTADO_PERSONA === 2 ||
-        item.ESTADO_PERSONA === '2' ||
-        item.TIENE_SANCION === 1 ||
-        item.TIENE_SANCION === '1' ||
-        (String(item.ESTADO || '').toLowerCase().includes('sancion') &&
-          !String(item.ESTADO || '').toLowerCase().includes('sin sancion')) ||
-        String(item.ESTADO || '').toLowerCase().includes('vet')
-      ) {
-        if (item.ESTADO_VETO !== undefined) existing.ESTADO_VETO = item.ESTADO_VETO
-        if (item.ID_VETO) existing.ID_VETO = item.ID_VETO
-        if (item.id_veto) existing.id_veto = item.id_veto
+      const esVet = Boolean(
+        Number(item.TIENE_VETO_PERMANENTE) === 1 ||
+        Number(item.ESTADO_VETO) === 2 ||
+        (Array.isArray(item.vetos) && item.vetos.some((v: any) => Number(v.ESTADO_VETO) === 2))
+      )
+
+      const esSancionadoDirecto = !esVet && Boolean(
+        Number(item.TIENE_SANCION) === 1 ||
+        Number(item.ESTADO_SANCION) === 1 ||
+        (Array.isArray(item.sanciones) && item.sanciones.some((s: any) => Number(s.ESTADO_SANCION) === 1))
+      )
+
+      if (esVet) {
+        existing.TIENE_VETO_PERMANENTE = 1
+        existing.ESTADO_VETO = 2
+        existing.ESTADO = 'Veto permanente'
         if (item.MOTIVO_VETO) existing.MOTIVO_VETO = item.MOTIVO_VETO
-        if (item.motivo_veto) existing.motivo_veto = item.motivo_veto
         if (item.FECHA_VETO) existing.FECHA_VETO = item.FECHA_VETO
-        if (item.fecha_veto) existing.fecha_veto = item.fecha_veto
-        if (item.TIENE_VETO !== undefined) existing.TIENE_VETO = item.TIENE_VETO
-        if (item.tiene_veto !== undefined) existing.tiene_veto = item.tiene_veto
-        if (item.veto) existing.veto = item.veto
-        if (item.vetos) existing.vetos = item.vetos
-
-        const esVet = Boolean(
-          (
-            item.ESTADO_VETO === 2 ||
-            item.ESTADO_VETO === '2' ||
-            item.estado_veto === 2 ||
-            item.estado_veto === '2' ||
-            item.TIENE_VETO_PERMANENTE === 1 ||
-            item.TIENE_VETO_PERMANENTE === '1'
-          ) &&
-          item.ESTADO_VETO !== 0 &&
-          item.ESTADO_VETO !== '0' &&
-          item.estado_veto !== 0 &&
-          item.estado_veto !== '0'
-        )
-
-        const esSinSancionExplicito = Boolean(
-          item.sancion === 0 ||
-          item.sancion === '0' ||
-          item.TIENE_SANCION === 0 ||
-          item.TIENE_SANCION === '0' ||
-          item.ESTADO_SANCION === 0 ||
-          item.ESTADO_SANCION === '0' ||
-          item.estado_sancion === 0 ||
-          item.estado_sancion === '0'
-        )
-
-        const esSancionadoDirecto = !esSinSancionExplicito && Boolean(
-          item.sancion === 1 ||
-          item.sancion === '1' ||
-          item.TIENE_SANCION === 1 ||
-          item.TIENE_SANCION === '1' ||
-          item.ESTADO_SANCION === 1 ||
-          item.ESTADO_SANCION === '1' ||
-          item.estado_sancion === 1 ||
-          item.estado_sancion === '1'
-        )
-
-        existing.ESTADO_SANCION = esVet ? 2 : (esSancionadoDirecto ? 1 : 0)
-        existing.TIENE_SANCION = (esVet || esSancionadoDirecto) ? 1 : 0
-        existing.ESTADO = esVet ? 'Vetado de por vida' : (esSancionadoDirecto ? (item.ESTADO || 'Sancionado') : (item.ESTADO || 'Activo'))
-        if (item.DETALLE_SANCION && !String(item.DETALLE_SANCION).includes(' | ')) {
-          existing.DETALLE_SANCION = item.DETALLE_SANCION
-        }
-      } else if (!existing.DETALLE_SANCION && item.DETALLE_SANCION) {
-        existing.DETALLE_SANCION = item.DETALLE_SANCION
+      } else if (esSancionadoDirecto) {
+        existing.TIENE_SANCION = 1
+        existing.ESTADO_SANCION = 1
+        existing.ESTADO = item.ESTADO || 'Sancionado'
+        if (item.DETALLE_SANCION) existing.DETALLE_SANCION = item.DETALLE_SANCION
       }
 
       // Comparar fechas de sanción para conservar siempre la más reciente
@@ -436,56 +376,32 @@ export const deduplicarPersonas = (lista: any[]): any[] => {
       }
 
       const esVet = Boolean(
-        (Array.isArray(person.vetos) && person.vetos.some((v: any) => v.ESTADO_VETO === 2 || v.ESTADO_VETO === '2' || v.estado_veto === 2 || v.estado_veto === '2')) ||
-        (Array.isArray(person.raw?.vetos) && person.raw.vetos.some((v: any) => v.ESTADO_VETO === 2 || v.ESTADO_VETO === '2' || v.estado_veto === 2 || v.estado_veto === '2')) ||
-        person.ESTADO_VETO === 2 ||
-        person.ESTADO_VETO === '2' ||
-        person.estado_veto === 2 ||
-        person.estado_veto === '2' ||
-        person.TIENE_VETO_PERMANENTE === 1 ||
-        person.TIENE_VETO_PERMANENTE === '1' ||
-        masActual.ESTADO_VETO === 2 ||
-        masActual.ESTADO_VETO === '2' ||
-        masActual.estado_veto === 2 ||
-        masActual.estado_veto === '2' ||
+        Number(person.TIENE_VETO_PERMANENTE) === 1 ||
+        Number(person.ESTADO_VETO) === 2 ||
+        (Array.isArray(person.vetos) && person.vetos.some((v: any) => Number(v.ESTADO_VETO) === 2)) ||
+        Number(masActual.estado) === 2 ||
         masActual.fin === 'Indefinido'
       )
 
-      const esSinSancionExplicito = Boolean(
-        person.sancion === 0 ||
-        person.sancion === '0' ||
-        person.TIENE_SANCION === 0 ||
-        person.TIENE_SANCION === '0' ||
-        person.ESTADO_SANCION === 0 ||
-        person.ESTADO_SANCION === '0' ||
-        person.estado_sancion === 0 ||
-        person.estado_sancion === '0'
-      )
-
       if (esVet) {
-        person.TIENE_SANCION = 1
-        person.ESTADO_SANCION = 2
+        person.TIENE_VETO_PERMANENTE = 1
+        person.ESTADO_VETO = 2
         if (!person.ESTADO || !person.ESTADO.toLowerCase().includes('vet')) {
-          person.ESTADO = 'Vetado de por vida'
+          person.ESTADO = 'Veto permanente'
         }
-      } else if (!esSinSancionExplicito && (
-        person.sancion === 1 ||
-        person.sancion === '1' ||
-        person.TIENE_SANCION === 1 ||
-        person.TIENE_SANCION === '1' ||
-        person.ESTADO_SANCION === 1 ||
-        person.ESTADO_SANCION === '1' ||
-        person.estado_sancion === 1 ||
-        person.estado_sancion === '1' ||
-        masActual.estado === 1 ||
-        masActual.estado === '1' ||
-        masActual.ESTADO_SANCION === 1 ||
-        masActual.ESTADO_SANCION === '1'
-      )) {
-        person.TIENE_SANCION = 1
-        person.ESTADO_SANCION = 1
-        if (!person.ESTADO || !person.ESTADO.toLowerCase().includes('vet')) {
-          person.ESTADO = 'Sancionado'
+      } else {
+        const esSancionado = Boolean(
+          Number(person.TIENE_SANCION) === 1 ||
+          Number(person.ESTADO_SANCION) === 1 ||
+          (Array.isArray(person.sanciones) && person.sanciones.some((s: any) => Number(s.ESTADO_SANCION) === 1)) ||
+          Number(masActual.estado) === 1
+        )
+        if (esSancionado) {
+          person.TIENE_SANCION = 1
+          person.ESTADO_SANCION = 1
+          if (!person.ESTADO || !person.ESTADO.toLowerCase().includes('sancion')) {
+            person.ESTADO = 'Sancionado'
+          }
         }
       }
     }
@@ -729,28 +645,33 @@ const usePersonas = (autoFetch: boolean = true) => {
         setErrorMsg(null)
 
         try {
-          // Mapeo de filtros: estado (1=Activo, 0=Inactivo) y sanción (1=Con sanción, 0=Sin sanción)
-          let estadoParam: number | string | undefined = undefined
+
+          let estadoParam: number | null = null
           if (estadoFilter === 'Activo' || estadoFilter === '1') {
-            estadoParam = '1'
+            estadoParam = 1
           } else if (estadoFilter === 'Inactivo' || estadoFilter === '0') {
-            estadoParam = '0'
+            estadoParam = 0
           }
 
-          let sancionParam: number | string | undefined = undefined
-          if (sancionadoFilter === 'Con sanción' || sancionadoFilter === 'Sancionado' || sancionadoFilter === '1') {
-            sancionParam = '1'
+          let sancionParam: number | null = null
+          let estadoVetoParam: number | null = null
+
+          if (sancionadoFilter === 'Vetado') {
+            estadoVetoParam = 2
+          } else if (sancionadoFilter === 'Con sanción' || sancionadoFilter === '1') {
+            sancionParam = 1
           } else if (sancionadoFilter === 'Sin sanción' || sancionadoFilter === '0') {
-            sancionParam = '0'
+            sancionParam = 0
+            estadoVetoParam = 0
           }
 
           // Determinar término para búsqueda en backend a través de la barra de búsqueda general
           const genF = (actualSearch || '').trim()
           const backendTerm: string | undefined = genF || undefined
 
-          // Petición directa al backend con paginación y filtros nativos (estado y sanción)
+          // Petición directa al backend con paginación y filtros nativos (estado, sancion, estado_veto)
           let backendPageToFetch = validUiPage
-          let res = await listarPersonas(backendPageToFetch, S, backendTerm, estadoParam, sancionParam)
+          let res = await listarPersonas(backendPageToFetch, S, backendTerm, estadoParam, sancionParam, estadoVetoParam)
           let info = extraerInfoPaginacion(res)
 
           let pageItems = info.items || []
@@ -760,7 +681,7 @@ const usePersonas = (autoFetch: boolean = true) => {
           // pero el backend reporta que hay más páginas disponibles, avanzamos automáticamente a la siguiente página con datos reales
           if (itemsValidos.length === 0 && info.total > 0 && backendPageToFetch < info.lastPage) {
             backendPageToFetch++
-            const nextRes = await listarPersonas(backendPageToFetch, S, backendTerm, estadoParam, sancionParam)
+            const nextRes = await listarPersonas(backendPageToFetch, S, backendTerm, estadoParam, sancionParam, estadoVetoParam)
             const nextInfo = extraerInfoPaginacion(nextRes)
             const nextValidos = (nextInfo.items || []).filter((item: any) => !debeExcluirDeRegistrados(item))
             if (nextValidos.length > 0) {

@@ -108,17 +108,10 @@ export const usePersonaEdit = ({
             : fechaRaw
           : ''
 
-      let initialEstado = '1'
       const rawEstado = String(
         raw.ESTADO_PERSONA ?? currentUser.estado ?? '1',
       ).trim()
-      if (rawEstado === '0' || rawEstado.toLowerCase().includes('inactiv')) {
-        initialEstado = '0'
-      } else if (rawEstado === '2' || rawEstado.toLowerCase().includes('sancion')) {
-        initialEstado = '2'
-      } else {
-        initialEstado = '1'
-      }
+      const initialEstado = (rawEstado === '0' || rawEstado.toLowerCase().includes('inactiv')) ? '0' : '1'
 
       setFormData({
         ID_PERSONA: String(raw.ID_PERSONA ?? currentUser.id ?? ''),
@@ -338,23 +331,17 @@ export const usePersonaEdit = ({
           ? formData.FECHA_PERSONA.trim().split('T')[0]
           : ''
 
-      // Preservar el estado del usuario existente (no forzar inactivo/activo si ya tenía un valor)
+      // Preservar el estado del usuario existente)
       const rawOriginalPersona = currentUser?.raw?.ESTADO_PERSONA ?? formData.ESTADO_PERSONA
       let estadoPersona = '1'
       if (rawOriginalPersona !== undefined && rawOriginalPersona !== null) {
-        estadoPersona = String(rawOriginalPersona)
+        estadoPersona = (Number(rawOriginalPersona) === 0 || String(rawOriginalPersona).toLowerCase().includes('inactiv')) ? '0' : '1'
       } else {
         const rawEstadoSubmit = String(formData.ESTADO_PERSONA || '1').trim()
-        if (rawEstadoSubmit === '0' || rawEstadoSubmit.toLowerCase().includes('inactiv')) {
-          estadoPersona = '0'
-        } else if (rawEstadoSubmit === '2' || rawEstadoSubmit.toLowerCase().includes('sancion')) {
-          estadoPersona = '2'
-        } else {
-          estadoPersona = '1'
-        }
+        estadoPersona = (rawEstadoSubmit === '0' || rawEstadoSubmit.toLowerCase().includes('inactiv')) ? '0' : '1'
       }
 
-      // Preservar el ESTADOINSCRIPCION_PERSONA original (crucial para no sacarlo de Renovaciones y Nuevos)
+      // Preservar el ESTADOINSCRIPCION_PERSONA original
       const rawOriginalInscrip =
         currentUser?.raw?.ESTADOINSCRIPCION_PERSONA ?? formData.ESTADOINSCRIPCION_PERSONA
       const estadoInscrip =
@@ -427,8 +414,6 @@ export const usePersonaEdit = ({
       }
 
       formDataToSend.append('_method', 'PUT')
-
-      console.log('[DEBUG EDIT NEW] actualizando usuario')
 
       let ok = false
       if (personaState?.handleActualizarPersona) {

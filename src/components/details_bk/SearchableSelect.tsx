@@ -1,6 +1,14 @@
 import React, { useState, useMemo } from 'react'
-import Select, { SingleValue } from 'react-select'
+import Select, { SingleValue, components } from 'react-select'
 import { CatalogoOption } from '@/models/rco/libros'
+
+const CustomInput = (props: any) => (
+  <components.Input {...props} maxLength={props.selectProps?.maxLength} />
+)
+
+const selectComponents = {
+  Input: CustomInput,
+}
 
 interface SearchableSelectProps {
   name: string
@@ -11,6 +19,7 @@ interface SearchableSelectProps {
   invalid?: boolean
   disabled?: boolean
   loading?: boolean
+  maxLength?: number
 }
 
 export const SearchableSelect: React.FC<SearchableSelectProps> = ({
@@ -22,6 +31,8 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
   invalid = false,
   disabled = false,
   loading = false,
+  maxLength,
+
 }) => {
   const [searchText, setSearchText] = useState('')
 
@@ -58,7 +69,8 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
     },
     onInputChange: (val: string, action: any) => {
       if (action.action === 'input-change') {
-        setSearchText(val)
+        const text = maxLength ? val.slice(0, maxLength) : val
+        setSearchText(text)
       } else if (action.action === 'menu-close') {
         setSearchText('')
       }
@@ -70,6 +82,8 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
     isClearable: true,
     isSearchable: true,
     filterOption: () => true,
+    maxLength,
+    components: selectComponents,
     noOptionsMessage: () =>
       searchText ? 'No se encontraron resultados' : 'Escribe para buscar...',
     classNamePrefix: 'searchable-select',
@@ -179,6 +193,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
         ...base,
         color: 'var(--cui-secondary-color, #6c757d)',
       }),
+
     },
   }
 

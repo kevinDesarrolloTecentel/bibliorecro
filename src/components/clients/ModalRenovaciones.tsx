@@ -56,10 +56,7 @@ const ModalRenova: React.FC<ModalRenovaProps> = ({
     }
   }, [visible])
 
-  const esInactivo =
-    item?.raw?.ESTADO_PERSONA === 0 ||
-    String(item?.raw?.ESTADO_PERSONA) === '0' ||
-    item?.estado === 'Inactivo'
+  const esInactivo = Number(item?.raw?.ESTADO_PERSONA) === 0 || item?.estado === 'Inactivo'
 
   if (!esInactivo || !canRenovar) {
     return null

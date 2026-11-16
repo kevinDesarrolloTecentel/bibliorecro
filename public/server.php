@@ -1,5 +1,8 @@
 <?php
 
+@ini_set('display_errors', '0');
+error_reporting(0);
+
 // PROXY INVERSO
 // Cabeceras CORS
 $origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '*';
@@ -9,7 +12,7 @@ header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, PATCH, OPTIONS");
 header("Access-Control-Allow-Headers: Authorization, Content-Type, Accept, Origin, X-Requested-With, X-Auth-Token");
 
 // Responder inmediatamente a peticiones preflight OPTIONS
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit;
 }
@@ -79,7 +82,7 @@ if (empty($BACKEND_API_BASE) || empty($ENCRYPTION_KEY)) {
     exit;
 }
 
-// 3. Función para desencriptar cadenas AES generadas por CryptoJS
+// Función para desencriptar cadenas AES generadas por CryptoJS
 function decryptCryptoJS($cipherText, $passphrase) {
     $data = base64_decode($cipherText);
     if (!$data || substr($data, 0, 8) !== "Salted__") {
@@ -123,7 +126,7 @@ function encryptCryptoJS($plainText, $passphrase) {
     return base64_encode("Salted__" . $salt . $ciphertext);
 }
 
-// 4. Obtener el endpoint solicitado
+// Obtener el endpoint solicitado
 $endpoint = '';
 if (isset($_GET['endpoint'])) {
     $endpoint = trim($_GET['endpoint']);
@@ -137,8 +140,8 @@ if (isset($_GET['endpoint'])) {
     }
 }
 
-// Limpiar para asegurar que NUNCA se duplique "server.php" ni "api" al inicio del endpoint
-$endpoint = preg_replace('#^/?(?:server\.php/)?(?:api/)?#i', '', $endpoint);
+$endpoint = preg_replace('#^/?(?:server\.php/?)*(?:api/?)*#i', '', $endpoint);
+$endpoint = trim($endpoint, '/');
 
 // Si se visita server.php directamente en el navegador sin endpoint, mostrar estado del servidor
 if (empty($endpoint) && $_SERVER['REQUEST_METHOD'] === 'GET') {
@@ -155,7 +158,7 @@ if (empty($endpoint) && $_SERVER['REQUEST_METHOD'] === 'GET') {
     exit;
 }
 
-// Construir parámetros de consulta (query string) preservando los originales
+// Construir parámetros de consulta preservando los originales
 $queryParams = $_GET;
 unset($queryParams['endpoint']);
 
@@ -165,7 +168,7 @@ if (!empty($queryParams)) {
     $targetUrl .= $separator . http_build_query($queryParams);
 }
 
-// 5. Extraer y procesar cabeceras de autorización o cookie
+// Extraer y procesar cabeceras de autorización o cookie
 $headersToSend = array();
 $authHeader = '';
 
@@ -230,9 +233,9 @@ if (isset($_SERVER['CONTENT_TYPE'])) {
 
 $headersToSend[] = "Accept: application/json, text/plain, */*";
 
-// 6. Ejecutar petición cURL hacia Laravel (Optimizado para baja latencia)
+// Ejecutar petición cURL hacia Laravel (Optimizado para baja latencia)
 $ch = curl_init($targetUrl);
-$method = $_SERVER['REQUEST_METHOD'];
+$method = isset($_SERVER['REQUEST_METHOD']) ? $_SERVER['REQUEST_METHOD'] : 'GET';
 
 curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -312,7 +315,7 @@ if ($response === false) {
     exit;
 }
 
-// 7. Encriptar el token en la respuesta si viene en texto plano (ej. login) para que NUNCA se vea en DevTools
+// Encriptar el token en la respuesta si viene en texto plano
 if (!empty($response) && strpos($response, 'eyJ') !== false) {
     $json = json_decode($response, true);
     if (is_array($json)) {

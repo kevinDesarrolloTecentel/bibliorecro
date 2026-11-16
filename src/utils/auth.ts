@@ -120,10 +120,15 @@ export const getStoredUser = (): UserData | null => {
     if (!parsed && !tokenData) return null
 
     const user: UserData = {
-      ID_USUARIO: tokenData?.ID_USUARIO,
+      ID_USUARIO: parsed?.ID_USUARIO || tokenData?.ID_USUARIO,
       NICK_USUARIO: parsed?.NICK_USUARIO || '',
       NOMBRES_USUARIO: parsed?.NOMBRES_USUARIO || '',
+      ID_ROL: parsed?.ID_ROL,
+      NOMBRE_ROL: parsed?.NOMBRE_ROL,
+      NIVEL_ROL: parsed?.NIVEL_ROL,
+      ESTADO_USUARIO: parsed?.ESTADO_USUARIO ?? 1,
       expires_in: Number(parsed?.expires_in || 3600),
+      timestamp: Number(parsed?.timestamp || 0),
     }
 
     if (isSessionValid(user)) {
@@ -153,9 +158,15 @@ export const setAuthSession = (
   if (user) {
     saveUserStorage(
       {
+        ID_USUARIO: user.ID_USUARIO,
         NICK_USUARIO: user.NICK_USUARIO,
         NOMBRES_USUARIO: user.NOMBRES_USUARIO,
+        ID_ROL: user.ID_ROL,
+        NOMBRE_ROL: user.NOMBRE_ROL,
+        NIVEL_ROL: user.NIVEL_ROL,
+        ESTADO_USUARIO: user.ESTADO_USUARIO,
         expires_in: expSeconds,
+        timestamp: user.timestamp || Date.now(),
       },
       rememberMe,
     )

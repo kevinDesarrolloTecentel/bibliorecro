@@ -96,6 +96,7 @@ const ClienteDs = () => {
             <option value="">Todas las sanciones</option>
             <option value="Sin sanción">Sin sanción</option>
             <option value="Con sanción">Con sanción</option>
+            <option value="Vetado">Vetado</option>
           </select>
         ),
       },

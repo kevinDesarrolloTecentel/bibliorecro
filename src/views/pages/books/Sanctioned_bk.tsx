@@ -72,7 +72,7 @@ const Sanctioned_bk: React.FC = () => {
       {
         key: 'estado',
         label: 'Estado',
-        _style: { width: '9%' },
+        _style: { width: '8%' },
         filter: (_values: unknown[], onChange: (val: string | number) => void, filterValue?: string | number) => (
           <select
             className="form-select form-select-sm"
@@ -80,7 +80,7 @@ const Sanctioned_bk: React.FC = () => {
             onChange={(e) => onChange(e.target.value)}
             aria-label="Filtrar por estado"
           >
-            <option value="">Todos</option>
+            <option value="">Todo</option>
             <option value="Activo">Activo</option>
             <option value="Inactivo">Inactivo</option>
           </select>
@@ -89,7 +89,7 @@ const Sanctioned_bk: React.FC = () => {
       {
         key: 'vetado',
         label: 'Vetado',
-        _style: { width: '9%' },
+        _style: { width: '8%' },
         filter: (_values: unknown[], onChange: (val: string | number) => void, filterValue?: string | number) => (
           <select
             className="form-select form-select-sm"
@@ -97,7 +97,7 @@ const Sanctioned_bk: React.FC = () => {
             onChange={(e) => onChange(e.target.value)}
             aria-label="Filtrar por veto"
           >
-            <option value="">Todos</option>
+            <option value="">Todo</option>
             <option value="2">Sí</option>
             <option value="0">No</option>
           </select>
@@ -216,20 +216,7 @@ const Sanctioned_bk: React.FC = () => {
                 </td>
               ),
               vetado: (item: any) => {
-                const esVet = Boolean(
-                  item.esVetado ||
-                  item.esDePorVida ||
-                  item.vetado === 'Sí' ||
-                  item.status === 'Vetado' ||
-                  item.ESTADO_VETO === 2 ||
-                  item.ESTADO_VETO === '2' ||
-                  item.estado_veto === 2 ||
-                  item.estado_veto === '2' ||
-                  item.TIENE_VETO_PERMANENTE === 1 ||
-                  item.TIENE_VETO_PERMANENTE === '1' ||
-                  (Array.isArray(item.vetos) && item.vetos.some((v: any) => v.ESTADO_VETO === 2 || v.ESTADO_VETO === '2' || v.estado_veto === 2 || v.estado_veto === '2')) ||
-                  (Array.isArray(item.raw?.vetos) && item.raw.vetos.some((v: any) => v.ESTADO_VETO === 2 || v.ESTADO_VETO === '2' || v.estado_veto === 2 || v.estado_veto === '2'))
-                )
+                const esVet = Boolean(item.esVetado || Number(item.TIENE_VETO_PERMANENTE) === 1 || Number(item.ESTADO_VETO) === 2)
                 return (
                   <td>
                     <CBadge
@@ -247,20 +234,7 @@ const Sanctioned_bk: React.FC = () => {
                 const rowId = item.id ?? item.ID_PERSONA ?? item.ID_SANCION
                 const isVisible = details.includes(rowId)
                 const procesando = procesandoId === item.id
-                const esDePorVida = Boolean(
-                  item.esVetado ||
-                  item.esDePorVida ||
-                  item.vetado === 'Sí' ||
-                  item.status === 'Vetado' ||
-                  item.ESTADO_VETO === 2 ||
-                  item.ESTADO_VETO === '2' ||
-                  item.estado_veto === 2 ||
-                  item.estado_veto === '2' ||
-                  item.TIENE_VETO_PERMANENTE === 1 ||
-                  item.TIENE_VETO_PERMANENTE === '1' ||
-                  (Array.isArray(item.vetos) && item.vetos.some((v: any) => v.ESTADO_VETO === 2 || v.ESTADO_VETO === '2' || v.estado_veto === 2 || v.estado_veto === '2')) ||
-                  (Array.isArray(item.raw?.vetos) && item.raw.vetos.some((v: any) => v.ESTADO_VETO === 2 || v.ESTADO_VETO === '2' || v.estado_veto === 2 || v.estado_veto === '2'))
-                )
+                const esDePorVida = Boolean(item.esVetado || Number(item.TIENE_VETO_PERMANENTE) === 1 || Number(item.ESTADO_VETO) === 2)
                 const tieneLibro = Boolean(item.Libro && item.Libro.trim() && item.Libro !== 'Sin libro')
 
                 return (

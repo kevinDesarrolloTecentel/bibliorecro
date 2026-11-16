@@ -389,7 +389,7 @@ export const Roles = () => {
                           modulo.PANTALLAS.map((pantalla, pIdx) => {
                             const isChecked = permisos.isPermisoAsignado(rolId, pantalla.ID_PERMISO)
                             const isLastInModulo = pIdx === modulo.PANTALLAS.length - 1
-                            const isNivel1 = nivelRol === 1 || rolId === 1
+                            const isNivel1 = nivelRol === 1 || Boolean(rol.ES_ADMINISTRADOR)
                             const isProtegido = isChecked && isNivel1
 
                             return (

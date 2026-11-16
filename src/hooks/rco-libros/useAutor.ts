@@ -55,7 +55,7 @@ export const useAutor = ({
     setLoadingAutores(true)
     try {
       const q = searchQuery.trim()
-      const response = await Autores({ page, search: q, per_page: 20 })
+      const response = await Autores({ page, search: q, per_page: 10 })
       let rawList: any[] = []
       let total = 0
       let lastPage = 1

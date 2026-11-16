@@ -130,6 +130,8 @@ const Modal_Edit_bk: React.FC<ModalEditBkProps> = (props) => {
                 invalid={!!errors.ID_CATEGORIA}
                 loading={catalogos.loading && catalogos.categorias.length === 0}
                 placeholder="Seleccionar categoría o buscar..."
+                maxLength={30}
+
               />
             </CInputGroup>
             {errors.ID_CATEGORIA && (
@@ -152,6 +154,7 @@ const Modal_Edit_bk: React.FC<ModalEditBkProps> = (props) => {
                 invalid={!!errors.ID_RCOGENERO}
                 loading={catalogos.loading && catalogos.generos.length === 0}
                 placeholder="Seleccionar género o buscar..."
+                maxLength={30}
               />
             </CInputGroup>
             {errors.ID_RCOGENERO && (
@@ -174,6 +177,7 @@ const Modal_Edit_bk: React.FC<ModalEditBkProps> = (props) => {
                 invalid={!!errors.ID_PROVEEDOR}
                 loading={catalogos.loading && catalogos.proveedores.length === 0}
                 placeholder="Seleccionar proveedor o buscar..."
+                maxLength={30}
               />
             </CInputGroup>
             {errors.ID_PROVEEDOR && (
@@ -200,6 +204,7 @@ const Modal_Edit_bk: React.FC<ModalEditBkProps> = (props) => {
                 onChange={handleChange}
                 invalid={!!errors.TITULO_LIBROS}
                 required
+                maxLength={75}
               />
             </CInputGroup>
             {errors.TITULO_LIBROS && (
@@ -222,6 +227,7 @@ const Modal_Edit_bk: React.FC<ModalEditBkProps> = (props) => {
                 invalid={!!errors.ID_AUTOR}
                 loading={catalogos.loading && catalogos.autores.length === 0}
                 placeholder="Seleccionar autor o buscar..."
+                maxLength={30}
               />
             </CInputGroup>
             {errors.ID_AUTOR && (
@@ -244,6 +250,7 @@ const Modal_Edit_bk: React.FC<ModalEditBkProps> = (props) => {
                 invalid={!!errors.ID_EDITORIAL}
                 loading={catalogos.loading && catalogos.editoriales.length === 0}
                 placeholder="Seleccionar editorial o buscar..."
+                maxLength={30}
               />
             </CInputGroup>
             {errors.ID_EDITORIAL && (
@@ -296,6 +303,8 @@ const Modal_Edit_bk: React.FC<ModalEditBkProps> = (props) => {
                 value={formData.VOLUMEN_LIBROS}
                 onChange={handleChange}
                 invalid={!!errors.VOLUMEN_LIBROS}
+                maxLength={30}
+
               />
             </CInputGroup>
             {errors.VOLUMEN_LIBROS && (
@@ -339,6 +348,7 @@ const Modal_Edit_bk: React.FC<ModalEditBkProps> = (props) => {
                 value={formData.PAIS_LIBROS || ''}
                 onChange={(val) => handleSelectChange('PAIS_LIBROS', val)}
                 invalid={!!errors.PAIS_LIBROS}
+                maxLength={30}
               />
             </CInputGroup>
             {errors.PAIS_LIBROS && (
@@ -364,6 +374,7 @@ const Modal_Edit_bk: React.FC<ModalEditBkProps> = (props) => {
                 onChange={handleBarcodeChange}
                 invalid={!!errors.CODIGODEBARRAS_LIBROS}
                 inputMode="numeric"
+                maxLength={13}
               />
 
               <CInputGroupText>
@@ -396,6 +407,7 @@ const Modal_Edit_bk: React.FC<ModalEditBkProps> = (props) => {
                 value={formData.PRECIO_LIBROS}
                 onChange={handlePrecioChange}
                 invalid={!!errors.PRECIO_LIBROS}
+                maxLength={10}
               />
             </CInputGroup>
             {errors.PRECIO_LIBROS && (
@@ -418,6 +430,8 @@ const Modal_Edit_bk: React.FC<ModalEditBkProps> = (props) => {
                 invalid={!!errors.ID_FORMATOS}
                 loading={catalogos.loading && catalogos.formatos.length === 0}
                 placeholder="Seleccionar formato o buscar..."
+                maxLength={30}
+
               />
             </CInputGroup>
             {errors.ID_FORMATOS && (
@@ -440,6 +454,7 @@ const Modal_Edit_bk: React.FC<ModalEditBkProps> = (props) => {
                 invalid={!!errors.ID_TIPO}
                 loading={catalogos.loading && catalogos.tipos.length === 0}
                 placeholder="Seleccionar tipo o buscar..."
+                maxLength={30}
               />
             </CInputGroup>
             {errors.ID_TIPO && (

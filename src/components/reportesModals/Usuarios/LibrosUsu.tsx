@@ -111,7 +111,9 @@ const LibroUModal: React.FC<HistLibProps> = ({ visible, setVisible }) => {
         estP === 'activo'
       ) {
         estadoPrestamo = 'En préstamo'
-      } else if (estP === '2' || estP.includes('sancion')) {
+      } else if (estP === '2' || estP.includes('dañado') || estP.includes('danado') || estP.includes('no devuelto')) {
+        estadoPrestamo = 'No Devuelto'
+      } else if (estP.includes('sancion')) {
         estadoPrestamo = 'Sancionado'
       } else if (estP) {
         estadoPrestamo = String(item.ESTADO_PRESTAMO)

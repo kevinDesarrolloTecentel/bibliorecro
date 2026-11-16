@@ -10,9 +10,8 @@ import { actualizar, perfil } from '@/Service/adm/AdminUser'
 import { isBcryptHash, parseApiErrors } from '@/hooks/adm-user/useUsers'
 import { usePermissions } from '@/context/PermissionsContext'
 
-/**
- * Valida los datos del formulario de edición de perfil
- */
+
+//Valida los datos del fomulario de editar perfil 
 export const validateProfileData = (
   formData: ProfileFormData
 ): { isValid: boolean; errors: string[] } => {

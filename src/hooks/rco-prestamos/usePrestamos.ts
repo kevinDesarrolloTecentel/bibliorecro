@@ -83,48 +83,43 @@ export const usePrestamos = (autoFetch: boolean = true) => {
           const estadoPrestamo = item.ESTADO_PRESTAMO ?? item.estado_prestamo ?? item.estado ?? 1
 
           const tieneSancion = Boolean(
-            item.ESTADO_SANCION === 1 ||
-            item.ESTADO_SANCION === '1' ||
-            item.estado_sancion === 1 ||
-            item.estado_sancion === '1' ||
-            item.TIENE_SANCION === 1 ||
-            item.TIENE_SANCION === '1' ||
-            item.sancion === 1 ||
-            item.sancion === '1' ||
+            Number(item.ESTADO_SANCION ?? item.estado_sancion) === 1 ||
+            Number(item.TIENE_SANCION ?? item.sancion) === 1 ||
             item.FECHAFIN_SANCION ||
             item.FECHAINICIO_SANCION ||
             item.DETALLE_SANCION ||
             item.detalle_sancion ||
             String(item.DETALLE_PRESTAMO || '').toLowerCase().includes('sancion') ||
-            String(item.DETALLE_PRESTAMO || '').toLowerCase().includes('sanción') ||
-            String(item.ESTADO_PRESTAMO || '').toLowerCase().includes('sancion') ||
-            String(item.ESTADO_PRESTAMO || '').toLowerCase().includes('sanción') ||
-            Number(estadoPrestamo) === 3
+            String(item.DETALLE_PRESTAMO || '').toLowerCase().includes('sanción')
           )
 
           let status = 'En préstamo'
-          if (tieneSancion) {
-            status = 'Sancionado'
-          } else if (
-            Number(estadoPrestamo) === 2 ||
+          const numEstado = Number(estadoPrestamo)
+
+          if (
+            numEstado === 2 ||
+            String(estadoPrestamo).toLowerCase().includes('dañado') ||
+            String(estadoPrestamo).toLowerCase().includes('danado') ||
             String(estadoPrestamo).toLowerCase().includes('no devuelto') ||
             String(estadoPrestamo).toLowerCase().includes('baja')
           ) {
-            status = 'No devuelto'
+            status = 'Devuelto pero dañado'
           } else if (
-            Number(estadoPrestamo) === 0 ||
+            numEstado === 0 ||
             String(estadoPrestamo) === '0' ||
             String(estadoPrestamo).toLowerCase().includes('devuelto') ||
             String(estadoPrestamo).toLowerCase().includes('disponible')
           ) {
             status = 'Devuelto'
           } else if (
-            Number(estadoPrestamo) === 1 ||
+            numEstado === 1 ||
             String(estadoPrestamo) === '1' ||
             String(estadoPrestamo).toLowerCase().includes('prestamo') ||
             String(estadoPrestamo).toLowerCase().includes('préstamo')
           ) {
             status = 'En préstamo'
+          } else if (tieneSancion) {
+            status = 'Sancionado'
           } else {
             status = String(estadoPrestamo || 'En préstamo')
           }
@@ -244,14 +239,12 @@ export const usePrestamos = (autoFetch: boolean = true) => {
 
     // 1. Verificar si ya alcanzó el límite de extensiones
     const yaExtendido = Boolean(
-      Number(item.EXTENDER_PRESTAMO) === 1 ||
-      String(item.EXTENDER_PRESTAMO) === '1' ||
-      Number((item as any).extender_prestamo) === 1 ||
-      String((item as any).extender_prestamo) === '1' ||
-      Number(item.raw?.EXTENDER_PRESTAMO) === 1 ||
-      String(item.raw?.EXTENDER_PRESTAMO) === '1' ||
-      Number((item.raw as any)?.extender_prestamo) === 1 ||
-      String((item.raw as any)?.extender_prestamo) === '1'
+      Number(
+        item.EXTENDER_PRESTAMO ??
+        (item as any).extender_prestamo ??
+        item.raw?.EXTENDER_PRESTAMO ??
+        (item.raw as any)?.extender_prestamo
+      ) === 1
     )
 
     if (yaExtendido) {
@@ -373,13 +366,13 @@ export const usePrestamos = (autoFetch: boolean = true) => {
     if (!idPrestamo) return
 
     const confirmResult = await Swal.fire({
-      title: '¿Marcar como No Devuelto?',
-      text: `¿Estás seguro de que deseas marcar el libro "${item.Libro}" prestado a ${item.Nombres} ${item.Apellidos} como No Devuelto / Dado de baja?`,
+      title: '¿Registrar como Devuelto pero Dañado?',
+      text: `¿Estás seguro de que deseas registrar el libro "${item.Libro}" prestado a ${item.Nombres} ${item.Apellidos} como Devuelto pero Dañado / Dado de baja?`,
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#d33',
       cancelButtonColor: '#6c757d',
-      confirmButtonText: 'Sí, marcar como No Devuelto',
+      confirmButtonText: 'Sí, marcar como Dañado',
       cancelButtonText: 'Cancelar',
     })
 
@@ -402,7 +395,7 @@ export const usePrestamos = (autoFetch: boolean = true) => {
         nuevo_estado: 2,
         ID_PRESTAMO: idPrestamo,
         ID_LIBROS: idLibro,
-        DETALLE_PRESTAMO: 'Marcado como No Devuelto / Baja',
+        DETALLE_PRESTAMO: 'Devuelto pero dañado / Baja',
       }
       await CambioEstadoLibro(idPrestamo, payload)
 
@@ -411,7 +404,7 @@ export const usePrestamos = (autoFetch: boolean = true) => {
         try {
           await ActualizarEstado(idLibro, {
             ESTADO_LIBROS: 0,
-            MOTIVO_BAJA_LIBRO: 'Marcado como No Devuelto en módulo de préstamos',
+            MOTIVO_BAJA_LIBRO: 'Marcado como Devuelto pero Dañado en módulo de préstamos',
           })
         } catch (e) {
           console.warn('No se pudo inactivar el libro en inventario:', e)
@@ -421,7 +414,7 @@ export const usePrestamos = (autoFetch: boolean = true) => {
       Swal.fire({
         icon: 'success',
         title: '¡Estado actualizado!',
-        text: 'El libro ha sido marcado como No Devuelto y su estado en inventario pasó a Inactivo.',
+        text: 'El préstamo fue registrado como Devuelto pero Dañado y su estado en inventario pasó a Inactivo.',
         timer: 1800,
         showConfirmButton: false,
       })

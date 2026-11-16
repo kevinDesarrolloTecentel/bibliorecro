@@ -9,7 +9,7 @@ export const buscarSancionados = async (
     estado_veto?: number | string | null,
     estado?: number | string | null
 ) => {
-    return await listarPersonas(page, 10, busqueda, estado ?? undefined, 1, estado_veto);
+    return await listarPersonas(page, 10, busqueda, estado ?? null, 1, estado_veto ?? null);
 };
 
 export const QuitarSancion = async (idSancion: any, payload?: any) => {

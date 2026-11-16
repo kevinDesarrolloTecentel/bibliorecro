@@ -71,7 +71,7 @@ export interface UpdateUserPayload {
   password?: string
 }
 
-// Representación de cada fila en la CSmartTable de usuarios
+// Representación de cada fila
 export interface UserTableItem {
   id: string | number
   Usuario: string

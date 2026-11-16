@@ -331,21 +331,22 @@ const Loands: React.FC = () => {
                   Number(item.ESTADO_PRESTAMO) === 0 ||
                   String(item.ESTADO_PRESTAMO) === '0' ||
                   Number(item.ESTADO_PRESTAMO) === 2 ||
+                  String(item.ESTADO_PRESTAMO) === '2' ||
                   String(item.status || '').toLowerCase().includes('devuelto') ||
                   String(item.status || '').toLowerCase().includes('disponible') ||
+                  String(item.status || '').toLowerCase().includes('dañado') ||
+                  String(item.status || '').toLowerCase().includes('danado') ||
                   String(item.status || '').toLowerCase().includes('sancion') ||
                   String(item.status || '').toLowerCase().includes('sanción') ||
                   String(item.status || '').toLowerCase().includes('no devuelto')
 
                 const yaExtendido = Boolean(
-                  Number(item.EXTENDER_PRESTAMO) === 1 ||
-                  String(item.EXTENDER_PRESTAMO) === '1' ||
-                  Number(item.extender_prestamo) === 1 ||
-                  String(item.extender_prestamo) === '1' ||
-                  Number(item.raw?.EXTENDER_PRESTAMO) === 1 ||
-                  String(item.raw?.EXTENDER_PRESTAMO) === '1' ||
-                  Number(item.raw?.extender_prestamo) === 1 ||
-                  String(item.raw?.extender_prestamo) === '1'
+                  Number(
+                    item.EXTENDER_PRESTAMO ??
+                    item.extender_prestamo ??
+                    item.raw?.EXTENDER_PRESTAMO ??
+                    item.raw?.extender_prestamo
+                  ) === 1
                 )
 
                 return (
@@ -534,7 +535,7 @@ const Loands: React.FC = () => {
                                     onClick={() => handleAbrirNoDevuelto(item)}
                                     title="Marcar como no devuelto / dar de baja ejemplar"
                                     className="d-flex align-items-center gap-1 shadow-sm px-3"
-                                    disabled={procesando || item.status === 'No Devuelto' || item.status === '2'}
+                                    disabled={procesando || Number(item.ESTADO_PRESTAMO) === 2 || item.status === 'Devuelto pero dañado'}
                                   >
                                     <CIcon icon={cilReportSlash} size="sm" />
                                     <span>No Devuelto</span>

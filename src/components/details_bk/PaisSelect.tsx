@@ -1,5 +1,14 @@
 import React, { useState, useMemo } from 'react'
-import Select, { SingleValue } from 'react-select'
+import Select, { SingleValue, components } from 'react-select'
+
+
+const CustomInput = (props: any) => (
+  <components.Input {...props} maxLength={props.selectProps?.maxLength} />
+)
+
+const selectComponents = {
+  Input: CustomInput,
+}
 
 interface PaisOption {
   value: string
@@ -207,6 +216,7 @@ interface PaisSelectProps {
   onChange: (value: string) => void
   invalid?: boolean
   disabled?: boolean
+  maxLength?: number
 }
 
 export const PaisSelect: React.FC<PaisSelectProps> = ({
@@ -214,6 +224,7 @@ export const PaisSelect: React.FC<PaisSelectProps> = ({
   onChange,
   invalid = false,
   disabled = false,
+  maxLength,
 }) => {
   const [searchText, setSearchText] = useState('')
 
@@ -232,10 +243,16 @@ export const PaisSelect: React.FC<PaisSelectProps> = ({
     <div style={{ flex: 1, minWidth: 0 }}>
       <Select<PaisOption>
         value={selectedOption}
+        components={selectComponents}
+        {...({ maxLength } as any)}
         onChange={(selected: SingleValue<PaisOption>) => onChange(selected ? selected.value : '')}
         onInputChange={(val: string, action: any) => {
-          if (action.action === 'input-change') setSearchText(val)
-          else if (action.action === 'menu-close') setSearchText('')
+          if (action.action === 'input-change') {
+            const text = maxLength ? val.slice(0, maxLength) : val
+            setSearchText(text)
+          } else if (action.action === 'menu-close') {
+            setSearchText('')
+          }
         }}
         options={displayedOptions}
         placeholder="Seleccionar país o buscar..."
@@ -247,6 +264,7 @@ export const PaisSelect: React.FC<PaisSelectProps> = ({
         classNamePrefix="searchable-select"
         menuPortalTarget={typeof document !== 'undefined' ? document.body : undefined}
         menuPosition="fixed"
+
         styles={{
           menuPortal: (base: any) => ({ ...base, zIndex: 99999 }),
           control: (base: any, state: any) => ({

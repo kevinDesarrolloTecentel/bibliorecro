@@ -28,6 +28,8 @@ export interface MisPermisosData {
   ID_USUARIO: number
   ID_ROL?: number
   NOMBRE_ROL?: string
+  NIVEL_ROL?: number | string
+  nivel?: number | string
   ROLES?: {
     ID_ROL: number
     NOMBRE_ROL: string
