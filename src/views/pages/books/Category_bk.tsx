@@ -26,7 +26,7 @@ import {
 } from '@coreui/icons'
 import ModalCate from '@/components/details_bk/category'
 import useCategoria from '@/hooks/rco-libros/useCategoria'
-import { Categoria } from '@/models/rco/categoria'
+import { Categoria } from '@/models/rco/categoria.model'
 import { formatFecha } from '@/utils/dateUtils'
 
 const Category = () => {
@@ -164,7 +164,11 @@ const Category = () => {
                   </div>
                 ) : categoriasFiltradas.length === 0 ? (
                   <div className="text-center text-muted py-5 small">
-                    No se encontraron categorías coincidentes con &quot;{busquedaCategoria}&quot;.
+                    {busquedaCategoria ? (
+                      <>No se encontraron categorías coincidentes con &quot;{busquedaCategoria}&quot;.</>
+                    ) : (
+                      <>No hay categorías registradas en el catálogo.</>
+                    )}
                   </div>
                 ) : (
                   <div className="d-flex flex-column gap-2">

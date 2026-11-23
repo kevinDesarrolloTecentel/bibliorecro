@@ -16,7 +16,8 @@ import {
 } from '@coreui/react-pro'
 import { AceptarInscripcionNew } from '@/Service/tab/Persona'
 import Swal from 'sweetalert2'
-import { usePermissions } from '@/context/PermissionsContext'
+import { showErrorAlert } from '@/utils/errors'
+import { usePermissions } from '@/hooks/auth/usePermissions'
 
 export interface ModalRenovaProps {
   item: any
@@ -56,7 +57,7 @@ const ModalRenova: React.FC<ModalRenovaProps> = ({
     }
   }, [visible])
 
-  const esInactivo = Number(item?.raw?.ESTADO_PERSONA) === 0 || item?.estado === 'Inactivo'
+  const esInactivo = item?.estado === 'Inactivo' || Number(item?.ESTADO_PERSONA) === 0
 
   if (!esInactivo || !canRenovar) {
     return null
@@ -67,58 +68,29 @@ const ModalRenova: React.FC<ModalRenovaProps> = ({
 
     if (!canGuardarRenovacion) {
       setErrorMsg('No tienes permisos para registrar renovaciones de usuarios.')
-      Swal.fire({
-        icon: 'error',
-        title: 'Acceso Denegado',
-        text: 'No tienes permisos para registrar renovaciones de usuarios.',
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
+      showErrorAlert('Acceso Denegado', ['No tienes permisos para registrar renovaciones de usuarios.'])
       return
     }
 
     const tienePermiso = await verificarAccionEnServidor('btn_guardar_renovacion_gestion_usuario')
     if (!tienePermiso) {
       setErrorMsg('No tienes permisos para registrar renovaciones de usuarios.')
-      Swal.fire({
-        icon: 'error',
-        title: 'Acceso Denegado',
-        text: 'No tienes permisos para registrar renovaciones de usuarios.',
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
+      showErrorAlert('Acceso Denegado', ['No tienes permisos para registrar renovaciones de usuarios.'])
       return
     }
 
-    const idPersona = item.id || item.raw?.ID_PERSONA
-    const idInscripcion =
-      item.id_inscripcion ??
-      item.raw?.ID_INSCRIPCION ??
-      item.raw?.inscripciones?.[0]?.ID_INSCRIPCION ??
-      item.inscripciones?.[0]?.ID_INSCRIPCION ??
-      ''
+    const idPersona = item.ID_PERSONA
+    const idInscripcion = item.ID_INSCRIPCION || item.inscripciones?.[0]?.ID_INSCRIPCION || ''
 
     if (!idPersona) {
       setErrorMsg('No se pudo identificar al usuario para la renovación.')
-      Swal.fire({
-        icon: 'error',
-        title: 'Error de identificación',
-        text: 'No se pudo identificar al usuario para la renovación.',
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
+      showErrorAlert('Error de identificación', ['No se pudo identificar al usuario para la renovación.'])
       return
     }
 
     if (!detalle.trim()) {
       setErrorMsg('Por favor escriba el detalle u observaciones de la renovación.')
-      Swal.fire({
-        icon: 'warning',
-        title: 'Campo obligatorio',
-        text: 'El detalle de la renovación es obligatorio. Por favor ingrese las observaciones.',
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
+      showErrorAlert('Campo obligatorio', ['El detalle de la renovación es obligatorio. Por favor ingrese las observaciones.'])
       return
     }
 
@@ -208,7 +180,7 @@ const ModalRenova: React.FC<ModalRenovaProps> = ({
               {item.nombre} {item.apellido}
             </div>
             <div className="text-muted small font-monospace">
-              Identificación: {item.identificacion || item.raw?.IDENTIFICACION_PERSONA || '-'}
+              Identificación: {item.identificacion || item.IDENTIFICACION_PERSONA || '-'}
             </div>
           </div>
           <CForm

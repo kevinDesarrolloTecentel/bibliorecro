@@ -219,7 +219,7 @@ const Inventary: React.FC = () => {
             onTableFilterChange={(busqueda) => libroState.handleBuscarGlobal(busqueda || '')}
             onRowClick={(item: any) => {
               if (!canMostrarInfoLibro) return
-              const id = item?.id ?? item?.ID_LIBROS
+              const id = item?.ID_LIBROS
               if (id) toggleDetails(id)
             }}
             noItemsLabel={
@@ -287,10 +287,10 @@ const Inventary: React.FC = () => {
               ),
               details: (item: any) => {
                 if (!canMostrarInfoLibro) return null
-                const rowId = item.id ?? item.ID_LIBROS
-                const isOpened = details.includes(rowId) || (item.id && details.includes(item.id)) || (item.ID_LIBROS && details.includes(item.ID_LIBROS))
+                const rowId = item.ID_LIBROS
+                const isOpened = details.includes(rowId)
                 const isActivo =
-                  String(item.ESTADO || item.ESTADO_LIBROS || '').toLowerCase().trim() === 'activo' ||
+                  String(item.ESTADO || '').toLowerCase().trim() === 'activo' ||
                   String(item.ESTADO_LIBROS ?? '') === '1'
 
                 return (
@@ -342,7 +342,7 @@ const Inventary: React.FC = () => {
                                     <CIcon icon={cilGlobeAlt} className="me-1 text-secondary" />
                                     País
                                   </span>
-                                  <span className="font-monospace small fw-bold text-body">{item.PAIS_LIBROS || item.Pais || 'No indicado'}</span>
+                                  <span className="font-monospace small fw-bold text-body">{item.PAIS_LIBROS || 'No indicado'}</span>
                                 </CCardBody>
                               </CCard>
                             </CCol>
@@ -390,7 +390,7 @@ const Inventary: React.FC = () => {
                                     <CIcon icon={cilTag} className="me-1 text-secondary" />
                                     Género
                                   </span>
-                                  <span className="font-monospace small fw-bold text-body">{item.NOMBRE_RCOGENERO || item.Genero || 'No tiene Género'}</span>
+                                  <span className="font-monospace small fw-bold text-body">{item.NOMBRE_RCOGENERO || 'No tiene Género'}</span>
                                 </CCardBody>
                               </CCard>
                             </CCol>
@@ -516,7 +516,7 @@ const Inventary: React.FC = () => {
                                       Motivo de la Baja:
                                     </span>
                                     <span className="text-body small fw-medium">
-                                      {item.MOTIVO_BAJA_LIBRO || item.motivo_baja_libro || 'Sin motivo registrado.'}
+                                      {item.MOTIVO_BAJA_LIBRO || 'Sin motivo registrado.'}
                                     </span>
                                   </CCardBody>
                                 </CCard>

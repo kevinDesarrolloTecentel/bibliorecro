@@ -1,5 +1,4 @@
-import { formatFecha } from './dateUtils'
-import { parseDateToTimestamp } from '../hooks/tab-persona/useClienteDs'
+import { formatFecha, parseDateToTimestamp } from './dateUtils'
 
 export interface SancionHistorialItem {
   id?: string | number
@@ -18,12 +17,12 @@ export const sanitizarHistorialSanciones = (lista: any[]): SancionHistorialItem[
   for (const item of lista) {
     if (!item) continue
 
-    const detalle = (item.DETALLE_SANCION || item.MOTIVO_VETO || item.detalle || '').trim()
-    const inicio = formatFecha(item.FECHAINICIO_SANCION || item.FECHA_VETO || item.inicio)
-    const esVeto = Number(item.ESTADO_VETO) === 2 || item.TIENE_VETO_PERMANENTE === 1
-    const fin = esVeto ? 'Indefinido' : formatFecha(item.FECHAFIN_SANCION || item.fin)
-    const id = item.ID_SANCION ?? item.ID_VETO ?? item.id
-    const estado = item.ESTADO_VETO ?? item.ESTADO_SANCION ?? item.estado
+    const detalle = (item.DETALLE_SANCION || item.MOTIVO_VETO || '').trim()
+    const inicio = formatFecha(item.FECHAINICIO_SANCION || item.FECHA_VETO)
+    const esVeto = Number(item.ESTADO_VETO) === 2 || Number(item.TIENE_VETO_PERMANENTE) === 1
+    const fin = esVeto ? 'Indefinido' : formatFecha(item.FECHAFIN_SANCION)
+    const id = item.ID_SANCION ?? item.ID_VETO
+    const estado = item.ESTADO_VETO ?? item.ESTADO_SANCION
 
     // Si no tiene fechas válidas ni es veto indefinido, se descarta para evitar sanciones fantasmas
     const tieneFechasValidas = Boolean(
@@ -41,7 +40,7 @@ export const sanitizarHistorialSanciones = (lista: any[]): SancionHistorialItem[
       fin,
       detalle: motivoFinal,
       estado,
-      rawFin: item.FECHAFIN_SANCION || item.fin,
+      rawFin: item.FECHAFIN_SANCION,
     }
 
     // Evitar duplicados

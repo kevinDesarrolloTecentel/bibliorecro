@@ -9,9 +9,28 @@ import {
   FormErrors,
 } from '@/utils/validations'
 import usePersonas from './usePersonas'
-import { initialPersona, Persona } from '@/models/tab/persona.model'
+import { TabPersona, Persona } from '@/models/tab/persona.model'
 import { PersonasNueva } from '@/Service/tab/Persona'
 import { parseDatePickerValue, formatFecha, calcularEdad } from '@/utils/dateUtils'
+import { showErrorAlert } from '@/utils/errors'
+
+export const initialPersona: TabPersona = {
+  IDENTIFICACION_PERSONA: '',
+  NOMBRE_PERSONA: '',
+  APELLIDO_PERSONA: '',
+  TELEFONO_PERSONA: '',
+  CELULAR_PERSONA: '',
+  CORREO_PERSONA: '',
+  DIRECCION_PERSONA: '',
+  DETALLE_PERSONA: '',
+  FECHA_PERSONA: '',
+  EDAD_PERSONA: '',
+  ID_GENERO: '',
+  ID_TIPOIDENTIFICACION: '',
+  ID_NACIONALIDAD: '',
+  ID_ESTADOCIVIL: '',
+  ESTADO_PERSONA: 1,
+}
 
 export const initialRegisterFormData: Persona = initialPersona
 
@@ -45,7 +64,13 @@ export const usePersonaRegister = ({
   const [previewFoto, setPreviewFoto] = useState<string | null>(null)
   const [datePickerKey, setDatePickerKey] = useState<number>(0)
 
-  const { tiposId, nacionalidades, generos, estadosCiviles, loading: loadingCatalogos } = useCatalogos(true)
+  const {
+    tiposIdentificacion,
+    nacionalidades,
+    generos,
+    estadosCiviles,
+    loading: loadingCatalogos,
+  } = useCatalogos(true)
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -166,19 +191,13 @@ export const usePersonaRegister = ({
     e.preventDefault()
 
     if (!canGuardar) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Acceso Denegado',
-        text: 'No tienes permisos para registrar usuarios.',
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
+      showErrorAlert('Acceso Denegado', ['No tienes permisos para registrar usuarios.'])
       return
     }
 
     const { isValid, errors: validationErrors } = validateAllPersonaRegister(
       formData,
-      formData.FOTO_PERSONA instanceof File ? formData.FOTO_PERSONA : null
+      formData.FOTO_PERSONA instanceof File ? formData.FOTO_PERSONA : null,
     )
 
     if (!isValid) {
@@ -189,24 +208,8 @@ export const usePersonaRegister = ({
       })
       setTouched((prev) => ({ ...prev, ...allTouched }))
 
-      const errorMessages = Object.values(validationErrors)
-        .map((msg) => `<li>${msg}</li>`)
-        .join('')
-
-      Swal.fire({
-        icon: 'warning',
-        title: 'Campos requeridos o inválidos',
-        html: `
-          <div style="text-align: left; font-size: 0.9rem;">
-            <p>Por favor revise los siguientes datos antes de guardar:</p>
-            <ul style="color: #dc3545; padding-left: 1.2rem; line-height: 1.6;">
-              ${errorMessages}
-            </ul>
-          </div>
-        `,
-        confirmButtonColor: '#0d6efd',
-        confirmButtonText: 'Entendido',
-      })
+      const errorMessages = Object.values(validationErrors).filter((msg): msg is string => Boolean(msg))
+      showErrorAlert('Campos requeridos o inválidos', errorMessages)
       return
     }
 
@@ -222,9 +225,9 @@ export const usePersonaRegister = ({
       formDataToSend.append('ID_TIPOIDENTIFICACION', String(formData.ID_TIPOIDENTIFICACION || ''))
       formDataToSend.append('ID_NACIONALIDAD', String(formData.ID_NACIONALIDAD || ''))
       formDataToSend.append('ID_ESTADOCIVIL', String(formData.ID_ESTADOCIVIL || ''))
-      formDataToSend.append('IDENTIFICACION_PERSONA', formData.IDENTIFICACION_PERSONA.trim())
-      formDataToSend.append('NOMBRE_PERSONA', formData.NOMBRE_PERSONA.trim().toUpperCase())
-      formDataToSend.append('APELLIDO_PERSONA', formData.APELLIDO_PERSONA.trim().toUpperCase())
+      formDataToSend.append('IDENTIFICACION_PERSONA', (formData.IDENTIFICACION_PERSONA || '').trim())
+      formDataToSend.append('NOMBRE_PERSONA', (formData.NOMBRE_PERSONA || '').trim().toUpperCase())
+      formDataToSend.append('APELLIDO_PERSONA', (formData.APELLIDO_PERSONA || '').trim().toUpperCase())
       formDataToSend.append('TELEFONO_PERSONA', formData.TELEFONO_PERSONA?.trim() || '')
       formDataToSend.append('CELULAR_PERSONA', formData.CELULAR_PERSONA?.trim() || '')
       formDataToSend.append('CORREO_PERSONA', formData.CORREO_PERSONA?.trim() || '')
@@ -345,7 +348,7 @@ export const usePersonaRegister = ({
     setErrors,
     touched,
     loading: loading || loadingCatalogos,
-    tiposId,
+    tiposIdentificacion,
     nacionalidades,
     generos,
     estadosCiviles,

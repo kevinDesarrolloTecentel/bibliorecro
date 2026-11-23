@@ -136,3 +136,38 @@ export const calcularEdad = (fecha: Date | string | null | undefined): number =>
   return age < 0 ? 0 : age
 }
 
+export const parseDateToTimestamp = (val: any): number => {
+  if (!val) return 0
+  if (val instanceof Date) return isNaN(val.getTime()) ? 0 : val.getTime()
+  if (typeof val === 'number') return isNaN(val) ? 0 : val
+  const s = String(val).trim()
+  if (
+    !s ||
+    s === 'No registrada' ||
+    s === 'Sin inscripción' ||
+    s.startsWith('0000-00-00') ||
+    s.startsWith('1970-01-01') ||
+    s.startsWith('1969-12-31')
+  ) {
+    return 0
+  }
+  const dmy = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/)
+  if (dmy) {
+    const d = new Date(parseInt(dmy[3], 10), parseInt(dmy[2], 10) - 1, parseInt(dmy[1], 10))
+    if (!isNaN(d.getTime())) return d.getTime()
+  }
+  const ymd = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/)
+  if (ymd) {
+    const d = new Date(parseInt(ymd[3], 10), parseInt(ymd[2], 10) - 1, parseInt(ymd[1], 10))
+    if (!isNaN(d.getTime())) return d.getTime()
+  }
+  const yearMatch = s.match(/\b(20[1-3]\d)\b/)
+  if (yearMatch) {
+    const year = parseInt(yearMatch[1], 10)
+    return new Date(year, 0, 1).getTime()
+  }
+  const parsed = new Date(s.replace(' ', 'T')).getTime()
+  if (!isNaN(parsed) && parsed > 0) return parsed
+  return 0
+}
+

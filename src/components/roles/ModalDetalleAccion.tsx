@@ -10,13 +10,14 @@ import {
 } from '@coreui/react-pro'
 import CIcon from '@coreui/icons-react'
 import { cilInfo } from '@coreui/icons'
-import { Accion, Pantalla } from '@/models/adm/permiso.model'
+import { AdminPermiso } from '@/models/adm/permiso.model'
+import { AdminPermisoAccion } from '@/models/adm/permisoAccion.model'
 
 interface ModalDetalleAccionProps {
   visible: boolean
   onClose: () => void
-  accion: Accion | null
-  pantalla?: Pantalla | null
+  accion: AdminPermisoAccion | null
+  pantalla?: AdminPermiso | null
 }
 
 export const ModalDetalleAccion: React.FC<ModalDetalleAccionProps> = ({

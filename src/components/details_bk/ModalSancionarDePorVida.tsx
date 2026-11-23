@@ -16,8 +16,8 @@ import CIcon from '@coreui/icons-react'
 import { cilBan, cilSave } from '@coreui/icons'
 import Swal from 'sweetalert2'
 import { SancionarDePorVida } from '@/Service/rco/Sanciones'
-import { SancionItem } from '@/models/rco/sancion.model'
-import { usePermissions } from '@/context/PermissionsContext'
+import { SancionItem } from '@/slices/sancionSlice'
+import { usePermissions } from '@/hooks/auth/usePermissions'
 
 interface ModalSancionarDePorVidaProps {
   visible: boolean
@@ -77,7 +77,7 @@ export const ModalSancionarDePorVida: React.FC<ModalSancionarDePorVidaProps> = (
 
     if (!item) return
 
-    const idPersona = item.id_persona ?? item.ID_PERSONA ?? item.raw?.ID_PERSONA
+    const idPersona = item.ID_PERSONA
     if (!idPersona) {
       setErrorMsg('No se pudo identificar a la persona.')
       return
@@ -91,12 +91,9 @@ export const ModalSancionarDePorVida: React.FC<ModalSancionarDePorVidaProps> = (
     setGuardando(true)
     try {
       await SancionarDePorVida({
-        ID_INSCRIPCION: item.ID_INSCRIPCION ?? item.raw?.ID_INSCRIPCION,
+        ID_INSCRIPCION: item.ID_INSCRIPCION,
         MOTIVO_VETO: motivo.trim(),
-        id_persona: idPersona,
         ID_PERSONA: idPersona,
-        motivo: motivo.trim(),
-        detalle: motivo.trim(),
       })
 
       Swal.fire({

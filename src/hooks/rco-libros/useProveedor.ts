@@ -1,19 +1,27 @@
-import { Proveedor } from "@/models/rco/proveedor";
-import { ActualizarProvLib, EliminarProvLib, ListarProveedorLib, NuevoProvLib } from "@/Service/rco/ProveedorLib";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import Swal from "sweetalert2";
-import { usePermissions } from "@/context/PermissionsContext";
-
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
+import Swal from 'sweetalert2'
+import { Proveedor } from '@/models/rco/proveedor.model'
+import { ActualizarProvLib, EliminarProvLib, ListarProveedorLib, NuevoProvLib } from '@/Service/rco/ProveedorLib'
+import { usePermissions } from '@/hooks/auth/usePermissions'
+import { RootState, AppDispatch } from '@/store'
+import {
+  setProveedores,
+  setProveedorSeleccionado,
+  addProveedor,
+  updateProveedor,
+  removeProveedor,
+} from '@/slices/detallesLibroSlice'
 
 export type ProveedorItem = Proveedor
 
-export interface UseProveedorProps{
+export interface UseProveedorProps {
   autoFetch?: boolean
   visible?: boolean
   setVisible?: (visible?: boolean) => void
   onProveedorCreado?: (proveedorNuevo: Proveedor) => void
   onProveedorActualizado?: (proveedorActualizado: Proveedor) => void
-  onProveedorEliminado?: (id:number | string) => void
+  onProveedorEliminado?: (id: number | string) => void
 }
 
 export const useProveedor = ({
@@ -23,7 +31,17 @@ export const useProveedor = ({
   onProveedorCreado,
   onProveedorActualizado,
   onProveedorEliminado,
-}: UseProveedorProps ={}) => {
+}: UseProveedorProps = {}) => {
+  const dispatch = useDispatch<AppDispatch>()
+  const { proveedores: listaProveedores, proveedorSeleccionado } = useSelector(
+    (state: RootState) => state.detallesLibro,
+  )
+
+  const proveedorSeleccionadoRef = useRef(proveedorSeleccionado)
+  useEffect(() => {
+    proveedorSeleccionadoRef.current = proveedorSeleccionado
+  }, [proveedorSeleccionado])
+
   const { canDoAction, verificarAccionEnServidor } = usePermissions()
 
   const canCrearProveedor = canDoAction('btn_crear_proveedor')
@@ -37,69 +55,142 @@ export const useProveedor = ({
   const isControlled = typeof visibleProp === 'boolean'
   const isVisible = isControlled ? visibleProp : internalVisible
 
-  const [listaProveedores, setListaProveedores] = useState<Proveedor[]>([])
   const [loadingProveedor, setLoadingProveedor] = useState(false)
   const [busquedaProveedor, setBusquedaProveedor] = useState('')
-  const [proveedorSeleccionado, setProveedorSeleccionado] = useState<Proveedor | null>(null)
   const [proveedorEnEdicion, setProveedorEnEdicion] = useState<Proveedor | null>(null)
-
   const [nombreProveedor, setNombreProveedor] = useState('')
   const [guardando, setGuardando] = useState(false)
 
-  const fetchProveedores = useCallback( async(preserveSelection = true) => {
-    setLoadingProveedor(true)
-    try{
-      const response =  await ListarProveedorLib()
-      let rawList: any [] = [] 
-      if(Array.isArray(response)){
-        rawList = response
-      }else if(Array.isArray(response?.data)){
-        rawList = response.data
-      }else if(Array.isArray(response?.data?.data)){
-        rawList = response.data.data
-      }else if(Array.isArray(response?.proveedor)){
-        rawList = response.proveedor
-      }
+  // Paginación 100% de servidor
+  const [paginaActual, setPaginaActual] = useState(1)
+  const [totalPaginas, setTotalPaginas] = useState(1)
+  const [totalProveedores, setTotalProveedores] = useState(0)
 
-      const parsedList: Proveedor[] = rawList.map((item:any, index:number) =>({
-        id: item.ID_PROVEEDOR ?? item.id ?? index + 1,
-        ID_PROVEEDOR: item.ID_PROVEEDOR ?? item.id ?? index + 1,
-        NOMBRE_PROVEEDOR: String(item.NOMBRE_PROVEEDOR ??  item.nombre).trim(),
-        FECHAINGRESO_PROVEEDOR: item.FECHAINGRESO_PROVEEDOR ?? item.fecha_ingreso ?? null
-      }))
+  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null)
+  const isFirstRender = useRef(true)
 
-      setListaProveedores(parsedList)
-      if (preserveSelection) {
-        setProveedorSeleccionado((prev) => {
-          if (!prev) return null
-          const prevId = String(prev.ID_PROVEEDOR ?? prev.id)
-          const matched = parsedList.find(
-            (c) => String(c.ID_PROVEEDOR ?? c.id) === prevId, 
-          )
-          return matched || null
-        })
+  const handleSetProveedorSeleccionado = useCallback(
+    (prov: Proveedor | null | ((prev: Proveedor | null) => Proveedor | null)) => {
+      if (typeof prov === 'function') {
+        dispatch(setProveedorSeleccionado(prov(proveedorSeleccionadoRef.current)))
       } else {
-        setProveedorSeleccionado(null)
+        dispatch(setProveedorSeleccionado(prov))
       }
-    }catch(error: any){
-      console.error('Error al cargar proveedores:', error)
-    } finally{
-      setLoadingProveedor(false)
-    }
-  },[])
+    },
+    [dispatch],
+  )
 
-  useEffect(()=>{
-    if(autoFetch){
-      fetchProveedores()
+  const handleSetListaProveedores = useCallback(
+    (list: Proveedor[] | ((prev: Proveedor[]) => Proveedor[])) => {
+      if (typeof list === 'function') {
+        dispatch(setProveedores(list(listaProveedores)))
+      } else {
+        dispatch(setProveedores(list))
+      }
+    },
+    [dispatch, listaProveedores],
+  )
+
+  const fetchProveedores = useCallback(
+    async (page: number = 1, searchQuery: string = '', preserveSelection: boolean = true) => {
+      setLoadingProveedor(true)
+      try {
+        const q = searchQuery.trim()
+        const response = await ListarProveedorLib({ page, search: q, per_page: 10 })
+        let rawList: any[] = []
+        let total = 0
+        let lastPage = 1
+
+        if (response && response.data) {
+          rawList = Array.isArray(response.data) ? response.data : []
+          total = Number(response.total ?? rawList.length)
+          lastPage = Number(response.last_page ?? 1)
+        } else if (Array.isArray(response)) {
+          rawList = response
+          total = response.length
+          lastPage = 1
+        } else if (Array.isArray(response?.proveedor)) {
+          rawList = response.proveedor
+          total = rawList.length
+          lastPage = 1
+        }
+
+        // Mapeo canónico exacto de BD (sin parches ni alias)
+        const parsedList: Proveedor[] = rawList.map((item: any) => ({
+          id: item.ID_PROVEEDOR,
+          ID_PROVEEDOR: item.ID_PROVEEDOR,
+          NOMBRE_PROVEEDOR: String(item.NOMBRE_PROVEEDOR ?? '').trim(),
+          FECHAINGRESO_PROVEEDOR: item.FECHAINGRESO_PROVEEDOR ?? null,
+        }))
+
+        dispatch(setProveedores(parsedList))
+        setTotalProveedores(total)
+        setTotalPaginas(Math.max(1, lastPage))
+        setPaginaActual(page)
+
+        if (preserveSelection && proveedorSeleccionadoRef.current) {
+          const prevId = String(
+            proveedorSeleccionadoRef.current.ID_PROVEEDOR ??
+            proveedorSeleccionadoRef.current.id,
+          )
+          const matched = parsedList.find(
+            (c) => String(c.ID_PROVEEDOR ?? c.id) === prevId,
+          )
+          dispatch(setProveedorSeleccionado(matched || null))
+        } else if (!preserveSelection) {
+          dispatch(setProveedorSeleccionado(null))
+        }
+      } catch (error: any) {
+        console.error('Error al cargar proveedores desde la API:', error)
+      } finally {
+        setLoadingProveedor(false)
+      }
+    },
+    [dispatch],
+  )
+
+  // Carga inicial
+  useEffect(() => {
+    if (autoFetch) {
+      fetchProveedores(1, '')
     }
-  }, [autoFetch,fetchProveedores])
+  }, [autoFetch, fetchProveedores])
+
+  // Búsqueda con debounce en servidor
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      return
+    }
+
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current)
+    }
+    searchDebounceRef.current = setTimeout(() => {
+      fetchProveedores(1, busquedaProveedor, true)
+    }, 400)
+
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current)
+      }
+    }
+  }, [busquedaProveedor, fetchProveedores])
+
+  const handlePageChange = useCallback(
+    (page: number) => {
+      if (page >= 1 && page <= totalPaginas && page !== paginaActual) {
+        fetchProveedores(page, busquedaProveedor, true)
+      }
+    },
+    [fetchProveedores, busquedaProveedor, totalPaginas, paginaActual],
+  )
 
   const handleRecargar = useCallback(async () => {
     setBusquedaProveedor('')
-    setPaginaActual(1)
-    setProveedorSeleccionado(null)
-    await fetchProveedores(false)
-  }, [fetchProveedores])
+    dispatch(setProveedorSeleccionado(null))
+    await fetchProveedores(1, '', false)
+  }, [fetchProveedores, dispatch])
 
   const handleOpen = useCallback(
     (proveedor?: Proveedor) => {
@@ -115,7 +206,7 @@ export const useProveedor = ({
           return
         }
         setProveedorEnEdicion(proveedor)
-        setNombreProveedor(String(proveedor.NOMBRE_PROVEEDOR || ''))
+        setNombreProveedor(proveedor.NOMBRE_PROVEEDOR || '')
       } else {
         if (!canCrearProveedor) {
           Swal.fire({
@@ -137,7 +228,7 @@ export const useProveedor = ({
         setInternalVisible(true)
       }
     },
-    [setVisibleProp, canEditarProveedor, canCrearProveedor],
+    [canCrearProveedor, canEditarProveedor, setVisibleProp],
   )
 
   const handleClose = useCallback(() => {
@@ -150,51 +241,6 @@ export const useProveedor = ({
     setNombreProveedor('')
   }, [setVisibleProp])
 
-  const proveedoresFiltrados = useMemo(() => {
-    const Sorted = [...listaProveedores].sort((a, b) => {
-      const numA = Number(a.ID_PROVEEDOR ?? a.id)
-      const numB = Number(b.ID_PROVEEDOR ?? b.id)
-      if (!isNaN(numA) && !isNaN(numB)) {
-        return numA - numB
-      }
-      return String(a.NOMBRE_PROVEEDOR).localeCompare(String(b.NOMBRE_PROVEEDOR), undefined, {
-        numeric: true,
-      })
-    })
-
-    if (!busquedaProveedor.trim()) return Sorted
-    const q = busquedaProveedor.toLocaleLowerCase().trim()
-    return Sorted.filter((prov) => {
-      const nombre = (prov.NOMBRE_PROVEEDOR || '').toLocaleLowerCase()
-      const id = String(prov.ID_PROVEEDOR ?? prov.id ?? '').toLocaleLowerCase()
-      return nombre.includes(q) || id.includes(q)
-    })
-  }, [busquedaProveedor, listaProveedores])
-
-  const [paginaActual, setPaginaActual] = useState(1)
-  const itemsPorPagina = 10
-
-  useEffect(() => {
-    setPaginaActual(1)
-  }, [busquedaProveedor])
-
-  const totalPaginas = Math.max(1, Math.ceil(proveedoresFiltrados.length / itemsPorPagina))
-
-  useEffect(() => {
-    if (paginaActual > totalPaginas) {
-      setPaginaActual(totalPaginas)
-    }
-  }, [totalPaginas, paginaActual])
-
-  const proveedoresPaginados = useMemo(() => {
-    const start = (paginaActual - 1) * itemsPorPagina
-    return proveedoresFiltrados.slice(start, start + itemsPorPagina)
-  }, [proveedoresFiltrados, paginaActual, itemsPorPagina])
-
-  const handlePageChange = useCallback((page: number) => {
-    setPaginaActual(page)
-  }, [])
-
   const handleGuardarProveedor = useCallback(
     async (e?: React.FormEvent) => {
       if (e) e.preventDefault()
@@ -202,7 +248,7 @@ export const useProveedor = ({
       if (!nombreProveedor.trim()) {
         Swal.fire({
           icon: 'warning',
-          title: 'Campos requeridos',
+          title: 'Campo requerido',
           text: 'Por favor ingrese el nombre del proveedor.',
           confirmButtonColor: '#dc3545',
           confirmButtonText: 'Entendido',
@@ -261,6 +307,7 @@ export const useProveedor = ({
         const payload = {
           NOMBRE_PROVEEDOR: nombreProveedor.trim(),
         }
+
         if (proveedorEnEdicion) {
           const id = proveedorEnEdicion.ID_PROVEEDOR ?? proveedorEnEdicion.id
           await ActualizarProvLib(id, payload)
@@ -273,12 +320,14 @@ export const useProveedor = ({
             showConfirmButton: false,
           })
 
-          await fetchProveedores()
+          const proveedorActualizado: Proveedor = {
+            ...proveedorEnEdicion,
+            ...payload,
+          }
+          dispatch(updateProveedor(proveedorActualizado))
+          await fetchProveedores(paginaActual, busquedaProveedor)
           if (onProveedorActualizado) {
-            onProveedorActualizado({
-              ...proveedorEnEdicion,
-              ...payload,
-            })
+            onProveedorActualizado(proveedorActualizado)
           }
         } else {
           const res = await NuevoProvLib(payload)
@@ -291,16 +340,16 @@ export const useProveedor = ({
             showConfirmButton: false,
           })
 
-          await fetchProveedores()
+          const proveedorNuevo: Proveedor = res?.data ||
+            res || {
+              id: Date.now(),
+              ID_PROVEEDOR: Date.now(),
+              ...payload,
+            }
+          dispatch(addProveedor(proveedorNuevo))
+          await fetchProveedores(1, '')
           if (onProveedorCreado) {
-            onProveedorCreado(
-              res?.data ||
-                res || {
-                  id: Date.now(),
-                  ID_PROVEEDOR: Date.now(),
-                  ...payload,
-                },
-            )
+            onProveedorCreado(proveedorNuevo)
           }
         }
 
@@ -327,10 +376,14 @@ export const useProveedor = ({
       proveedorEnEdicion,
       canActualizarProveedor,
       canGuardarProveedor,
+      dispatch,
       fetchProveedores,
       handleClose,
       onProveedorActualizado,
       onProveedorCreado,
+      paginaActual,
+      busquedaProveedor,
+      verificarAccionEnServidor,
     ],
   )
 
@@ -347,7 +400,7 @@ export const useProveedor = ({
         return
       }
 
-      const prov = provParam || proveedorSeleccionado
+      const prov = provParam || proveedorSeleccionadoRef.current
       if (!prov) return
 
       const id = prov.ID_PROVEEDOR ?? prov.id
@@ -386,54 +439,67 @@ export const useProveedor = ({
             timer: 1800,
             showConfirmButton: false,
           })
+          dispatch(removeProveedor(id))
           if (
-            proveedorSeleccionado &&
-            String(proveedorSeleccionado.ID_PROVEEDOR ?? proveedorSeleccionado.id) === String(id)
+            proveedorSeleccionadoRef.current &&
+            String(
+              proveedorSeleccionadoRef.current.ID_PROVEEDOR ??
+              proveedorSeleccionadoRef.current.id,
+            ) === String(id)
           ) {
-            setProveedorSeleccionado(null)
+            dispatch(setProveedorSeleccionado(null))
           }
-          await fetchProveedores()
+          await fetchProveedores(paginaActual, busquedaProveedor)
           if (onProveedorEliminado) {
             onProveedorEliminado(id)
           }
         } catch (error: any) {
-          const smg =
+          const msg =
             error?.response?.data?.message ||
             'Error al intentar eliminar el proveedor'
           Swal.fire({
             icon: 'error',
             title: 'Error al eliminar',
-            text: smg,
+            text: msg,
             confirmButtonColor: '#dc3545',
             confirmButtonText: 'Entendido',
           })
         }
       }
     },
-    [proveedorSeleccionado, canEliminarProveedor, fetchProveedores, onProveedorEliminado],
+    [
+      canEliminarProveedor,
+      dispatch,
+      fetchProveedores,
+      paginaActual,
+      busquedaProveedor,
+      onProveedorEliminado,
+      verificarAccionEnServidor,
+    ],
   )
 
   return {
     isVisible,
+    isControlled,
     handleOpen,
     handleClose,
     onProveedorCreado,
     onProveedorActualizado,
     onProveedorEliminado,
     listaProveedores,
-    setListaProveedores,
+    setListaProveedores: handleSetListaProveedores,
     loadingProveedor,
     setLoadingProveedor,
     busquedaProveedor,
     setBusquedaProveedor,
     proveedorSeleccionado,
-    setProveedorSeleccionado,
+    setProveedorSeleccionado: handleSetProveedorSeleccionado,
     proveedorEnEdicion,
     setProveedorEnEdicion,
     nombreProveedor,
     setNombreProveedor,
-    proveedoresFiltrados,
-    proveedoresPaginados,
+    proveedoresFiltrados: listaProveedores,
+    proveedoresPaginados: listaProveedores,
     handleGuardarProveedor,
     handleEliminarProveedor,
     guardando,
@@ -441,8 +507,8 @@ export const useProveedor = ({
     handleRecargar,
     paginaActual,
     totalPaginas,
-    totalProveedores: listaProveedores.length,
-    totalFiltrados: proveedoresFiltrados.length,
+    totalProveedores,
+    totalFiltrados: totalProveedores,
     handlePageChange,
     canCrearProveedor,
     canGuardarProveedor,

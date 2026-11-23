@@ -1,26 +1,33 @@
 import { useState, useCallback } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
 import Swal from 'sweetalert2'
+import { RootState, AppDispatch } from '@/store'
 import { Caducados } from '@/Service/rco/Prestamos'
 import { STORAGE_BASE_URL, descargarArchivo } from '@/utils/imageUtils'
-import { usePermissions } from '@/context/PermissionsContext'
+import { usePermissions } from '@/hooks/auth/usePermissions'
+import {
+  setReporteActivo,
+  limpiarReporte,
+  PrestamoReporteItem,
+} from '@/slices/reporteSlice'
 
 export { STORAGE_BASE_URL, descargarArchivo }
-
-import { PrestamoReporteItem } from '@/models/reportes/prestamos'
-
 export type { PrestamoReporteItem }
 
 export const useReporteNoDevueltosDanados = () => {
-  const { canDoAction, verificarAccionEnServidor } = usePermissions()
-  const canGenerarLibrosNoDevueltos = canDoAction('btn_generar_libros_no_devueltos')
-  const canDescargarLibrosNoDevueltos = canDoAction('btn_descargar_libros_no_devueltos')
+  const dispatch = useDispatch<AppDispatch>()
+  const reporteState = useSelector((state: RootState) => state.reportes)
 
   const [fechaDesde, setFechaDesde] = useState<string>('')
   const [fechaHasta, setFechaHasta] = useState<string>('')
   const [prestamos, setPrestamos] = useState<PrestamoReporteItem[]>([])
-  const [isLoading, setIsLoading] = useState<boolean>(false)
   const [excelLink, setExcelLink] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState<boolean>(false)
   const [haBuscado, setHaBuscado] = useState<boolean>(false)
+
+  const { canDoAction, verificarAccionEnServidor } = usePermissions()
+  const canGenerarLibrosNoDevueltos = canDoAction('btn_generar_libros_no_devueltos')
+  const canDescargarLibrosNoDevueltos = canDoAction('btn_descargar_libros_no_devueltos')
 
   const handleGetCaducados = useCallback(async () => {
     if (!canGenerarLibrosNoDevueltos) {
@@ -73,6 +80,7 @@ export const useReporteNoDevueltosDanados = () => {
 
     setPrestamos([])
     setExcelLink(null)
+    dispatch(limpiarReporte())
 
     try {
       const params = {
@@ -91,11 +99,20 @@ export const useReporteNoDevueltosDanados = () => {
         (p: PrestamoReporteItem) => p.ESTADOINSCRIPCION_PERSONA !== 1,
       )
 
-      setPrestamos(filtrados)
       const rutaExcel: string | null = data?.excel?.nombre || data?.excel_path || null
-      setExcelLink(rutaExcel)      
+
+      setPrestamos(filtrados)
+      setExcelLink(rutaExcel)
       setHaBuscado(true)
 
+      dispatch(
+        setReporteActivo({
+          tipoReporte: 'prestamos_no_devueltos',
+          archivoDescarga: rutaExcel,
+          total: filtrados.length,
+          filtros: { fechaDesde, fechaHasta },
+        }),
+      )
 
       if (filtrados.length === 0) {
         Swal.fire({
@@ -108,9 +125,10 @@ export const useReporteNoDevueltosDanados = () => {
       }
     } catch (error: any) {
       setHaBuscado(true)
-      console.error('Error al obtener libros no devueltos y dañados', error)
+      console.error('Error al obtener libros no devueltos o dañados', error)
       setPrestamos([])
       setExcelLink(null)
+      dispatch(limpiarReporte())
       const respData = error?.response?.data
       const errStr = typeof respData === 'string' ? respData : JSON.stringify(respData || '')
       const errorMsg = error?.response?.data?.message || error?.message || ''
@@ -144,7 +162,7 @@ export const useReporteNoDevueltosDanados = () => {
     } finally {
       setIsLoading(false)
     }
-  }, [canGenerarLibrosNoDevueltos, fechaDesde, fechaHasta])
+  }, [canGenerarLibrosNoDevueltos, fechaDesde, fechaHasta, verificarAccionEnServidor, dispatch])
 
   const handleDescargarExcel = useCallback(async () => {
     if (!canDescargarLibrosNoDevueltos) {
@@ -170,10 +188,11 @@ export const useReporteNoDevueltosDanados = () => {
       return
     }
 
-    if (excelLink) {
-      await descargarArchivo(`${STORAGE_BASE_URL}/prestamos/${excelLink}`)
+    const downloadLink = excelLink || reporteState.archivoDescarga
+    if (downloadLink) {
+      await descargarArchivo(`${STORAGE_BASE_URL}/prestamos/${downloadLink}`)
     }
-  }, [canDescargarLibrosNoDevueltos, excelLink, verificarAccionEnServidor])
+  }, [canDescargarLibrosNoDevueltos, excelLink, reporteState.archivoDescarga, verificarAccionEnServidor])
 
   const handleReset = useCallback(() => {
     setFechaDesde('')
@@ -181,7 +200,8 @@ export const useReporteNoDevueltosDanados = () => {
     setPrestamos([])
     setExcelLink(null)
     setHaBuscado(false)
-  }, [])
+    dispatch(limpiarReporte())
+  }, [dispatch])
 
   return {
     fechaDesde,

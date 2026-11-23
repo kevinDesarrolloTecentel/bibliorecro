@@ -1,22 +1,32 @@
-import { STORAGE_BASE_URL, descargarArchivo } from "@/utils/imageUtils"
-import { librosBaja } from "@/Service/rco/Libros"
-import { useCallback, useState } from "react"
-import Swal from "sweetalert2"
-import { usePermissions } from "@/context/PermissionsContext"
-import { LibroInventarioItem } from "@/models/reportes/inventario"
+import { useState, useCallback } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
+import Swal from 'sweetalert2'
+import { RootState, AppDispatch } from '@/store'
+import { STORAGE_BASE_URL, descargarArchivo } from '@/utils/imageUtils'
+import { librosBaja } from '@/Service/rco/Libros'
+import { usePermissions } from '@/hooks/auth/usePermissions'
+import {
+  setReporteActivo,
+  limpiarReporte,
+  LibroInventarioItem,
+} from '@/slices/reporteSlice'
 
+export { STORAGE_BASE_URL, descargarArchivo }
 export type { LibroInventarioItem }
 
 export const useReporteLibrosBaja = () => {
-  const { canDoAction, verificarAccionEnServidor } = usePermissions()
-  const canGenerarLibrosBaja = canDoAction('btn_generar_libros_baja')
-  const canDescargarLibrosBaja = canDoAction('btn_descargar_libros_baja')
+  const dispatch = useDispatch<AppDispatch>()
+  const reporteState = useSelector((state: RootState) => state.reportes)
 
   const [anoBaja, setAnoBaja] = useState<string>('')
   const [libros, setLibros] = useState<LibroInventarioItem[]>([])
-  const [isLoading, setIsLoading] = useState<boolean>(false)
   const [excelLink, setExcelLink] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState<boolean>(false)
   const [haBuscado, setHaBuscado] = useState<boolean>(false)
+
+  const { canDoAction, verificarAccionEnServidor } = usePermissions()
+  const canGenerarLibrosBaja = canDoAction('btn_generar_libros_baja')
+  const canDescargarLibrosBaja = canDoAction('btn_descargar_libros_baja')
 
   const handleGetLibrosBaja = useCallback(async () => {
     if (!canGenerarLibrosBaja) {
@@ -58,6 +68,7 @@ export const useReporteLibrosBaja = () => {
 
     setLibros([])
     setExcelLink(null)
+    dispatch(limpiarReporte())
 
     try {
       const params = {
@@ -73,16 +84,42 @@ export const useReporteLibrosBaja = () => {
             : []
 
       const librosFiltrados: LibroInventarioItem[] = rawList
-        .filter((item: LibroInventarioItem) => item.ESTADO_LIBRO !== 1)
+        .filter((item: any) => item.ESTADO_LIBRO !== 1)
+        .map((item: any) => ({
+          ...item,
+          ID_LIBROS: item.ID_LIBROS,
+          ISBN_LIBROS: item.ISBN_LIBROS,
+          TITULO_LIBROS: item.TITULO_LIBROS,
+          CODIGODEBARRAS_LIBROS: item.CODIGODEBARRAS_LIBROS,
+          TITULOTEJUELO_LIBROS: item.TITULOTEJUELO_LIBROS,
+          AUTORTEJUELO_LIBROS: item.AUTORTEJUELO_LIBROS,
+          NOMBRE_AUTOR: item.NOMBRE_AUTOR,
+          NOMBRE_CATEGORIA: item.NOMBRE_CATEGORIA,
+          NOMBRE_EDITORIAL: item.NOMBRE_EDITORIAL,
+          PRECIO_LIBROS: item.PRECIO_LIBROS,
+          FECHABAJA_LIBROS: item.FECHABAJA_LIBROS,
+          MOTIVO_BAJA: item.MOTIVO_BAJA,
+          ESTADO_LIBRO: item.ESTADO_LIBRO,
+        }))
         .sort(
           (a: LibroInventarioItem, b: LibroInventarioItem) =>
             Number(b.ESTADO_LIBRO || 0) - Number(a.ESTADO_LIBRO || 0),
         )
 
-      setLibros(librosFiltrados)
       const rutaExcel: string | null = data?.excel?.nombre || data?.excel_path || null
-      setExcelLink(rutaExcel)      
+
+      setLibros(librosFiltrados)
+      setExcelLink(rutaExcel)
       setHaBuscado(true)
+
+      dispatch(
+        setReporteActivo({
+          tipoReporte: 'libros_baja',
+          archivoDescarga: rutaExcel,
+          total: librosFiltrados.length,
+          filtros: { anoBaja: anoBaja.trim() },
+        }),
+      )
 
       if (librosFiltrados.length === 0) {
         Swal.fire({
@@ -98,6 +135,7 @@ export const useReporteLibrosBaja = () => {
       console.error('Error al obtener libros dados de baja', error)
       setLibros([])
       setExcelLink(null)
+      dispatch(limpiarReporte())
       const respData = error?.response?.data
       const errStr = typeof respData === 'string' ? respData : JSON.stringify(respData || '')
       const errorMsg = error?.response?.data?.message || error?.message || ''
@@ -130,7 +168,7 @@ export const useReporteLibrosBaja = () => {
     } finally {
       setIsLoading(false)
     }
-  }, [canGenerarLibrosBaja, anoBaja, verificarAccionEnServidor])
+  }, [canGenerarLibrosBaja, anoBaja, verificarAccionEnServidor, dispatch])
 
   const handleDescargarExcel = useCallback(async () => {
     if (!canDescargarLibrosBaja) {
@@ -156,38 +194,34 @@ export const useReporteLibrosBaja = () => {
       return
     }
 
-    if (excelLink) {
-      await descargarArchivo(`${STORAGE_BASE_URL}/libros/${excelLink}`)
+    const downloadLink = excelLink || reporteState.archivoDescarga
+    if (downloadLink) {
+      await descargarArchivo(`${STORAGE_BASE_URL}/libros/${downloadLink}`)
     }
-  }, [canDescargarLibrosBaja, excelLink, verificarAccionEnServidor])
+  }, [canDescargarLibrosBaja, excelLink, reporteState.archivoDescarga, verificarAccionEnServidor])
 
   const handleReset = useCallback(() => {
     setAnoBaja('')
     setLibros([])
     setExcelLink(null)
     setHaBuscado(false)
-  }, [])
+    dispatch(limpiarReporte())
+  }, [dispatch])
 
   return {
     anoBaja,
     setAnoBaja,
-    handleGetLibrosBaja,
-    handleDescargarExcel,
-    handleReset,
     libros,
     isLoading,
     excelLink,
     haBuscado,
+    handleGetLibrosBaja,
+    handleDescargarExcel,
+    handleReset,
     canGenerarLibrosBaja,
     canDescargarLibrosBaja,
     verificarAccionEnServidor,
   }
 }
 
-export const useReporteInventario = () => {
-  const baja = useReporteLibrosBaja()
-
-  return {
-    baja,
-  }
-}
+export default useReporteLibrosBaja

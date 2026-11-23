@@ -14,15 +14,12 @@ const ModalEdit = ({ userState, onUserChanged }: ModalEditProps) => {
 
     const isBusy = userState.guardando || actionLoading !== null
 
-    const isActivo =
-        String(userState.editFormData.estado).toLowerCase() === 'activo' ||
-        String(userState.editFormData.estado) === '1'
-
+    const isActivo = Number(userState.editFormData.ESTADO_USUARIO) === 1
 
     const handleGuardar = async () => {
         setActionLoading('actualizar')
         try {
-            const ok = await userState.handleActualizarUsuario(userState.editFormData.id, userState.editFormData)
+            const ok = await userState.handleActualizarUsuario(userState.editFormData.ID_USUARIO!, userState.editFormData)
             if (ok) {
                 userState.setModalEdit(false)
                 if (onUserChanged) onUserChanged()
@@ -36,8 +33,8 @@ const ModalEdit = ({ userState, onUserChanged }: ModalEditProps) => {
         setActionLoading('eliminar')
         try {
             const ok = await userState.handleEliminarUsuario(
-                userState.editFormData.id,
-                userState.editFormData.nombres || userState.editFormData.usuario
+                userState.editFormData.ID_USUARIO!,
+                userState.editFormData.NOMBRES_USUARIO || userState.editFormData.NICK_USUARIO || ''
             )
             if (ok) {
                 userState.setModalEdit(false)
@@ -51,16 +48,7 @@ const ModalEdit = ({ userState, onUserChanged }: ModalEditProps) => {
     const handleCambiarEstado = async () => {
         setActionLoading('estado')
         try {
-            const ok = await userState.cambiarEstadoUsuario({
-                id: userState.editFormData.id,
-                Usuario: userState.editFormData.usuario,
-                usuario: userState.editFormData.usuario,
-                Nombres: userState.editFormData.nombres,
-                nombres: userState.editFormData.nombres,
-                Estado: userState.editFormData.estado,
-                estado: userState.editFormData.estado,
-                Rol: userState.editFormData.rol,
-            })
+            const ok = await userState.cambiarEstadoUsuario(userState.editFormData)
             if (ok) {
                 userState.setModalEdit(false)
                 if (onUserChanged) onUserChanged()
@@ -90,8 +78,8 @@ const ModalEdit = ({ userState, onUserChanged }: ModalEditProps) => {
                             id="editUsuario"
                             label="Usuario"
                             disabled
-                            value={userState.editFormData.usuario}
-                            onChange={(e) => userState.setEditFormData({ ...userState.editFormData, usuario: e.target.value })}
+                            value={userState.editFormData.NICK_USUARIO || ''}
+                            onChange={(e) => userState.setEditFormData({ ...userState.editFormData, NICK_USUARIO: e.target.value })}
                         />
                     </CCol>
                     <CCol md={6}>
@@ -103,8 +91,8 @@ const ModalEdit = ({ userState, onUserChanged }: ModalEditProps) => {
                                 type={userState.showPassword ? 'text' : 'password'}
                                 placeholder="Dejar en blanco para conservar"
                                 maxLength={25}
-                                value={userState.editFormData.password}
-                                onChange={(e) => userState.setEditFormData({ ...userState.editFormData, password: e.target.value })}
+                                value={userState.editFormData.PASSWORD_USUARIO || ''}
+                                onChange={(e) => userState.setEditFormData({ ...userState.editFormData, PASSWORD_USUARIO: e.target.value })}
                             />
                             {userState.verContraseñaUsuario && (
                                 <CButton
@@ -126,10 +114,10 @@ const ModalEdit = ({ userState, onUserChanged }: ModalEditProps) => {
                         <CFormInput
                             id="editNombres"
                             maxLength={25}
-                            value={userState.editFormData.nombres}
+                            value={userState.editFormData.NOMBRES_USUARIO || ''}
                             onChange={(e) => {
                                 const val = e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '').slice(0, 25)
-                                userState.setEditFormData({ ...userState.editFormData, nombres: val })
+                                userState.setEditFormData({ ...userState.editFormData, NOMBRES_USUARIO: val })
                             }}
                         />
                     </CCol>

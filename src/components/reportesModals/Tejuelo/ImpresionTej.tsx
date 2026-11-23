@@ -75,24 +75,9 @@ const ImpresionTej: React.FC = () => {
     const q = filtroTexto.trim().toLowerCase()
     if (!q) return libros
     return libros.filter((libro) => {
-      const codigo = String(
-        libro.CODIGO_CATEGORIA ||
-        libro.codigo_categoria ||
-        libro.CODIGO_LIBRO ||
-        libro.codigo || ''
-      ).toLowerCase()
-      const autor = String(
-        libro.AUTORTEJUELO_LIBROS ||
-        libro.autortejuelo_libros ||
-        libro.AUTOR_LIBRO ||
-        libro.autor || ''
-      ).toLowerCase()
-      const titulo = String(
-        libro.TITULOTEJUELO_LIBROS ||
-        libro.titulotejuelo_libros ||
-        libro.TITULO_LIBRO ||
-        libro.titulo || ''
-      ).toLowerCase()
+      const codigo = String(libro.CODIGO_CATEGORIA || '').toLowerCase()
+      const autor = String(libro.AUTORTEJUELO_LIBROS || '').toLowerCase()
+      const titulo = String(libro.TITULOTEJUELO_LIBROS || '').toLowerCase()
       return codigo.includes(q) || autor.includes(q) || titulo.includes(q)
     })
   }, [libros, filtroTexto])
@@ -323,24 +308,9 @@ const ImpresionTej: React.FC = () => {
                   }}
                 >
                   {tejuelosFiltrados.map((libro, index) => {
-                    const codigo =
-                      libro.CODIGO_CATEGORIA ||
-                      libro.codigo_categoria ||
-                      libro.CODIGO_LIBRO ||
-                      libro.codigo ||
-                      '-'
-                    const autor =
-                      libro.AUTORTEJUELO_LIBROS ||
-                      libro.autortejuelo_libros ||
-                      libro.AUTOR_LIBRO ||
-                      libro.autor ||
-                      '-'
-                    const titulo =
-                      libro.TITULOTEJUELO_LIBROS ||
-                      libro.titulotejuelo_libros ||
-                      libro.TITULO_LIBRO ||
-                      libro.titulo ||
-                      '-'
+                    const codigo = libro.CODIGO_CATEGORIA || '-'
+                    const autor = libro.AUTORTEJUELO_LIBROS || '-'
+                    const titulo = libro.TITULOTEJUELO_LIBROS || '-'
 
                     return (
                       <div

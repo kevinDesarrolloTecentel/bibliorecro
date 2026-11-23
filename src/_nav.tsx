@@ -24,6 +24,8 @@ export type NavItem = {
   items?: NavItem[]
   name: string | JSX.Element
   to?: string
+  permission?: string
+  roles?: string[]
 }
 
 const _nav: NavItem[] = [

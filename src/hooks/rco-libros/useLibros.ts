@@ -1,16 +1,26 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
 import Swal from 'sweetalert2'
-import { Libros } from '@/models/rco/libros'
+import { RootState, AppDispatch } from '@/store'
+import {
+  setLibros as setLibrosSlice,
+  setLibroSeleccionado as setLibroSeleccionadoSlice,
+  setPaginacionLibros,
+  LibroItem,
+} from '@/slices/libroSlice'
+import type { RcoLibros } from '@/models/rco/libros.model'
 import { formatFecha } from '@/utils/dateUtils'
 import {
   ActivarLibro,
   BuscarLibros,
-  BuscarLibrosFiltros,
   EliminarLibro,
 } from '@/Service/rco/Libros'
-import { usePermissions } from '@/context/PermissionsContext'
+import { usePermissions } from '@/hooks/auth/usePermissions'
 
-export type LibroItem = Libros
+export interface BuscarLibrosFiltros {
+  estado_prestamo?: string | null
+  estado_libro?: string | null
+}
 
 export const getBadgeEstado = (status: any): string => {
   const s = String(status || '').toLowerCase().trim()
@@ -28,24 +38,18 @@ export const getBadgeDisponibilidad = (status: any): string => {
 
 export const isLibroEnPrestamo = (libro: any): boolean => {
   if (!libro) return false
-  const enPrestamoRaw = libro.EN_PRESTAMO ?? libro.prestamo ?? 0
-  const estadoPrestamoStr = String(
-    libro.ESTADOS_PRESTAMO || libro.ESTADO_PRESTAMO || libro.Disponibilidad || '',
-  )
-    .toLowerCase()
-    .trim()
   return (
-    Number(enPrestamoRaw) === 1 ||
-    estadoPrestamoStr === 'prestamo' ||
-    estadoPrestamoStr === 'en prestamo' ||
-    estadoPrestamoStr === 'en préstamo' ||
-    estadoPrestamoStr.includes('préstamo') ||
-    estadoPrestamoStr.includes('prestamo')
+    Number(libro.EN_PRESTAMO) === 1 ||
+    String(libro.ESTADOS_PRESTAMO || '').toLowerCase().includes('préstamo') ||
+    String(libro.ESTADOS_PRESTAMO || '').toLowerCase().includes('prestamo')
   )
 }
 
 export const useLibro = () => {
+  const dispatch = useDispatch<AppDispatch>()
   const { canDoAction, verificarAccionEnServidor } = usePermissions()
+
+  // Permisos
   const canCrearLibro = canDoAction('btn_crear_libro')
   const canEditarLibro = canDoAction('btn_editar_libro')
   const canInactivarLibro = canDoAction('btn_inactivar_libro')
@@ -56,11 +60,16 @@ export const useLibro = () => {
   const canActualizarLibro = canDoAction('btn_actualizar_libro')
   const canConfirmarInactivarLibro = canDoAction('btn_confirmar_inactivar')
 
-  const [libros, setLibros] = useState<Libros[]>([])
+  // Redux Domain State
+  const libros = useSelector((state: RootState) => state.libros.libros)
+  const libroSeleccionado = useSelector((state: RootState) => state.libros.libroSeleccionado)
+  const paginacion = useSelector((state: RootState) => state.libros.paginacionLibros)
+  const currentPage = paginacion.current_page
+  const totalPages = paginacion.last_page
+  const totalItems = paginacion.total
+
+  // UI Ephemeral State
   const [loading, setLoading] = useState(false)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const [totalItems, setTotalItems] = useState(0)
   const [searchTerm, setSearchTerm] = useState('')
   const [tableKey, setTableKey] = useState(0)
   const [columnFilters, setColumnFilters] = useState<BuscarLibrosFiltros>({
@@ -80,9 +89,8 @@ export const useLibro = () => {
 
   const [modalRegister, setModalRegister] = useState(false)
   const [modalEdit, setModalEdit] = useState(false)
-  const [libroSeleccionado, setLibroSeleccionado] = useState<Libros | null>(null)
   const [modalInactivar, setModalInactivar] = useState(false)
-  const [libroAInactivar, setLibroAInactivar] = useState<Libros | null>(null)
+  const [libroAInactivar, setLibroAInactivar] = useState<RcoLibros | null>(null)
 
   const [details, setDetails] = useState<(string | number)[]>([])
 
@@ -90,75 +98,43 @@ export const useLibro = () => {
     setDetails((prev) => (prev.includes(id) ? [] : [id]))
   }
 
-  const parseLibro = (item: any, index: number): Libros => {
-    const id = item.ID_LIBROS ?? item.id ?? index + 1
-    const estadoLibroRaw = item.ESTADO_LIBROS ?? item.estado ?? 1
-    const enPrestamoRaw = item.EN_PRESTAMO ?? item.prestamo ?? 0
-
-    const isbn = item.ISBN_LIBROS || item.isbn || 'S/N'
-    const titulo = item.TITULO_LIBROS || item.titulo || '-'
-    const autor = item.NOMBRE_AUTOR || item.autor || 'Sin autor'
-    const categoria = item.NOMBRE_CATEGORIA || item.categoria || 'Sin categoría'
-    const editorial = item.NOMBRE_EDITORIAL || item.editorial || 'Sin editorial'
-    const proveedor = item.NOMBRE_PROVEEDOR || item.proveedor || 'Sin proveedor'
-    const formatos = item.NOMBRE_FORMATOS || item.formato || 'Libros'
-    const tipo = item.NOMBRE_TIPO || item.tipo || 'General'
-    const genero = item.NOMBRE_RCOGENERO || item.genero || 'Sin género'
-    const disponibilidad = Number(enPrestamoRaw) === 0 ? 'Disponible' : 'En préstamo'
-    const estado = Number(estadoLibroRaw) === 1 ? 'Activo' : 'Inactivo'
-    const fechaEdicion = item.FECHA_EDICION_FORMAT || (item.FECHAEDICION_LIBROS ? formatFecha(item.FECHAEDICION_LIBROS) : '-')
-    const fechaRegistro = item.FECHA_REGISTRO_FORMAT || (item.FECHAREGISTRO_LIBROS ? formatFecha(item.FECHAREGISTRO_LIBROS) : '-')
+  // Parseo canónico sin parches: exclusivamente campos oficiales de la base de datos
+  const parseLibro = (item: any): LibroItem => {
+    const enPrestamo = Number(item.EN_PRESTAMO ?? 0)
+    const estadoLibro = Number(item.ESTADO_LIBROS ?? 1)
 
     return {
-      ...item,
-      id,
-      ID_LIBROS: id,
-      ISBN_LIBROS: isbn,
-      TITULO_LIBROS: titulo,
-      NOMBRE_AUTOR: autor,
-      NOMBRE_CATEGORIA: categoria,
-      NOMBRE_EDITORIAL: editorial,
-      NOMBRE_PROVEEDOR: proveedor,
-      NOMBRE_FORMATOS: formatos,
-      NOMBRE_TIPO: tipo,
-      NOMBRE_RCOGENERO: genero,
-      ESTADOS_PRESTAMO: disponibilidad,
-      ESTADO: estado,
-      ESTADO_LIBROS: Number(estadoLibroRaw),
-      ID_CATEGORIA: item.ID_CATEGORIA ?? item.id_categoria,
-      ID_EDITORIAL: item.ID_EDITORIAL ?? item.id_editorial,
-      ID_PROVEEDOR: item.ID_PROVEEDOR ?? item.id_proveedor,
-      ID_RCOGENERO: item.ID_RCOGENERO ?? item.id_rcogenero ?? item.ID_GENERO,
-      ID_FORMATOS: item.ID_FORMATOS ?? item.id_formatos,
-      ID_TIPO: item.ID_TIPO ?? item.id_tipo,
-      ID_AUTOR: item.ID_AUTOR ?? item.id_autor,
-      FECHAEDICION_LIBROS_RAW: item.FECHAEDICION_LIBROS,
-      FECHAREGISTRO_LIBROS_RAW: item.FECHAREGISTRO_LIBROS,
-      FECHAEDICION_LIBROS: fechaEdicion,
-      FECHAREGISTRO_LIBROS: fechaRegistro,
-      MOTIVO_BAJA_LIBRO: item.MOTIVO_BAJA_LIBRO ?? item.motivo_baja_libro ?? null,
-      MotivoBaja: item.MOTIVO_BAJA_LIBRO ?? item.motivo_baja_libro ?? null,
-      // Compatibilidad con accesores tradicionales
-      ISBN: isbn,
-      Titulo: titulo,
-      Autor: autor,
-      Categoria: categoria,
-      Editorial: editorial,
-      Proveedor: proveedor,
-      Formatos: formatos,
-      Tipo: tipo,
-      Genero: genero,
-      Disponibilidad: disponibilidad,
-      Estado: estado,
-      FechaEdicion: fechaEdicion,
-      FechaRegistro: fechaRegistro,
-      Pais: item.PAIS_LIBROS || item.pais || '-',
-      Precio: item.PRECIO_LIBROS ?? item.precio ?? 0,
-      Volumen: item.VOLUMEN_LIBROS || item.volumen || '-',
-      CodigoBarras: item.CODIGODEBARRAS_LIBROS || item.codigo || 'S/C',
-      TituloTejuelo: item.TITULOTEJUELO_LIBROS || item.titulo_tejuelo || '-',
-      AutorTejuelo: item.AUTORTEJUELO_LIBROS || item.autor_tejuelo || '-',
-      Descripcion: item.DESCRIPCION_LIBROS || item.descripcion || 'Sin descripción',
+      ID_LIBROS: item.ID_LIBROS,
+      ISBN_LIBROS: item.ISBN_LIBROS || 'S/N',
+      TITULO_LIBROS: item.TITULO_LIBROS || '-',
+      PRECIO_LIBROS: Number(item.PRECIO_LIBROS ?? 0),
+      CODIGODEBARRAS_LIBROS: item.CODIGODEBARRAS_LIBROS || 'S/C',
+      VOLUMEN_LIBROS: item.VOLUMEN_LIBROS || 'S/V',
+      FECHAEDICION_LIBROS: item.FECHAEDICION_LIBROS ? formatFecha(item.FECHAEDICION_LIBROS) : '-',
+      PAIS_LIBROS: item.PAIS_LIBROS || 'No indicado',
+      DESCRIPCION_LIBROS: item.DESCRIPCION_LIBROS || '',
+      FECHAREGISTRO_LIBROS: item.FECHAREGISTRO_LIBROS ? formatFecha(item.FECHAREGISTRO_LIBROS) : '-',
+      TITULOTEJUELO_LIBROS: item.TITULOTEJUELO_LIBROS || '-',
+      AUTORTEJUELO_LIBROS: item.AUTORTEJUELO_LIBROS || '-',
+      ESTADO_LIBROS: estadoLibro,
+      MOTIVO_BAJA_LIBRO: item.MOTIVO_BAJA_LIBRO ?? null,
+      ID_CATEGORIA: item.ID_CATEGORIA ?? null,
+      ID_EDITORIAL: item.ID_EDITORIAL ?? null,
+      ID_PROVEEDOR: item.ID_PROVEEDOR ?? null,
+      ID_RCOGENERO: item.ID_RCOGENERO ?? null,
+      ID_FORMATOS: item.ID_FORMATOS ?? null,
+      ID_TIPO: item.ID_TIPO ?? null,
+      ID_AUTOR: item.ID_AUTOR ?? null,
+      EN_PRESTAMO: enPrestamo,
+      NOMBRE_AUTOR: item.NOMBRE_AUTOR || 'Sin autor',
+      NOMBRE_CATEGORIA: item.NOMBRE_CATEGORIA || 'Sin categoría',
+      NOMBRE_EDITORIAL: item.NOMBRE_EDITORIAL || 'Sin editorial',
+      NOMBRE_PROVEEDOR: item.NOMBRE_PROVEEDOR || 'Sin proveedor',
+      NOMBRE_FORMATOS: item.NOMBRE_FORMATOS || 'Libros',
+      NOMBRE_TIPO: item.NOMBRE_TIPO || 'General',
+      NOMBRE_RCOGENERO: item.NOMBRE_RCOGENERO || 'Sin género',
+      ESTADOS_PRESTAMO: enPrestamo === 0 ? 'Disponible' : 'En préstamo',
+      ESTADO: estadoLibro === 1 ? 'Activo' : 'Inactivo',
     }
   }
 
@@ -176,25 +152,32 @@ export const useLibro = () => {
       const filters = filtersToApply || columnFiltersRef.current
 
       try {
-        const response = await BuscarLibros(query, targetPage, undefined, filters)
+        const payload = {
+          busqueda: query,
+          estado_prestamo: filters?.estado_prestamo,
+          estado_libro: filters?.estado_libro,
+        }
+        const response = await BuscarLibros(payload, { page: targetPage })
         const rawData = response?.data || []
         const pagination = response?.pagination
 
         const parsedList = rawData.map(parseLibro)
-        setLibros(parsedList)
+        dispatch(
+          setLibrosSlice({
+            data: parsedList,
+            pagination,
+          }),
+        )
 
-        setCurrentPage(pagination?.current_page || targetPage)
         currentPageRef.current = pagination?.current_page || targetPage
-        setTotalPages(pagination?.last_page || 1)
-        setTotalItems(pagination?.total || parsedList.length)
       } catch (error) {
         console.error('Error al obtener libros:', error)
-        setLibros([])
+        dispatch(setLibrosSlice({ data: [], pagination: { current_page: 1, total: 0, last_page: 1 } }))
       } finally {
         setLoading(false)
       }
     },
-    [],
+    [dispatch],
   )
 
   useEffect(() => {
@@ -237,7 +220,6 @@ export const useLibro = () => {
 
       columnFiltersRef.current = newFilters
       setColumnFilters(newFilters)
-      setCurrentPage(1)
       currentPageRef.current = 1
 
       fetchLibros(1, undefined, newFilters)
@@ -254,7 +236,6 @@ export const useLibro = () => {
     columnFiltersRef.current = { estado_prestamo: '', estado_libro: '' }
     setColumnFilters({ estado_prestamo: '', estado_libro: '' })
     setSearchTerm('')
-    setCurrentPage(1)
     setTableKey((k) => k + 1)
     setDetails([])
     await fetchLibros(1, '', { estado_prestamo: undefined, estado_libro: undefined })
@@ -262,7 +243,8 @@ export const useLibro = () => {
 
   const handlePageChange = (page: number) => {
     currentPageRef.current = page
-    setCurrentPage(page)
+    setDetails([])
+    dispatch(setPaginacionLibros({ current_page: page }))
     fetchLibros(page, currentSearchRef.current, columnFiltersRef.current)
   }
 
@@ -280,7 +262,7 @@ export const useLibro = () => {
     setModalRegister(true)
   }
 
-  const handleAbrirEditar = (libro: Libros) => {
+  const handleAbrirEditar = (libro: RcoLibros) => {
     if (!canEditarLibro) {
       Swal.fire({
         icon: 'error',
@@ -291,11 +273,11 @@ export const useLibro = () => {
       })
       return
     }
-    setLibroSeleccionado(libro)
+    dispatch(setLibroSeleccionadoSlice(libro))
     setModalEdit(true)
   }
 
-  const handleAbrirInactivar = (libro: Libros) => {
+  const handleAbrirInactivar = (libro: RcoLibros) => {
     if (!canInactivarLibro) {
       Swal.fire({
         icon: 'error',
@@ -323,7 +305,7 @@ export const useLibro = () => {
 
   const handleInactivarLibro = handleAbrirInactivar
 
-  const handleActivarLibro = async (libro: Libros) => {
+  const handleActivarLibro = async (libro: RcoLibros) => {
     if (!canActivarLibro) {
       Swal.fire({
         icon: 'error',
@@ -345,7 +327,7 @@ export const useLibro = () => {
       return
     }
 
-    const id = libro.ID_LIBROS ?? libro.id
+    const id = libro.ID_LIBROS
     if (!id) return
 
     const confirmResult = await Swal.fire({
@@ -395,7 +377,7 @@ export const useLibro = () => {
     }
   }
 
-  const handleEliminarLibro = async (libro?: Libros) => {
+  const handleEliminarLibro = async (libro?: RcoLibros) => {
     if (!canEliminarLibro) {
       Swal.fire({
         icon: 'error',
@@ -420,7 +402,7 @@ export const useLibro = () => {
       return
     }
 
-    const id = target.ID_LIBROS ?? target.id
+    const id = target.ID_LIBROS
     if (!id) return
 
     const confirmResult = await Swal.fire({
@@ -490,7 +472,7 @@ export const useLibro = () => {
     modalEdit,
     setModalEdit,
     libroSeleccionado,
-    setLibroSeleccionado,
+    setLibroSeleccionado: (l: RcoLibros | null) => dispatch(setLibroSeleccionadoSlice(l)),
     details,
     setDetails,
     toggleDetails,
@@ -520,5 +502,4 @@ export const useLibro = () => {
   }
 }
 
-export const useLibroReg = useLibro
 export default useLibro

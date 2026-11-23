@@ -14,7 +14,7 @@ import {
 import LibBajaModal from '@/components/reportesModals/Inventario/LibBaja'
 import LibCategoriaModal from '@/components/reportesModals/Inventario/LibCategoria'
 import LibSistemaModal from '@/components/reportesModals/Inventario/LibSistema'
-import { usePermissions } from '@/context/PermissionsContext'
+import { usePermissions } from '@/hooks/auth/usePermissions'
 
 const RP_inv: React.FC = () => {
   const { canDoAction } = usePermissions()

@@ -26,7 +26,7 @@ const Author: React.FC = () => {
     autoresFiltrados,
     busquedaAutor,
     listaAutores,
-    handleElminiarAutor,
+    handleEliminarAutor,
     loadingAutores,
     setBusquedaAutor,
     autorSeleccionado,
@@ -34,6 +34,7 @@ const Author: React.FC = () => {
     paginaActual,
     totalPaginas,
     totalAutores,
+    totalFiltrados,
     handlePageChange,
     canCrearAutor,
     canEditarAutor,
@@ -104,7 +105,7 @@ const Author: React.FC = () => {
               <div className="d-flex align-items-center gap-2">
                 {busquedaAutor && (
                   <CBadge color="info" shape="rounded-pill">
-                    {totalAutores} encontrados
+                    {totalFiltrados} encontrados
                   </CBadge>
                 )}
                 <CBadge color="primary" shape="rounded-pill">
@@ -151,35 +152,39 @@ const Author: React.FC = () => {
                   </div>
                 ) : listaAutores.length === 0 ? (
                   <div className="text-center text-muted py-5 small">
-                    <div className="mb-2">
-                      <CIcon icon={cilUser} size="xxl" className="opacity-25" />
-                    </div>
-                    <p className="mb-3">No hay autores registrados en el catálogo.</p>
-                    {canCrearAutor && (
-                      <CButton
-                        color="success"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleOpen()}
-                      >
-                        <CIcon icon={cilPlus} className="me-1" />
-                        Registrar primer autor
-                      </CButton>
+                    {busquedaAutor ? (
+                      <>
+                        <p className="mb-2">
+                          No se encontraron autores coincidentes con &quot;{busquedaAutor}&quot;.
+                        </p>
+                        <CButton
+                          color="secondary"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setBusquedaAutor('')}
+                        >
+                          Limpiar búsqueda
+                        </CButton>
+                      </>
+                    ) : (
+                      <>
+                        <div className="mb-2">
+                          <CIcon icon={cilUser} size="xxl" className="opacity-25" />
+                        </div>
+                        <p className="mb-3">No hay autores registrados en el catálogo.</p>
+                        {canCrearAutor && (
+                          <CButton
+                            color="success"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpen()}
+                          >
+                            <CIcon icon={cilPlus} className="me-1" />
+                            Registrar primer autor
+                          </CButton>
+                        )}
+                      </>
                     )}
-                  </div>
-                ) : autoresFiltrados.length === 0 ? (
-                  <div className="text-center text-muted py-5 small">
-                    <p className="mb-2">
-                      No se encontraron autores coincidentes con &quot;{busquedaAutor}&quot;.
-                    </p>
-                    <CButton
-                      color="secondary"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setBusquedaAutor('')}
-                    >
-                      Limpiar búsqueda
-                    </CButton>
                   </div>
                 ) : (
                   <div className="d-flex flex-column gap-2">
@@ -246,7 +251,7 @@ const Author: React.FC = () => {
 
               <div className="d-flex flex-wrap justify-content-between align-items-center pt-3 mt-2 border-top bg-body">
                 <span className="text-muted small">
-                  Página <strong>{paginaActual}</strong> de <strong>{totalPaginas}</strong> ({totalAutores} autores)
+                  Página <strong>{paginaActual}</strong> de <strong>{totalPaginas}</strong> ({totalFiltrados} autores)
                 </span>
                 <CSmartPagination
                   size="sm"
@@ -322,7 +327,7 @@ const Author: React.FC = () => {
                             size="sm"
                             variant="outline"
                             className="d-flex align-items-center gap-2 shadow-sm hover:text-white"
-                            onClick={() => handleElminiarAutor(autorSeleccionado)}
+                            onClick={() => handleEliminarAutor(autorSeleccionado)}
                           >
                             <CIcon icon={cilTrash} />
                             <span>Eliminar Autor</span>

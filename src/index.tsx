@@ -6,6 +6,10 @@ import App from './App'
 import store from './store'
 import './i18n'
 
+if (typeof window !== 'undefined') {
+  ;(window as any).store = store
+}
+
 // Desregistrar cualquier Service Worker previo que haya quedado activo en el navegador
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
   navigator.serviceWorker.getRegistrations().then((registrations) => {

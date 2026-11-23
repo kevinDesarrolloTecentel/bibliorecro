@@ -17,7 +17,7 @@ import {
 import CIcon from "@coreui/icons-react"
 import { CButton, CCard, CCardBody, CCol, CRow } from "@coreui/react-pro"
 import { useState } from "react"
-import { usePermissions } from "@/context/PermissionsContext"
+import { usePermissions } from "@/hooks/auth/usePermissions"
 
 const Rep_prestamos = () => {
   const [visiblePendientes, setVisiblePendientes] = useState(false)

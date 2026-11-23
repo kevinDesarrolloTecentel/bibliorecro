@@ -1,13 +1,22 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
 import Swal from 'sweetalert2'
+import { RootState } from '@/store'
 import { PersonasE, AceptarInscripcionNew } from '@/Service/tab/Persona'
-import { PersonaRenovacion } from '@/models/tab/persona.model'
-import { usePermissions } from '@/context/PermissionsContext'
+import { TabPersona, PersonaRenovacion } from '@/models/tab/persona.model'
+import {
+  setSolicitudes,
+  setTotalesSolicitudes,
+  setSolicitudSeleccionada as setSolicitudSeleccionadaAction,
+  removerSolicitud,
+} from '@/slices/personaSlice'
+import { usePermissions } from '@/hooks/auth/usePermissions'
+import { parseApiErrors, showErrorAlert } from '@/utils/errors'
 
-// Re-exportamos para compatibilidad si algún componente lo requiere
 export type { PersonaRenovacion }
 
 export const useRenovaciones = () => {
+  const dispatch = useDispatch()
   const { canDoAction, verificarAccionEnServidor } = usePermissions()
 
   // Permisos centralizados para Renovaciones y Nuevos
@@ -16,25 +25,25 @@ export const useRenovaciones = () => {
   const canMostrarInfo = canDoAction('btn_mostrar_info_renovaciones')
   const canActivarUsuario = canDoAction('btn_activar_usuario')
 
-  const [personas, setPersonas] = useState<PersonaRenovacion[]>([])
+  // Estado global desde Redux Toolkit
+  const solicitudes = useSelector((state: RootState) => state.personas.solicitudes)
+  const totalesSolicitudes = useSelector((state: RootState) => state.personas.totalesSolicitudes)
+
+  // Estados locales de UI y envío
   const [loading, setLoading] = useState<boolean>(false)
   const [submitting, setSubmitting] = useState<boolean>(false)
-
-  // Estados de paginación y búsqueda
   const [paginaActual, setPaginaActual] = useState<number>(1)
   const [itemsPerPage, setItemsPerPage] = useState<number>(10)
   const [searchTerm, setSearchTerm] = useState<string>('')
-
-  // Filtro por tipo (Nuevo / Renovación)
   const [tipoFiltro, setTipoFiltro] = useState<string>('')
   const tipoFiltroRef = useRef<string>('')
+  const isFetchingRef = useRef<boolean>(false)
   const [tableKey, setTableKey] = useState<number>(0)
 
   // Modales
   const [visibleEditar, setVisibleEditar] = useState<boolean>(false)
   const [visibleAceptar, setVisibleAceptar] = useState<boolean>(false)
-
-  const [solicitudSeleccionada, setSolicitudSeleccionada] = useState<PersonaRenovacion | null>(null)
+  const [solicitudSeleccionada, setSolicitudSeleccionada] = useState<TabPersona | null>(null)
   const [detalleRenovacion, setDetalleRenovacion] = useState<string>('')
 
   // Filas colapsables de detalles
@@ -50,37 +59,48 @@ export const useRenovaciones = () => {
     setPaginaActual(1)
   }
 
-  const fetchSolicitudes = useCallback(async (tipo?: string) => {
-    setLoading(true)
-    try {
-      const tipoVal = tipo !== undefined ? tipo : tipoFiltroRef.current
-      const params: Record<string, any> = {}
-      if (tipoVal && tipoVal.trim() !== '') {
-        const t = tipoVal.trim().toLowerCase()
-        if (t.includes('renov')) {
-          params.tipo = 'renovacion'
-        } else if (t.includes('nuev')) {
-          params.tipo = 'nuevo'
-        } else {
-          params.tipo = t
+  // Petición al backend conectada directamente a Redux
+  const fetchSolicitudes = useCallback(
+    async (tipo?: string) => {
+      if (isFetchingRef.current) return
+      isFetchingRef.current = true
+      setLoading(true)
+
+      try {
+        const tipoVal = tipo !== undefined ? tipo : tipoFiltroRef.current
+        const params: Record<string, any> = {}
+        if (tipoVal && tipoVal.trim() !== '') {
+          const t = tipoVal.trim().toLowerCase()
+          if (t.includes('renov')) {
+            params.tipo = 'renovacion'
+          } else if (t.includes('nuev')) {
+            params.tipo = 'nuevo'
+          } else {
+            params.tipo = t
+          }
         }
+
+        const res = await PersonasE(params)
+        const list = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : []
+        dispatch(setSolicitudes(list))
+
+        if (res?.totales) {
+          dispatch(setTotalesSolicitudes(res.totales))
+        }
+      } catch (error) {
+        console.error('[useRenovaciones] Error al obtener solicitudes:', error)
+        const { title, messages } = parseApiErrors(
+          error,
+          'Hubo un error al obtener la lista de solicitudes de renovación y nuevos usuarios.',
+        )
+        showErrorAlert(title, messages)
+      } finally {
+        isFetchingRef.current = false
+        setLoading(false)
       }
-      const data = await PersonasE(params)
-      const list = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
-      setPersonas(list)
-    } catch (error) {
-      console.error('Error al obtener solicitudes de renovación', error)
-      Swal.fire({
-        icon: 'error',
-        title: 'Error al consultar',
-        text: 'Hubo un error al obtener la lista de solicitudes.',
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+    },
+    [dispatch],
+  )
 
   useEffect(() => {
     fetchSolicitudes()
@@ -108,7 +128,7 @@ export const useRenovaciones = () => {
 
   // Filtrado reactivo en cliente (por búsqueda y tipo)
   const filteredPersonas = useMemo(() => {
-    let list = personas
+    let list: TabPersona[] = solicitudes
     if (tipoFiltro) {
       const tf = tipoFiltro.toLowerCase().trim()
       list = list.filter((p) => {
@@ -127,7 +147,7 @@ export const useRenovaciones = () => {
       const email = String(p.CORREO_PERSONA || '').toLowerCase()
       return ced.includes(term) || nom.includes(term) || ape.includes(term) || email.includes(term)
     })
-  }, [personas, searchTerm, tipoFiltro])
+  }, [solicitudes, searchTerm, tipoFiltro])
 
   const totalRegistros = filteredPersonas.length
   const totalPaginas = Math.max(1, Math.ceil(totalRegistros / itemsPerPage))
@@ -150,84 +170,52 @@ export const useRenovaciones = () => {
     }
   }
 
-  const handleAbrirEditar = async (item: PersonaRenovacion) => {
+  const handleAbrirEditar = async (item: TabPersona) => {
     if (!canVerUsuario) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Acceso Denegado',
-        text: 'No tienes permisos para ver los datos del usuario.',
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
+      showErrorAlert('Acceso Denegado', ['No tienes permisos para ver los datos del usuario.'])
       return
     }
 
     const tienePermiso = await verificarAccionEnServidor('btn_ver_usuario_renovaciones')
     if (!tienePermiso) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Acceso Denegado',
-        text: 'No tienes permisos para ver los datos del usuario.',
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
+      showErrorAlert('Acceso Denegado', ['No tienes permisos para ver los datos del usuario.'])
       return
     }
 
     setSolicitudSeleccionada(item)
+    dispatch(setSolicitudSeleccionadaAction(item))
     setVisibleEditar(true)
   }
 
-  const handleAbrirAceptar = (item: PersonaRenovacion) => {
+  const handleAbrirAceptar = (item: TabPersona) => {
     if (!canAceptarSolicitud) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Acceso Denegado',
-        text: 'No tienes permisos para aceptar solicitudes.',
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
+      showErrorAlert('Acceso Denegado', ['No tienes permisos para aceptar solicitudes.'])
       return
     }
     setSolicitudSeleccionada(item)
+    dispatch(setSolicitudSeleccionadaAction(item))
     setDetalleRenovacion('')
     setVisibleAceptar(true)
   }
 
   const handleAceptarSolicitud = async () => {
     if (!canActivarUsuario) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Acceso Denegado',
-        text: 'No tienes permisos para activar la inscripción del usuario.',
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
+      showErrorAlert('Acceso Denegado', ['No tienes permisos para activar la inscripción del usuario.'])
       return
     }
 
     const tienePermiso = await verificarAccionEnServidor('btn_activar_usuario')
     if (!tienePermiso) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Acceso Denegado',
-        text: 'No tienes permisos para activar la inscripción del usuario.',
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
+      showErrorAlert('Acceso Denegado', ['No tienes permisos para activar la inscripción del usuario.'])
       return
     }
 
     if (!solicitudSeleccionada || submitting) return
 
     if (!detalleRenovacion.trim()) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Campo obligatorio',
-        text: 'El detalle u observaciones de la activación es obligatorio. Por favor ingrese las observaciones.',
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
+      showErrorAlert('Campo obligatorio', [
+        'El detalle u observaciones de la activación es obligatorio. Por favor ingrese las observaciones.',
+      ])
       return
     }
 
@@ -242,9 +230,13 @@ export const useRenovaciones = () => {
       })
 
       setVisibleAceptar(false)
-      setSolicitudSeleccionada(null)
       setDetalleRenovacion('')
-      fetchSolicitudes(tipoFiltroRef.current)
+
+      if (solicitudSeleccionada.ID_PERSONA) {
+        dispatch(removerSolicitud(solicitudSeleccionada.ID_PERSONA))
+      }
+      setSolicitudSeleccionada(null)
+      dispatch(setSolicitudSeleccionadaAction(null))
 
       Swal.fire({
         icon: 'success',
@@ -253,22 +245,21 @@ export const useRenovaciones = () => {
         timer: 1800,
         showConfirmButton: false,
       })
+
+      await fetchSolicitudes(tipoFiltroRef.current)
     } catch (err) {
-      console.error('Error al aceptar solicitud', err)
-      Swal.fire({
-        icon: 'error',
-        title: 'Error al activar',
-        text: 'Hubo un error al renovar o activar la inscripción.',
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
+      console.error('[useRenovaciones] Error al aceptar solicitud:', err)
+      const { title, messages } = parseApiErrors(err, 'Hubo un error al renovar o activar la inscripción.')
+      showErrorAlert(title, messages)
     } finally {
       setSubmitting(false)
     }
   }
 
   return {
-    personas,
+    personas: solicitudes,
+    solicitudes,
+    totalesSolicitudes,
     loading,
     submitting,
     // Paginación y búsqueda

@@ -1,7 +1,7 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
 import { getStoredToken, clearAuthSession } from '../utils/auth'
 import store from '../store'
-import { sessionExpired } from '../authSlice'
+import { sessionExpired } from '@/slices/authSlice'
 
 // Determinar la URL base del backend
 const getBackendApiBase = (): string => {
@@ -21,10 +21,6 @@ export const BACKEND_API_BASE = getBackendApiBase()
 
 export const apiClient = axios.create({
   withCredentials: true,
-  headers: {
-    'Content-Type': 'application/json',
-    Accept: 'application/json, text/plain, */*',
-  },
 })
 
 apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {

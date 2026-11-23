@@ -64,13 +64,13 @@ const Loands: React.FC = () => {
     canGuardarPrestamo,
     canGuardarDevolverSancion,
     canMostrarInfoPrestamo,
+    prestamoSeleccionado,
+    setPrestamoSeleccionado,
   } = prestamoState
 
   const [procesandoId, setProcesandoId] = useState<number | string | null>(null)
   const [modalSancionVisible, setModalSancionVisible] = useState(false)
-  const [itemSancion, setItemSancion] = useState<any | null>(null)
   const [modalNoDevueltoVisible, setModalNoDevueltoVisible] = useState(false)
-  const [itemNoDevuelto, setItemNoDevuelto] = useState<any | null>(null)
 
   const handleDevolver = async (item: any) => {
     if (!canRegistrarDevolucion) {
@@ -84,12 +84,14 @@ const Loands: React.FC = () => {
       return
     }
 
-    const id = item.id || item.ID_PRESTAMO
+    const id = item.ID_PRESTAMO
     if (!id) return
+
+    setPrestamoSeleccionado(item)
 
     const result = await Swal.fire({
       title: '¿Confirmar Devolución?',
-      text: `¿Desea registrar la devolución del libro "${item.Libro}" prestado a ${item.Nombres} ${item.Apellidos}?`,
+      text: `¿Desea registrar la devolución del libro "${item.TITULO_LIBROS}" prestado a ${item.NOMBRE_PERSONA} ${item.APELLIDO_PERSONA}?`,
       icon: 'question',
       showCancelButton: true,
       confirmButtonColor: '#0d6efd',
@@ -98,10 +100,14 @@ const Loands: React.FC = () => {
       cancelButtonText: 'Cancelar',
     })
 
-    if (!result.isConfirmed) return
+    if (!result.isConfirmed) {
+      setPrestamoSeleccionado(null)
+      return
+    }
 
     const tienePermiso = await prestamoState.verificarAccionEnServidor('btn_registrar_devolucion')
     if (!tienePermiso) {
+      setPrestamoSeleccionado(null)
       Swal.fire({
         icon: 'error',
         title: 'Acceso Denegado',
@@ -117,7 +123,7 @@ const Loands: React.FC = () => {
       const payload = {
         nuevo_estado: 0,
         ID_PRESTAMO: id,
-        ID_LIBROS: item.ID_LIBROS ?? item.raw?.ID_LIBROS,
+        ID_LIBROS: item.ID_LIBROS,
         DETALLE_PRESTAMO: 'Devuelto satisfactoriamente',
       }
       await CambioEstado(id, payload)
@@ -148,26 +154,29 @@ const Loands: React.FC = () => {
       })
     } finally {
       setProcesandoId(null)
+      setPrestamoSeleccionado(null)
     }
   }
 
   const handleAbrirSancion = (item: any) => {
-    setItemSancion(item)
+    setPrestamoSeleccionado(item)
     setModalSancionVisible(true)
   }
 
   const handleSancionSuccess = () => {
+    setPrestamoSeleccionado(null)
     setDetails([])
     setTableKey((k) => k + 1)
     fetchPrestamos()
   }
 
   const handleAbrirNoDevuelto = (item: any) => {
-    setItemNoDevuelto(item)
+    setPrestamoSeleccionado(item)
     setModalNoDevueltoVisible(true)
   }
 
   const handleNoDevueltoSuccess = () => {
+    setPrestamoSeleccionado(null)
     setDetails([])
     setTableKey((k) => k + 1)
     fetchPrestamos()
@@ -175,11 +184,11 @@ const Loands: React.FC = () => {
 
   const columns = useMemo(
     () => [
-      { key: 'Libro', label: 'Libro', _style: { width: '30%' } },
-      { key: 'Nombres', label: 'Nombres', _style: { width: '20%' } },
-      { key: 'Apellidos', label: 'Apellidos', _style: { width: '20%' } },
-      { key: 'Celular', label: 'Celular', _style: { width: '15%' } },
-      { key: 'status', label: 'Estado', _style: { width: '15%' } },
+      { key: 'TITULO_LIBROS', label: 'Libro', _style: { width: '30%' } },
+      { key: 'NOMBRE_PERSONA', label: 'Nombres', _style: { width: '20%' } },
+      { key: 'APELLIDO_PERSONA', label: 'Apellidos', _style: { width: '20%' } },
+      { key: 'CELULAR_PERSONA', label: 'Celular', _style: { width: '15%' } },
+      { key: 'ESTADO_TEXTO', label: 'Estado', _style: { width: '15%' } },
     ],
     []
   )
@@ -234,16 +243,22 @@ const Loands: React.FC = () => {
 
       <ModalDevolverSancion
         visible={modalSancionVisible}
-        setVisible={setModalSancionVisible}
-        item={itemSancion}
+        setVisible={(v) => {
+          setModalSancionVisible(v)
+          if (!v) setPrestamoSeleccionado(null)
+        }}
+        item={prestamoSeleccionado}
         onSuccess={handleSancionSuccess}
         canGuardarDevolverSancion={canGuardarDevolverSancion}
       />
 
       <ModalNoDevuelto
         visible={modalNoDevueltoVisible}
-        setVisible={setModalNoDevueltoVisible}
-        item={itemNoDevuelto}
+        setVisible={(v) => {
+          setModalNoDevueltoVisible(v)
+          if (!v) setPrestamoSeleccionado(null)
+        }}
+        item={prestamoSeleccionado}
         onSuccess={handleNoDevueltoSuccess}
         canNoDevuelto={canNoDevuelto}
         canConfirmarDarBaja={canConfirmarDarBaja}
@@ -273,7 +288,7 @@ const Loands: React.FC = () => {
             onTableFilterChange={(busqueda) => prestamoState.handleBuscarGlobal(busqueda || '')}
             onRowClick={(item: any) => {
               if (!canMostrarInfoPrestamo) return
-              const id = item?.id ?? item?.ID_PRESTAMO
+              const id = item?.ID_PRESTAMO
               if (id) toggleDetails(id)
             }}
             noItemsLabel={
@@ -293,61 +308,52 @@ const Loands: React.FC = () => {
               className: 'align-middle',
             }}
             scopedColumns={{
-              Libro: (item: any) => (
+              TITULO_LIBROS: (item: any) => (
                 <td style={{ minWidth: '220px', whiteSpace: 'normal' }}>
                   <div className="d-flex flex-column">
-                    <span className="fw-semibold text-body">{item.Libro}</span>
-                    <span className="text-muted small font-monospace">ISBN: {item.ISBN || 'S/N'}</span>
+                    <span className="fw-semibold text-body">{item.TITULO_LIBROS}</span>
+                    <span className="text-muted small font-monospace">ISBN: {item.ISBN_LIBROS || 'S/N'}</span>
                   </div>
                 </td>
               ),
-              Nombres: (item: any) => (
+              NOMBRE_PERSONA: (item: any) => (
                 <td>
-                  <span className="text-body fw-medium">{item.Nombres || '-'}</span>
+                  <span className="text-body fw-medium">{item.NOMBRE_PERSONA || '-'}</span>
                 </td>
               ),
-              Apellidos: (item: any) => (
+              APELLIDO_PERSONA: (item: any) => (
                 <td>
-                  <span className="text-body fw-medium">{item.Apellidos || '-'}</span>
+                  <span className="text-body fw-medium">{item.APELLIDO_PERSONA || '-'}</span>
                 </td>
               ),
-              Celular: (item: any) => (
+              CELULAR_PERSONA: (item: any) => (
                 <td>
-                  <span className="font-monospace fw-semibold text-secondary">{item.Celular || '-'}</span>
+                  <span className="font-monospace fw-semibold text-secondary">{item.CELULAR_PERSONA || '-'}</span>
                 </td>
               ),
-              status: (item: any) => (
+              ESTADO_TEXTO: (item: any) => (
                 <td>
-                  <CBadge color={getBadgeColor(item.status)} shape="rounded-pill" className="px-3 py-1">
-                    {item.status || 'En préstamo'}
+                  <CBadge color={getBadgeColor(item.ESTADO_TEXTO)} shape="rounded-pill" className="px-3 py-1">
+                    {item.ESTADO_TEXTO || 'En préstamo'}
                   </CBadge>
                 </td>
               ),
               details: (item: any) => {
-                const rowId = item.id ?? item.ID_PRESTAMO
-                const isOpened = details.includes(rowId) || (item.id && details.includes(item.id)) || (item.ID_PRESTAMO && details.includes(item.ID_PRESTAMO))
-                const procesando = procesandoId === (item.id ?? item.ID_PRESTAMO)
+                const rowId = item.ID_PRESTAMO
+                const isOpened = details.includes(rowId)
+                const procesando = procesandoId === item.ID_PRESTAMO
                 const esDevuelto =
                   Number(item.ESTADO_PRESTAMO) === 0 ||
-                  String(item.ESTADO_PRESTAMO) === '0' ||
                   Number(item.ESTADO_PRESTAMO) === 2 ||
-                  String(item.ESTADO_PRESTAMO) === '2' ||
-                  String(item.status || '').toLowerCase().includes('devuelto') ||
-                  String(item.status || '').toLowerCase().includes('disponible') ||
-                  String(item.status || '').toLowerCase().includes('dañado') ||
-                  String(item.status || '').toLowerCase().includes('danado') ||
-                  String(item.status || '').toLowerCase().includes('sancion') ||
-                  String(item.status || '').toLowerCase().includes('sanción') ||
-                  String(item.status || '').toLowerCase().includes('no devuelto')
+                  String(item.ESTADO_TEXTO || '').toLowerCase().includes('devuelto') ||
+                  String(item.ESTADO_TEXTO || '').toLowerCase().includes('disponible') ||
+                  String(item.ESTADO_TEXTO || '').toLowerCase().includes('dañado') ||
+                  String(item.ESTADO_TEXTO || '').toLowerCase().includes('danado') ||
+                  String(item.ESTADO_TEXTO || '').toLowerCase().includes('sancion') ||
+                  String(item.ESTADO_TEXTO || '').toLowerCase().includes('sanción') ||
+                  String(item.ESTADO_TEXTO || '').toLowerCase().includes('no devuelto')
 
-                const yaExtendido = Boolean(
-                  Number(
-                    item.EXTENDER_PRESTAMO ??
-                    item.extender_prestamo ??
-                    item.raw?.EXTENDER_PRESTAMO ??
-                    item.raw?.extender_prestamo
-                  ) === 1
-                )
+                const yaExtendido = Number(item.EXTENDER_PRESTAMO) === 1
 
                 return (
                   <CCollapse visible={isOpened} className="user-details-collapse">
@@ -365,13 +371,13 @@ const Loands: React.FC = () => {
                           >
                             <CIcon icon={cilBook} size="xxl" />
                           </div>
-                          <h6 className="fw-bold mb-1 text-body small">{item.Libro}</h6>
-                          <span className="text-muted small mb-2">{item.Nombres} {item.Apellidos}</span>
+                          <h6 className="fw-bold mb-1 text-body small">{item.TITULO_LIBROS}</h6>
+                          <span className="text-muted small mb-2">{item.NOMBRE_PERSONA} {item.APELLIDO_PERSONA}</span>
                           <span className="badge bg-body text-body border font-monospace mb-2">
-                            Cédula: {item.Cedula || '-'}
+                            Cédula: {item.IDENTIFICACION_PERSONA || '-'}
                           </span>
-                          <CBadge color={getBadgeColor(item.status)} shape="rounded-pill" className="px-3 py-1">
-                            {item.status || 'En préstamo'}
+                          <CBadge color={getBadgeColor(item.ESTADO_TEXTO)} shape="rounded-pill" className="px-3 py-1">
+                            {item.ESTADO_TEXTO || 'En préstamo'}
                           </CBadge>
                         </CCol>
 
@@ -385,7 +391,7 @@ const Loands: React.FC = () => {
                                     <CIcon icon={cilContact} className="me-1 text-body" />
                                     Identificación
                                   </span>
-                                  <span className="badge bg-body rounded-pill text-body font-monospace">{item.Cedula || '-'}</span>
+                                  <span className="badge bg-body rounded-pill text-body font-monospace">{item.IDENTIFICACION_PERSONA || '-'}</span>
                                 </CCardBody>
                               </CCard>
                             </CCol>
@@ -398,7 +404,7 @@ const Loands: React.FC = () => {
                                     Fecha de Préstamo
                                   </span>
                                   <span className="badge bg-body rounded-pill border text-primary font-monospace">
-                                    {item.Fecha_prestamo || '-'}
+                                    {item.FECHAINICIO_PRESTAMO || '-'}
                                   </span>
                                 </CCardBody>
                               </CCard>
@@ -412,7 +418,7 @@ const Loands: React.FC = () => {
                                     Fecha de Entrega
                                   </span>
                                   <span className="badge bg-body rounded-pill border text-danger font-monospace">
-                                    {item.Fecha_entrega || '-'}
+                                    {item.FECHAFIN_PRESTAMO || '-'}
                                   </span>
                                 </CCardBody>
                               </CCard>
@@ -425,7 +431,7 @@ const Loands: React.FC = () => {
                                     <CIcon icon={cilMobile} className="me-1 text-body" />
                                     Celular
                                   </span>
-                                  <span className="small text-body font-monospace">{item.Celular || '-'}</span>
+                                  <span className="small text-body font-monospace">{item.CELULAR_PERSONA || '-'}</span>
                                 </CCardBody>
                               </CCard>
                             </CCol>
@@ -437,7 +443,7 @@ const Loands: React.FC = () => {
                                     <CIcon icon={cilPhone} className="me-1 text-body" />
                                     Teléfono
                                   </span>
-                                  <span className="small text-body font-monospace">{item.Telefono || '-'}</span>
+                                  <span className="small text-body font-monospace">{item.TELEFONO_PERSONA || '-'}</span>
                                 </CCardBody>
                               </CCard>
                             </CCol>
@@ -449,19 +455,19 @@ const Loands: React.FC = () => {
                                     <CIcon icon={cilUser} className="me-1 text-body" />
                                     Estado
                                   </span>
-                                  <CBadge color={getBadgeColor(item.status)} shape="rounded-pill" className="px-2 py-1">
-                                    {item.status || 'En préstamo'}
+                                  <CBadge color={getBadgeColor(item.ESTADO_TEXTO)} shape="rounded-pill" className="px-2 py-1">
+                                    {item.ESTADO_TEXTO || 'En préstamo'}
                                   </CBadge>
                                 </CCardBody>
                               </CCard>
                             </CCol>
 
-                            {item.Detalle && (
+                            {item.DETALLE_PRESTAMO && (
                               <CCol xs={12}>
                                 <CCard className="shadow-sm border-0 bg-body">
                                   <CCardBody className="p-2">
                                     <span className="text-muted small d-block mb-1">Observaciones / Detalle:</span>
-                                    <span className="text-body small">{item.Detalle}</span>
+                                    <span className="text-body small">{item.DETALLE_PRESTAMO}</span>
                                   </CCardBody>
                                 </CCard>
                               </CCol>
@@ -535,7 +541,7 @@ const Loands: React.FC = () => {
                                     onClick={() => handleAbrirNoDevuelto(item)}
                                     title="Marcar como no devuelto / dar de baja ejemplar"
                                     className="d-flex align-items-center gap-1 shadow-sm px-3"
-                                    disabled={procesando || Number(item.ESTADO_PRESTAMO) === 2 || item.status === 'Devuelto pero dañado'}
+                                    disabled={procesando || Number(item.ESTADO_PRESTAMO) === 2 || item.ESTADO_TEXTO === 'Devuelto pero dañado'}
                                   >
                                     <CIcon icon={cilReportSlash} size="sm" />
                                     <span>No Devuelto</span>
@@ -544,8 +550,8 @@ const Loands: React.FC = () => {
                               </>
                             ) : (
                               <span className="text-danger small fw-semibold py-1">
-                                No tienes acceso a las acciones de préstamos.                              
-                                </span>
+                                No tienes acceso a las acciones de préstamos.
+                              </span>
                             )}
                           </div>
                         </CCol>

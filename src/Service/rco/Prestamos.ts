@@ -1,4 +1,4 @@
-import apiClient, { BACKEND_API_BASE } from "../ApiClient";
+import apiClient, { BACKEND_API_BASE } from "@/Service/ApiClient";
 
 const API_BASE_URL_PRESTAMOS = `${BACKEND_API_BASE}/v1/prestamos`;
 

@@ -4,8 +4,8 @@ const API_BASE_URL_GENLIB = `${BACKEND_API_BASE}/v1/generoLib`
 
 //Metodo GET
 
-export const ListarGeneroLib = async () => {
-    const { data } = await apiClient.get(`${API_BASE_URL_GENLIB}/generosLib`)
+export const ListarGeneroLib = async (params?: { page?: number; search?: string; per_page?: number }) => {
+    const { data } = await apiClient.get(`${API_BASE_URL_GENLIB}/generosLib`, { params })
     return data
 }
 

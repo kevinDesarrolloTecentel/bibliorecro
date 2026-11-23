@@ -19,7 +19,7 @@ import { cilBan } from '@coreui/icons'
 import Swal from 'sweetalert2'
 import { CambioEstadoLibro } from '@/Service/rco/Prestamos'
 import { ActualizarEstado } from '@/Service/rco/Libros'
-import { usePermissions } from '@/context/PermissionsContext'
+import { usePermissions } from '@/hooks/auth/usePermissions'
 
 interface ModalNoDevueltoProps {
   visible: boolean
@@ -53,8 +53,8 @@ export const ModalNoDevuelto: React.FC<ModalNoDevueltoProps> = ({
 
   if (!item) return null
 
-  const idPrestamo = item.id ?? item.ID_PRESTAMO ?? item.raw?.ID_PRESTAMO
-  const idLibro = item.ID_LIBROS ?? item.id_libros ?? item.raw?.ID_LIBROS
+  const idPrestamo = item.ID_PRESTAMO
+  const idLibro = item.ID_LIBROS
 
   const trimmedMotivo = motivo.trim()
   const isLengthValid = trimmedMotivo.length >= 5 && trimmedMotivo.length <= 1000

@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import { UsuActEG } from '@/Service/tab/Persona'
-import { RangoEdadItem } from '@/models/dashboard/dashboard.model'
+import { RangoEdadItem } from '@/slices/dashboardSlice'
 
 export type { RangoEdadItem }
 

@@ -1,186 +1,271 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
 import Swal from 'sweetalert2'
-import { Persona } from '@/models/tab/persona.model'
-import { usePermissions } from '@/context/PermissionsContext'
+import { RootState } from '@/store'
+import { TabPersona, ClienteItem, Persona } from '@/models/tab/persona.model'
+import { getUserImageUrl } from '@/utils/imageUtils'
+import { sanitizarHistorialSanciones } from '@/utils/sancionUtils'
+import { formatFecha, calcularFinUnAnio } from '@/utils/dateUtils'
 import {
-  ActualizarPersonaNueva,
-  CrearPersonas,
-  EliminarPersona,
-  listarPersonas,
-  PersonaEstado,
-  PersonaNueva,
+  setRegistrados,
+  setPersonaSeleccionada,
+  eliminarRegistrado,
+} from '@/slices/personaSlice'
+
+export interface FiltrosRegistrados {
+  nombre: string
+  estado: number | string | null
+  sancion: number | string | null
+  estado_veto: number | string | null
+  per_page: number
+}
+import {
+  PersonasRegistradas,
   PersonasNueva,
+  CrearPersonas,
+  ActualizarPersonaNueva,
+  PersonaEstado,
+  EliminarPersona,
   verPersonas,
 } from '@/Service/tab/Persona'
-import { sanitizarHistorialSanciones } from '@/utils/sancionUtils'
+import { usePermissions } from '@/hooks/auth/usePermissions'
+import { parseApiErrors, showErrorAlert } from '@/utils/errors'
 
-export interface PersonaColumnFilters {
-  identificacion?: string
-  nombre?: string
-  apellido?: string
-  email?: string
-  estado?: string
-  sancionado?: string
+export const getBadge = (estado: string) => {
+  switch (estado) {
+    case 'Activo':
+      return 'success'
+    case 'Inactivo':
+      return 'danger'
+    default:
+      return 'secondary'
+  }
 }
 
-export const isUserSancionado = (u: any): boolean => {
-  if (!u) return false
-  return (
-    Number(u.TIENE_SANCION) === 1 ||
-    Number(u.ESTADO_SANCION) === 1 ||
-    (Array.isArray(u.sanciones) && u.sanciones.some((s: any) => Number(s.ESTADO_SANCION ?? s.estado) === 1)) ||
-    (Array.isArray(u.historial_sanciones) && u.historial_sanciones.some((s: any) => Number(s.ESTADO_SANCION ?? s.estado) === 1))
+export const getBadgeSancion = (sancionado: string) => {
+  const s = String(sancionado || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+  if (s.includes('vet') || s.includes('vida')) {
+    return 'danger'
+  }
+  if (s.includes('sin sancion')) {
+    return 'secondary'
+  }
+  if (s.includes('con sancion') || s.includes('sancionado')) {
+    return 'warning'
+  }
+  return 'secondary'
+}
+
+export const mapearPersona = (item: TabPersona | any): ClienteItem => {
+  // Identificar si existe inscripción
+  const inscActual = extraerInscripcion(item)
+  const rawIdInscripcion = inscActual?.ID_INSCRIPCION ?? item.ID_INSCRIPCION
+  const rawInicio = inscActual?.FECHAINICIO_INSCRIPCION ?? item.FECHAINICIO_INSCRIPCION
+  const rawFin = inscActual?.FECHAFIN_INSCRIPCION ?? item.FECHAFIN_INSCRIPCION
+  const rawCosto = inscActual?.COSTO_INSCRIPCION ?? item.COSTO_INSCRIPCION
+
+  const tieneInscripcion = Boolean(
+    rawInicio ||
+      (rawIdInscripcion !== null &&
+        rawIdInscripcion !== undefined &&
+        rawIdInscripcion !== '' &&
+        rawIdInscripcion !== 0 &&
+        rawIdInscripcion !== '0'),
   )
+
+  let inicio_inscripcion = 'Sin inscripción'
+  let fin_inscripcion = 'Sin inscripción'
+
+  if (tieneInscripcion) {
+    if (rawInicio) {
+      inicio_inscripcion = formatFecha(rawInicio)
+      const finCalculado = rawFin || calcularFinUnAnio(rawInicio)
+      fin_inscripcion = formatFecha(finCalculado)
+    } else {
+      inicio_inscripcion = 'No registrada'
+      fin_inscripcion = 'No registrada'
+    }
+  }
+
+  // Costo
+  let costo = '0.00'
+  if (rawCosto !== null && rawCosto !== undefined && rawCosto !== '') {
+    const num = parseFloat(String(rawCosto))
+    costo = isNaN(num) ? String(rawCosto) : num.toFixed(2)
+  } else if (tieneInscripcion) {
+    costo = '10.00'
+  }
+
+  // Procesar y sanitizar historial de sanciones y vetos
+  const rawListSanciones: any[] = []
+  if (Array.isArray(item.sanciones)) {
+    rawListSanciones.push(...item.sanciones)
+  }
+  if (Array.isArray(item.vetos)) {
+    rawListSanciones.push(...item.vetos)
+  }
+  if (rawListSanciones.length === 0 && Array.isArray(item.historial_sanciones)) {
+    rawListSanciones.push(...item.historial_sanciones)
+  }
+
+  const historial_sanciones = sanitizarHistorialSanciones(rawListSanciones)
+
+  // VETO PERMANENTE
+  const esVetado = Boolean(
+    Number(item.TIENE_VETO_PERMANENTE) === 1 ||
+      Number(item.ESTADO_VETO) === 2 ||
+      (Array.isArray(item.vetos) && item.vetos.some((v: any) => Number(v.ESTADO_VETO) === 2)) ||
+      (String(item.ESTADO || '').toLowerCase().includes('veto') &&
+        !String(item.ESTADO || '').toLowerCase().includes('sin veto')),
+  )
+
+  // TIENE SANCIÓN ACTIVA
+  const esSinSancionExplicito = Boolean(
+    Number(item.TIENE_SANCION) === 0 ||
+      String(item.ESTADO || '').toLowerCase().includes('sin sancion') ||
+      String(item.ESTADO || '').toLowerCase().includes('sin sanción'),
+  )
+
+  const tieneSancion =
+    !esVetado &&
+    !esSinSancionExplicito &&
+    Boolean(
+      Number(item.TIENE_SANCION) === 1 ||
+        Number(item.ESTADO_SANCION) === 1 ||
+        (Array.isArray(item.sanciones) && item.sanciones.some((s: any) => Number(s.ESTADO_SANCION) === 1)),
+    )
+
+  // SANCIONES PREVIAS
+  const tieneSancionPrevia = !esVetado && !tieneSancion && historial_sanciones.length > 0
+
+  // ETIQUETA Y BADGE DE SANCIÓN
+  let sancionado: 'Con sanción' | 'Sin sanción' | 'Vetado' = 'Sin sanción'
+  if (esVetado) {
+    sancionado = 'Vetado'
+  } else if (tieneSancion) {
+    sancionado = 'Con sanción'
+  } else {
+    sancionado = 'Sin sanción'
+  }
+
+  // FECHAS Y MOTIVOS
+  const masActualSancion = historial_sanciones[0]
+  const vetoMasActual = historial_sanciones.find((s: any) => Number(s.estado) === 2 || s.fin === 'Indefinido')
+  const sancionActiva = historial_sanciones.find((s: any) => Number(s.estado) === 1)
+
+  let inicio_sancion = ''
+  let fin_sancion = ''
+  let motivo_sancion_actual = ''
+
+  if (esVetado) {
+    inicio_sancion = vetoMasActual?.inicio || formatFecha(item.FECHA_VETO) || masActualSancion?.inicio || ''
+    fin_sancion = 'Indefinido'
+    motivo_sancion_actual =
+      (Array.isArray(item.vetos) && item.vetos[0]?.MOTIVO_VETO) ||
+      vetoMasActual?.detalle ||
+      item.MOTIVO_VETO ||
+      'Veto permanente registrado en el sistema'
+  } else if (tieneSancion) {
+    const sAct = sancionActiva || masActualSancion
+    inicio_sancion = sAct?.inicio || formatFecha(item.FECHAINICIO_SANCION) || ''
+    fin_sancion = sAct?.fin || formatFecha(item.FECHAFIN_SANCION) || ''
+    motivo_sancion_actual = sAct?.detalle || item.DETALLE_SANCION || item.ESTADO || 'Usuario con sanción activa'
+  } else if (tieneSancionPrevia) {
+    inicio_sancion = masActualSancion?.inicio || ''
+    fin_sancion = masActualSancion?.fin || ''
+    motivo_sancion_actual = masActualSancion?.detalle || item.DETALLE_SANCION || 'Sanción anterior registrada en el sistema'
+  } else {
+    motivo_sancion_actual = 'Sin sanciones vigentes'
+  }
+
+  const otras_sanciones = historial_sanciones.slice(1)
+  const total_sanciones = historial_sanciones.length
+
+  // ESTADO DE LA PERSONA
+  const estado: 'Activo' | 'Inactivo' = Number(item.ESTADO_PERSONA) === 1 ? 'Activo' : 'Inactivo'
+
+  const fotoRaw = item.FOTO_PERSONA || item.IMAGEN_PERSONA || ''
+  const fotografia = getUserImageUrl(fotoRaw)
+
+  return {
+    ...item,
+    ID_INSCRIPCION: rawIdInscripcion ?? item.ID_INSCRIPCION,
+    fotografia,
+    inicio_inscripcion,
+    fin_inscripcion,
+    costo,
+    estado,
+    sancionado,
+    tiene_sancion: tieneSancion,
+    tiene_sancion_previa: tieneSancionPrevia,
+    es_vetado: esVetado,
+    inicio_sancion,
+    fin_sancion,
+    motivo_sancion_actual,
+    otras_sanciones,
+    total_sanciones,
+    historial_sanciones,
+  }
 }
 
 export const isUserVetado = (u: any): boolean => {
   if (!u) return false
-  return (
+  const est = String(u.ESTADO || '').toLowerCase()
+  return Boolean(
     Number(u.TIENE_VETO_PERMANENTE) === 1 ||
-    Number(u.ESTADO_VETO) === 2 ||
-    Boolean(u.esVetado) ||
-    (Array.isArray(u.vetos) && u.vetos.some((v: any) => Number(v.ESTADO_VETO ?? v.estado) === 2))
+      Number(u.ESTADO_VETO) === 2 ||
+      (Array.isArray(u.vetos) && u.vetos.some((v: any) => Number(v.ESTADO_VETO) === 2)) ||
+      (est.includes('veto') && !est.includes('sin veto')),
+  )
+}
+
+export const isUserSancionado = (u: any): boolean => {
+  if (!u) return false
+  if (isUserVetado(u)) return false
+
+  const est = String(u.ESTADO || '').toLowerCase()
+  if (Number(u.TIENE_SANCION) === 0 || est.includes('sin sancion') || est.includes('sin sanción')) {
+    return false
+  }
+
+  return Boolean(
+    Number(u.TIENE_SANCION) === 1 ||
+      Number(u.ESTADO_SANCION) === 1 ||
+      (Array.isArray(u.sanciones) && u.sanciones.some((s: any) => Number(s.ESTADO_SANCION) === 1)) ||
+      (est.includes('sancion') && !est.includes('sin sancion')),
   )
 }
 
 export const debeExcluirDeRegistrados = (item: any): boolean => {
   if (!item) return false
-  const raw = item.raw || item
-
-  // Estado de la persona: 0 o inactivo
-  const estPersona = String(raw.ESTADO_PERSONA ?? item.estado ?? '').toLowerCase().trim()
-  const esPersonaInactiva = estPersona === '0' || estPersona === 'inactivo'
-
-  // Estado de inscripción: 1 o true (solicitud activa / renovación pendiente)
-  const rawEstInsc =
-    raw.ESTADOINSCRIPCION_PERSONA ??
-    raw.inscripcion?.ESTADOINSCRIPCION_PERSONA ??
-    item.estadoinscripcion_persona
-
-  if (rawEstInsc === undefined || rawEstInsc === null || rawEstInsc === '') {
-    return false
-  }
-
-  const estInscripcion = String(rawEstInsc).toLowerCase().trim()
-  const esInscripcionPendiente = estInscripcion === '1' || estInscripcion === 'true'
-
-  return esPersonaInactiva && esInscripcionPendiente
-}
-
-export const parseDateFallback = (val: any): number => {
-  if (!val) return 0
-  if (val instanceof Date) return isNaN(val.getTime()) ? 0 : val.getTime()
-  if (typeof val === 'number') return isNaN(val) ? 0 : val
-  const s = String(val).trim()
-  if (!s || s === 'No registrada' || s.startsWith('0000') || s.startsWith('1970')) return 0
-
-  const dmy = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/)
-  if (dmy) {
-    const d = new Date(parseInt(dmy[3], 10), parseInt(dmy[2], 10) - 1, parseInt(dmy[1], 10))
-    if (!isNaN(d.getTime())) return d.getTime()
-  }
-  const ymd = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/)
-  if (ymd) {
-    const d = new Date(parseInt(ymd[1], 10), parseInt(ymd[2], 10) - 1, parseInt(ymd[3], 10))
-    if (!isNaN(d.getTime())) return d.getTime()
-  }
-  const yearMatch = s.match(/\b(20[1-3]\d)\b/)
-  if (yearMatch) return new Date(parseInt(yearMatch[1], 10), 0, 1).getTime()
-  const parsed = new Date(s.replace(' ', 'T')).getTime()
-  return isNaN(parsed) ? 0 : parsed
+  const estPersona = Number(item.ESTADO_PERSONA)
+  const estInsc = Number(item.ESTADOINSCRIPCION_PERSONA)
+  return estPersona === 0 && estInsc === 1
 }
 
 export const extraerInscripcion = (item: any): any | null => {
   if (!item) return null
-  let inscripcionesList: any[] = []
   if (Array.isArray(item.inscripciones) && item.inscripciones.length > 0) {
-    inscripcionesList = [...item.inscripciones]
-  } else if (Array.isArray(item.raw?.inscripciones) && item.raw.inscripciones.length > 0) {
-    inscripcionesList = [...item.raw.inscripciones]
-  } else if (item.inscripcion && typeof item.inscripcion === 'object') {
-    inscripcionesList = [item.inscripcion]
-  } else if (item.raw?.inscripcion && typeof item.raw.inscripcion === 'object') {
-    inscripcionesList = [item.raw.inscripcion]
+    return item.inscripciones[0]
   }
-
-  if (inscripcionesList.length > 0) {
-    inscripcionesList.sort((a, b) => {
-      const timeA = parseDateFallback(a.FECHAFIN_INSCRIPCION || a.FECHAINICIO_INSCRIPCION || a.fecha_fin || a.fecha_inicio)
-      const timeB = parseDateFallback(b.FECHAFIN_INSCRIPCION || b.FECHAINICIO_INSCRIPCION || b.fecha_fin || b.fecha_inicio)
-      if (timeA !== timeB) return timeB - timeA
-      const idA = Number(a.ID_INSCRIPCION || a.id || 0)
-      const idB = Number(b.ID_INSCRIPCION || b.id || 0)
-      return idB - idA
-    })
-    return inscripcionesList[0]
+  if (item.inscripcion && typeof item.inscripcion === 'object') {
+    return item.inscripcion
   }
-
-  if (
-    item.ID_INSCRIPCION ||
-    item.FECHAINICIO_INSCRIPCION ||
-    item.FECHAFIN_INSCRIPCION ||
-    item.COSTO_INSCRIPCION ||
-    item.raw?.ID_INSCRIPCION ||
-    item.raw?.FECHAINICIO_INSCRIPCION ||
-    item.raw?.FECHAFIN_INSCRIPCION ||
-    item.raw?.COSTO_INSCRIPCION
-  ) {
+  if (item.ID_INSCRIPCION) {
     return {
-      ID_INSCRIPCION: item.ID_INSCRIPCION ?? item.raw?.ID_INSCRIPCION,
-      FECHAINICIO_INSCRIPCION: item.FECHAINICIO_INSCRIPCION ?? item.raw?.FECHAINICIO_INSCRIPCION,
-      FECHAFIN_INSCRIPCION: item.FECHAFIN_INSCRIPCION ?? item.raw?.FECHAFIN_INSCRIPCION,
-      COSTO_INSCRIPCION: item.COSTO_INSCRIPCION ?? item.raw?.COSTO_INSCRIPCION,
-      DETALLE_INSCRIPCION: item.DETALLE_INSCRIPCION ?? item.raw?.DETALLE_INSCRIPCION,
-      ESTADO_INSCRIPCION: item.ESTADO_INSCRIPCION ?? item.raw?.ESTADO_INSCRIPCION,
+      ID_INSCRIPCION: item.ID_INSCRIPCION,
+      FECHAINICIO_INSCRIPCION: item.FECHAINICIO_INSCRIPCION,
+      FECHAFIN_INSCRIPCION: item.FECHAFIN_INSCRIPCION,
+      COSTO_INSCRIPCION: item.COSTO_INSCRIPCION,
+      DETALLE_INSCRIPCION: item.DETALLE_INSCRIPCION,
+      ESTADO_INSCRIPCION: item.ESTADO_INSCRIPCION,
     }
   }
-
   return null
-}
-
-export const extraerSancionDeFila = (raw: any): any | null => {
-  if (!raw) return null
-  const idSancion = raw.ID_SANCION
-  const idVeto = raw.ID_VETO
-  const inicio = raw.FECHAINICIO_SANCION ?? raw.FECHA_VETO ?? raw.inicio ?? ''
-  const esVeto = Number(raw.ESTADO_VETO) === 2 || Number(raw.TIENE_VETO_PERMANENTE) === 1
-  const fin = raw.FECHAFIN_SANCION ?? raw.fin ?? (esVeto ? 'Indefinido' : '')
-  const detalle = (raw.DETALLE_SANCION ?? raw.MOTIVO_VETO ?? raw.detalle ?? '').trim()
-  const estado = raw.ESTADO_VETO !== undefined ? Number(raw.ESTADO_VETO) : (raw.ESTADO_SANCION !== undefined ? Number(raw.ESTADO_SANCION) : (esVeto ? 2 : 1))
-
-  // Solo se considera sanción real si tiene ID de sanción/veto o fechas de sanción específicas
-  if (!idSancion && !idVeto && !inicio && !fin) {
-    return null
-  }
-
-  const id = idSancion ?? idVeto ?? (!raw.ID_PERSONA ? raw.id : undefined)
-
-  return {
-    id,
-    inicio,
-    fin,
-    detalle,
-    estado,
-  }
-}
-
-const formatApiError = (error: any, defaultMsg: string): string => {
-  const data = error?.response?.data
-  if (!data) return error?.message || defaultMsg
-  if (typeof data === 'string') return data
-  if (data.errors && typeof data.errors === 'object') {
-    const msgs = Object.entries(data.errors)
-      .map(([field, msgList]: [string, any]) => {
-        const text = Array.isArray(msgList) ? msgList.join(', ') : String(msgList)
-        return `${field}: ${text}`
-      })
-      .join(' | ')
-    if (msgs) return msgs
-  }
-  if (data.message && typeof data.message === 'string') return data.message
-  if (data.error && typeof data.error === 'string') return data.error
-  if (data.msg && typeof data.msg === 'string') return data.msg
-  return defaultMsg
 }
 
 export const deduplicarPersonas = (lista: any[]): any[] => {
@@ -188,305 +273,20 @@ export const deduplicarPersonas = (lista: any[]): any[] => {
   const map = new Map<string, any>()
   for (const item of lista) {
     if (!item) continue
-    const key = String(
-      item.ID_PERSONA ?? item.id ?? item.IDENTIFICACION_PERSONA ?? item.identificacion ?? ''
-    ).trim()
+    const key = String(item.ID_PERSONA ?? item.id ?? item.IDENTIFICACION_PERSONA ?? '').trim()
     if (!key) continue
-
-    const sancionFila = extraerSancionDeFila(item)
-
     if (!map.has(key)) {
-      const clone = { ...item }
-      clone.historial_sanciones = []
-      if (Array.isArray(item.sanciones) && item.sanciones.length > 0) {
-        item.sanciones.forEach((s: any) => {
-          const sObj = extraerSancionDeFila(s)
-          if (sObj) clone.historial_sanciones.push(sObj)
-        })
-      }
-      if (Array.isArray(item.vetos) && item.vetos.length > 0) {
-        item.vetos.forEach((v: any) => {
-          const vObj = extraerSancionDeFila(v)
-          if (vObj) clone.historial_sanciones.push(vObj)
-        })
-      }
-      if (clone.historial_sanciones.length === 0 && sancionFila) {
-        clone.historial_sanciones.push(sancionFila)
-      }
-
-      // Extraer datos de inscripción más reciente en el objeto base si vienen en item.inscripciones
-      const inscActual = extraerInscripcion(item)
-      if (inscActual) {
-        if (!clone.ID_INSCRIPCION && inscActual.ID_INSCRIPCION) clone.ID_INSCRIPCION = inscActual.ID_INSCRIPCION
-        if (!clone.FECHAINICIO_INSCRIPCION && inscActual.FECHAINICIO_INSCRIPCION) clone.FECHAINICIO_INSCRIPCION = inscActual.FECHAINICIO_INSCRIPCION
-        if (!clone.FECHAFIN_INSCRIPCION && inscActual.FECHAFIN_INSCRIPCION) clone.FECHAFIN_INSCRIPCION = inscActual.FECHAFIN_INSCRIPCION
-        if (!clone.COSTO_INSCRIPCION && inscActual.COSTO_INSCRIPCION) clone.COSTO_INSCRIPCION = inscActual.COSTO_INSCRIPCION
-        if (!clone.DETALLE_INSCRIPCION && inscActual.DETALLE_INSCRIPCION) clone.DETALLE_INSCRIPCION = inscActual.DETALLE_INSCRIPCION
-        if (clone.ESTADO_INSCRIPCION === undefined && inscActual.ESTADO_INSCRIPCION !== undefined) clone.ESTADO_INSCRIPCION = inscActual.ESTADO_INSCRIPCION
-      }
-
-      map.set(key, clone)
-    } else {
-      const existing = map.get(key)
-      if (!Array.isArray(existing.historial_sanciones)) {
-        existing.historial_sanciones = []
-      }
-
-      if (Array.isArray(item.historial_sanciones)) {
-        item.historial_sanciones.forEach((s: any) => {
-          const yaExiste = existing.historial_sanciones.some(
-            (prev: any) =>
-              (s.id && prev.id && String(prev.id) === String(s.id)) ||
-              (prev.inicio === s.inicio && prev.fin === s.fin && prev.detalle === s.detalle)
-          )
-          if (!yaExiste) existing.historial_sanciones.push(s)
-        })
-      }
-
-      if (Array.isArray(item.sanciones)) {
-        item.sanciones.forEach((s: any) => {
-          const sObj = extraerSancionDeFila(s)
-          if (sObj) {
-            const yaExiste = existing.historial_sanciones.some(
-              (prev: any) =>
-                (sObj.id && prev.id && String(prev.id) === String(sObj.id)) ||
-                (prev.inicio === sObj.inicio && prev.fin === sObj.fin && prev.detalle === sObj.detalle)
-            )
-            if (!yaExiste) existing.historial_sanciones.push(sObj)
-          }
-        })
-      }
-
-      if (Array.isArray(item.vetos)) {
-        item.vetos.forEach((v: any) => {
-          const vObj = extraerSancionDeFila(v)
-          if (vObj) {
-            const yaExiste = existing.historial_sanciones.some(
-              (prev: any) =>
-                (vObj.id && prev.id && String(prev.id) === String(vObj.id)) ||
-                (prev.inicio === vObj.inicio && prev.fin === vObj.fin && prev.detalle === vObj.detalle)
-            )
-            if (!yaExiste) existing.historial_sanciones.push(vObj)
-          }
-        })
-      }
-
-      if (existing.historial_sanciones.length === 0 && sancionFila) {
-        const yaExiste = existing.historial_sanciones.some(
-          (prev: any) =>
-            (sancionFila.id && prev.id && String(prev.id) === String(sancionFila.id)) ||
-            (prev.inicio === sancionFila.inicio &&
-              prev.fin === sancionFila.fin &&
-              prev.detalle === sancionFila.detalle)
-        )
-        if (!yaExiste) existing.historial_sanciones.push(sancionFila)
-      }
-
-      // Si cualquiera de las filas tiene sanción activa o veto permanente, prevalece
-      const esVet = Boolean(
-        Number(item.TIENE_VETO_PERMANENTE) === 1 ||
-        Number(item.ESTADO_VETO) === 2 ||
-        (Array.isArray(item.vetos) && item.vetos.some((v: any) => Number(v.ESTADO_VETO) === 2))
-      )
-
-      const esSancionadoDirecto = !esVet && Boolean(
-        Number(item.TIENE_SANCION) === 1 ||
-        Number(item.ESTADO_SANCION) === 1 ||
-        (Array.isArray(item.sanciones) && item.sanciones.some((s: any) => Number(s.ESTADO_SANCION) === 1))
-      )
-
-      if (esVet) {
-        existing.TIENE_VETO_PERMANENTE = 1
-        existing.ESTADO_VETO = 2
-        existing.ESTADO = 'Veto permanente'
-        if (item.MOTIVO_VETO) existing.MOTIVO_VETO = item.MOTIVO_VETO
-        if (item.FECHA_VETO) existing.FECHA_VETO = item.FECHA_VETO
-      } else if (esSancionadoDirecto) {
-        existing.TIENE_SANCION = 1
-        existing.ESTADO_SANCION = 1
-        existing.ESTADO = item.ESTADO || 'Sancionado'
-        if (item.DETALLE_SANCION) existing.DETALLE_SANCION = item.DETALLE_SANCION
-      }
-
-      // Comparar fechas de sanción para conservar siempre la más reciente
-      const timeExistente = parseDateFallback(existing.FECHAINICIO_SANCION || existing.FECHAFIN_SANCION)
-      const timeNuevo = parseDateFallback(item.FECHAINICIO_SANCION || item.FECHAFIN_SANCION)
-      if (timeNuevo >= timeExistente && (item.FECHAINICIO_SANCION || item.FECHAFIN_SANCION)) {
-        if (item.FECHAINICIO_SANCION) existing.FECHAINICIO_SANCION = item.FECHAINICIO_SANCION
-        if (item.FECHAFIN_SANCION) existing.FECHAFIN_SANCION = item.FECHAFIN_SANCION
-      } else {
-        if (!existing.FECHAINICIO_SANCION && item.FECHAINICIO_SANCION) {
-          existing.FECHAINICIO_SANCION = item.FECHAINICIO_SANCION
-        }
-        if (!existing.FECHAFIN_SANCION && item.FECHAFIN_SANCION) {
-          existing.FECHAFIN_SANCION = item.FECHAFIN_SANCION
-        }
-      }
-
-      // Preservar fechas de inscripción
-      const inscExistente = extraerInscripcion(existing)
-      const inscNueva = extraerInscripcion(item)
-      if (inscNueva) {
-        const timeExistente = parseDateFallback(inscExistente?.FECHAFIN_INSCRIPCION || inscExistente?.FECHAINICIO_INSCRIPCION)
-        const timeNueva = parseDateFallback(inscNueva?.FECHAFIN_INSCRIPCION || inscNueva?.FECHAINICIO_INSCRIPCION)
-        if (timeNueva >= timeExistente || !inscExistente) {
-          if (inscNueva.ID_INSCRIPCION) existing.ID_INSCRIPCION = inscNueva.ID_INSCRIPCION
-          if (inscNueva.FECHAINICIO_INSCRIPCION) existing.FECHAINICIO_INSCRIPCION = inscNueva.FECHAINICIO_INSCRIPCION
-          if (inscNueva.FECHAFIN_INSCRIPCION) existing.FECHAFIN_INSCRIPCION = inscNueva.FECHAFIN_INSCRIPCION
-          if (inscNueva.COSTO_INSCRIPCION) existing.COSTO_INSCRIPCION = inscNueva.COSTO_INSCRIPCION
-          if (inscNueva.DETALLE_INSCRIPCION) existing.DETALLE_INSCRIPCION = inscNueva.DETALLE_INSCRIPCION
-        }
-      } else {
-        if (!existing.FECHAINICIO_INSCRIPCION && item.FECHAINICIO_INSCRIPCION) {
-          existing.FECHAINICIO_INSCRIPCION = item.FECHAINICIO_INSCRIPCION
-        }
-        if (!existing.FECHAFIN_INSCRIPCION && item.FECHAFIN_INSCRIPCION) {
-          existing.FECHAFIN_INSCRIPCION = item.FECHAFIN_INSCRIPCION
-        }
-        if (!existing.COSTO_INSCRIPCION && item.COSTO_INSCRIPCION) {
-          existing.COSTO_INSCRIPCION = item.COSTO_INSCRIPCION
-        }
-      }
-
-      if (Array.isArray(item.inscripciones)) {
-        if (!Array.isArray(existing.inscripciones)) {
-          existing.inscripciones = [...item.inscripciones]
-        } else {
-          item.inscripciones.forEach((ins: any) => {
-            const yaEsta = existing.inscripciones.some((prev: any) => prev.ID_INSCRIPCION && ins.ID_INSCRIPCION && String(prev.ID_INSCRIPCION) === String(ins.ID_INSCRIPCION))
-            if (!yaEsta) existing.inscripciones.push(ins)
-          })
-        }
-      }
+      map.set(key, item)
     }
   }
-
-  for (const person of map.values()) {
-    person.historial_sanciones = sanitizarHistorialSanciones(person.historial_sanciones)
-    if (person.historial_sanciones.length > 0) {
-      const masActual = person.historial_sanciones[0]
-      if (masActual.inicio && (!person.FECHAINICIO_SANCION || person.FECHAINICIO_SANCION === 'No registrada')) {
-        person.FECHAINICIO_SANCION = masActual.inicio
-      }
-      if (masActual.fin && (!person.FECHAFIN_SANCION || person.FECHAFIN_SANCION === 'No registrada')) {
-        person.FECHAFIN_SANCION = masActual.fin
-      }
-      if (masActual.detalle && (!person.DETALLE_SANCION || person.DETALLE_SANCION.includes(' | '))) {
-        person.DETALLE_SANCION = masActual.detalle
-      }
-
-      const esVet = Boolean(
-        Number(person.TIENE_VETO_PERMANENTE) === 1 ||
-        Number(person.ESTADO_VETO) === 2 ||
-        (Array.isArray(person.vetos) && person.vetos.some((v: any) => Number(v.ESTADO_VETO) === 2)) ||
-        Number(masActual.estado) === 2 ||
-        masActual.fin === 'Indefinido'
-      )
-
-      if (esVet) {
-        person.TIENE_VETO_PERMANENTE = 1
-        person.ESTADO_VETO = 2
-        if (!person.ESTADO || !person.ESTADO.toLowerCase().includes('vet')) {
-          person.ESTADO = 'Veto permanente'
-        }
-      } else {
-        const esSancionado = Boolean(
-          Number(person.TIENE_SANCION) === 1 ||
-          Number(person.ESTADO_SANCION) === 1 ||
-          (Array.isArray(person.sanciones) && person.sanciones.some((s: any) => Number(s.ESTADO_SANCION) === 1)) ||
-          Number(masActual.estado) === 1
-        )
-        if (esSancionado) {
-          person.TIENE_SANCION = 1
-          person.ESTADO_SANCION = 1
-          if (!person.ESTADO || !person.ESTADO.toLowerCase().includes('sancion')) {
-            person.ESTADO = 'Sancionado'
-          }
-        }
-      }
-    }
-  }
-
   return Array.from(map.values())
 }
 
-interface InfoPaginacion {
-  items: any[]
-  total: number
-  perPage: number
-  lastPage: number
-  currentPage: number
-}
-
-const extraerInfoPaginacion = (res: any): InfoPaginacion => {
-  let items: any[] = []
-  let total = 0
-  let perPage = 10
-  let lastPage = 1
-  let currentPage = 1
-
-  if (!res) {
-    return { items, total, perPage, lastPage, currentPage }
-  }
-
-  if (Array.isArray(res)) {
-    items = res
-  } else if (Array.isArray(res?.data?.data)) {
-    items = res.data.data
-  } else if (Array.isArray(res?.data)) {
-    items = res.data
-  } else if (Array.isArray(res?.personas?.data)) {
-    items = res.personas.data
-  } else if (Array.isArray(res?.personas)) {
-    items = res.personas
-  } else if (Array.isArray(res?.usuarios?.data)) {
-    items = res.usuarios.data
-  } else if (Array.isArray(res?.usuarios)) {
-    items = res.usuarios
-  }
-
-  const metaSource =
-    (res?.meta && typeof res.meta === 'object') ? res.meta :
-    (res?.data && typeof res.data === 'object' && !Array.isArray(res.data)) ? res.data :
-    (res?.personas && typeof res.personas === 'object' && !Array.isArray(res.personas)) ? res.personas :
-    (typeof res === 'object' && !Array.isArray(res)) ? res :
-    null
-
-  if (metaSource) {
-    if (metaSource.total !== undefined && metaSource.total !== null) {
-      total = Number(metaSource.total) || 0
-    }
-    if (metaSource.per_page !== undefined && metaSource.per_page !== null) {
-      perPage = Number(metaSource.per_page) || 10
-    } else if (metaSource.perpage !== undefined && metaSource.perpage !== null) {
-      perPage = Number(metaSource.perpage) || 10
-    }
-    if (metaSource.last_page !== undefined && metaSource.last_page !== null) {
-      lastPage = Number(metaSource.last_page) || 1
-    }
-    if (metaSource.current_page !== undefined && metaSource.current_page !== null) {
-      currentPage = Number(metaSource.current_page) || 1
-    }
-  }
-
-  items = deduplicarPersonas(items)
-
-  if (total === 0 && items.length > 0) {
-    total = items.length
-  } else if (total > 0 && total <= perPage) {
-    total = items.length
-  }
-  if (lastPage === 1 && total > 0 && perPage > 0) {
-    lastPage = Math.max(1, Math.ceil(total / perPage))
-  }
-
-  return { items, total, perPage, lastPage, currentPage }
-}
-
 const usePersonas = (autoFetch: boolean = true) => {
+  const dispatch = useDispatch()
   const { canDoAction, verificarAccionEnServidor } = usePermissions()
 
-  // Permisos centralizados para Gestión de Usuarios - Registrados
+  // Permisos centralizados
   const canCrearUsuario = canDoAction('btn_crear_usuario_gestion_usuario')
   const canGuardarUsuario = canDoAction('btn_guardar_gestion_usuario')
   const canVerDetalles = canDoAction('btn_mostrar_info_gestion_usuario')
@@ -497,37 +297,37 @@ const usePersonas = (autoFetch: boolean = true) => {
   const canGuardarRenovacion = canDoAction('btn_guardar_renovacion_gestion_usuario')
   const tieneAcciones = canEditarUsuario || canEliminarUsuario || canRenovarUsuario
 
-  const [personas, setPersonas] = useState<(Persona | any)[]>([])
-  const [personasNuevas, setPersonasNuevas] = useState<any[]>([])
-  const [loading, setLoading] = useState(false)
-  const [guardando, setGuardando] = useState(false)
+  // Estado global desde Redux Toolkit
+  const personas = useSelector((state: RootState) => state.personas.registrados)
+  const paginacionRegistrados = useSelector((state: RootState) => state.personas.paginacionRegistrados)
+  const selectedUser = useSelector((state: RootState) => state.personas.personaSeleccionada)
+
+  // Estados locales de UI y Filtros
+  const [filtros, setFiltros] = useState<FiltrosRegistrados>({
+    nombre: '',
+    estado: null,
+    sancion: null,
+    estado_veto: null,
+    per_page: 10,
+  })
+  const [loading, setLoading] = useState<boolean>(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
-  const [paginaActual, setPaginaActual] = useState(1)
-  const [totalPaginas, setTotalPaginas] = useState(1)
-  const [totalRegistros, setTotalRegistros] = useState(0)
-  const [porPagina, setPorPagina] = useState(10)
-  const [columnFilters, setColumnFilters] = useState<PersonaColumnFilters>({})
-  const [searchTerm, setSearchTerm] = useState<string>('')
+  const [guardando, setGuardando] = useState(false)
   const [tableKey, setTableKey] = useState<number>(0)
-  const columnFiltersRef = useRef<PersonaColumnFilters>({})
-  const currentSearchRef = useRef<string>('')
-  const lastSearchTermRef = useRef<string>('')
-  const searchDebounceRef = useRef<any>(null)
-  const paginaActualRef = useRef<number>(paginaActual)
-  const porPaginaRef = useRef<number>(porPagina)
-
-  useEffect(() => {
-    paginaActualRef.current = paginaActual
-  }, [paginaActual])
-
-  useEffect(() => {
-    porPaginaRef.current = porPagina
-  }, [porPagina])
-
   const [modalRegister, setModalRegister] = useState(false)
   const [modalEdit, setModalEdit] = useState(false)
-  const [selectedUser, setSelectedUser] = useState<Persona | any | null>(null)
+  const [modalRenovaciones, setModalRenovaciones] = useState(false)
   const [details, setDetails] = useState<(number | string)[]>([])
+
+  const isFetchingRef = useRef<boolean>(false)
+  const searchDebounceRef = useRef<any>(null)
+  const hasMountedRef = useRef<boolean>(false)
+
+  const filtrosRef = useRef(filtros)
+  filtrosRef.current = filtros
+
+  const paginacionRef = useRef(paginacionRegistrados)
+  paginacionRef.current = paginacionRegistrados
 
   const toggleDetails = (id: number | string) => {
     if (!canVerDetalles) return
@@ -536,75 +336,45 @@ const usePersonas = (autoFetch: boolean = true) => {
 
   const handleAbrirEditar = (item: any) => {
     if (!canEditarUsuario) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Acceso Denegado',
-        text: 'No tienes permisos para editar usuarios.',
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
+      showErrorAlert('Acceso Denegado', ['No tienes permisos para editar usuarios.'])
       return
     }
-    setSelectedUser(item)
+    const entidadPura = personas.find((p) => p.ID_PERSONA === item.ID_PERSONA) || item
+    dispatch(setPersonaSeleccionada(entidadPura))
     setModalEdit(true)
   }
 
   const handleAbrirCrear = () => {
     if (!canCrearUsuario) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Acceso Denegado',
-        text: 'No tienes permisos para registrar usuarios.',
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
+      showErrorAlert('Acceso Denegado', ['No tienes permisos para registrar usuarios.'])
       return
     }
     setModalRegister(true)
   }
 
-
-  const ordenarPorFechaReciente = (lista: any[]) => {
-    if (!Array.isArray(lista)) return []
-    const deduped = deduplicarPersonas(lista)
-    return [...deduped].sort((a: any, b: any) => {
-      const inscA = extraerInscripcion(a)
-      const inscB = extraerInscripcion(b)
-      const rawA = a?.FECHAINICIO_INSCRIPCION ?? inscA?.FECHAINICIO_INSCRIPCION ?? a?.FECHAREGISTRO_PERSONA ?? ''
-      const rawB = b?.FECHAINICIO_INSCRIPCION ?? inscB?.FECHAINICIO_INSCRIPCION ?? b?.FECHAREGISTRO_PERSONA ?? ''
-
-      const timeA = parseDateFallback(rawA)
-      const timeB = parseDateFallback(rawB)
-
-      if (timeA !== timeB) {
-        return timeB - timeA
-      }
-
-      const idA = Number(a?.ID_PERSONA || a?.id || 0)
-      const idB = Number(b?.ID_PERSONA || b?.id || 0)
-      return idB - idA
-    })
+  const handleAbrirRenovar = (item: any) => {
+    if (!canRenovarUsuario) {
+      showErrorAlert('Acceso Denegado', ['No tienes permisos para renovar inscripciones.'])
+      return
+    }
+    const entidadPura = personas.find((p) => p.ID_PERSONA === item.ID_PERSONA) || item
+    dispatch(setPersonaSeleccionada(entidadPura))
+    setModalRenovaciones(true)
   }
 
+  // Petición al backend conectada directamente a Redux
   const fetchPersonas = useCallback(
     (
       page?: number,
       perPage?: number,
       search?: string,
       clearSearch?: boolean,
-      customFilters?: PersonaColumnFilters
+      customFilters?: Partial<FiltrosRegistrados>,
     ) => {
       const isSearchParamGiven = typeof search === 'string'
 
-      let areFiltersChanged = false
       if (customFilters !== undefined) {
-        const prevF = JSON.stringify(columnFiltersRef.current)
-        const nextF = JSON.stringify(customFilters)
-        if (prevF !== nextF) {
-          areFiltersChanged = true
-          columnFiltersRef.current = customFilters
-          setColumnFilters(customFilters)
-        }
+        setFiltros((prev) => ({ ...prev, ...customFilters }))
       }
 
       if (searchDebounceRef.current) {
@@ -612,147 +382,141 @@ const usePersonas = (autoFetch: boolean = true) => {
       }
 
       const executeFetch = async () => {
-        const targetUiPage =
-          typeof page === 'number' && page > 0 ? page : (typeof page === 'number' ? 1 : paginaActualRef.current)
-        let validUiPage = targetUiPage
-        const S = typeof perPage === 'number' && perPage > 0 ? perPage : porPaginaRef.current
-
-        if (clearSearch) {
-          currentSearchRef.current = ''
-          lastSearchTermRef.current = ''
-          columnFiltersRef.current = {}
-          setColumnFilters({})
-          setSearchTerm('')
-          setTableKey((k) => k + 1)
-          setDetails([])
-        } else if (isSearchParamGiven) {
-          const trimmed = search.trim()
-          currentSearchRef.current = trimmed
-          setSearchTerm(trimmed)
-          validUiPage = 1
-        }
-
-        if (areFiltersChanged) {
-          validUiPage = 1
-        }
-
-        const filters = columnFiltersRef.current || {}
-        const actualSearch = currentSearchRef.current || undefined
-        const estadoFilter = (filters.estado || '').trim()
-        const sancionadoFilter = (filters.sancionado || '').trim()
+        if (isFetchingRef.current) return
+        isFetchingRef.current = true
 
         setLoading(true)
         setErrorMsg(null)
 
+        if (clearSearch) {
+          setFiltros({
+            nombre: '',
+            estado: null,
+            sancion: null,
+            estado_veto: null,
+            per_page: 10,
+          })
+          setTableKey((k) => k + 1)
+          setDetails([])
+        } else if (isSearchParamGiven) {
+          setFiltros((prev) => ({ ...prev, nombre: search.trim() }))
+        }
+
+        const targetPage = typeof page === 'number' && page > 0 ? page : paginacionRef.current.current_page || 1
+        const targetPerPage =
+          typeof perPage === 'number' && perPage > 0 ? perPage : paginacionRef.current.per_page || 10
+
+        if (targetPage !== paginacionRef.current.current_page) {
+          setDetails([])
+        }
+
+        const payload: any = {
+          page: targetPage,
+          nombre: clearSearch ? '' : (isSearchParamGiven ? search.trim() : filtrosRef.current.nombre || ''),
+          estado: customFilters?.estado !== undefined ? customFilters.estado : filtrosRef.current.estado,
+          sancion: customFilters?.sancion !== undefined ? customFilters.sancion : filtrosRef.current.sancion,
+          estado_veto:
+            customFilters?.estado_veto !== undefined ? customFilters.estado_veto : filtrosRef.current.estado_veto,
+          per_page: targetPerPage,
+        }
+
         try {
-
-          let estadoParam: number | null = null
-          if (estadoFilter === 'Activo' || estadoFilter === '1') {
-            estadoParam = 1
-          } else if (estadoFilter === 'Inactivo' || estadoFilter === '0') {
-            estadoParam = 0
-          }
-
-          let sancionParam: number | null = null
-          let estadoVetoParam: number | null = null
-
-          if (sancionadoFilter === 'Vetado') {
-            estadoVetoParam = 2
-          } else if (sancionadoFilter === 'Con sanción' || sancionadoFilter === '1') {
-            sancionParam = 1
-          } else if (sancionadoFilter === 'Sin sanción' || sancionadoFilter === '0') {
-            sancionParam = 0
-            estadoVetoParam = 0
-          }
-
-          // Determinar término para búsqueda en backend a través de la barra de búsqueda general
-          const genF = (actualSearch || '').trim()
-          const backendTerm: string | undefined = genF || undefined
-
-          // Petición directa al backend con paginación y filtros nativos (estado, sancion, estado_veto)
-          let backendPageToFetch = validUiPage
-          let res = await listarPersonas(backendPageToFetch, S, backendTerm, estadoParam, sancionParam, estadoVetoParam)
-          let info = extraerInfoPaginacion(res)
-
-          let pageItems = info.items || []
-          let itemsValidos = pageItems.filter((item: any) => !debeExcluirDeRegistrados(item))
-
-          // Si filtramos por Inactivo (o un filtro activo) y la página retornada quedó vacía por exclusiones de solicitudes pendientes
-          // pero el backend reporta que hay más páginas disponibles, avanzamos automáticamente a la siguiente página con datos reales
-          if (itemsValidos.length === 0 && info.total > 0 && backendPageToFetch < info.lastPage) {
-            backendPageToFetch++
-            const nextRes = await listarPersonas(backendPageToFetch, S, backendTerm, estadoParam, sancionParam, estadoVetoParam)
-            const nextInfo = extraerInfoPaginacion(nextRes)
-            const nextValidos = (nextInfo.items || []).filter((item: any) => !debeExcluirDeRegistrados(item))
-            if (nextValidos.length > 0) {
-              itemsValidos = nextValidos
-              info = nextInfo
-            }
-          }
-
-          const totalItems = info.total > 0 ? info.total : itemsValidos.length
-          const totalPages = info.lastPage > 0 ? info.lastPage : Math.max(1, Math.ceil(totalItems / S))
-          const currentPageNum = info.currentPage > 0 ? info.currentPage : validUiPage
-
-          setPersonas(ordenarPorFechaReciente(itemsValidos))
-          setPaginaActual(currentPageNum)
-          setTotalPaginas(totalPages)
-          setTotalRegistros(totalItems)
-          setPorPagina(S)
+          const res = await PersonasRegistradas(payload, { page: targetPage, per_page: targetPerPage })
+          dispatch(setRegistrados(res))
         } catch (error: any) {
-          console.error('[usePersonas] Error al obtener clientes:', error)
-          const msg = formatApiError(error, 'Error al obtener la lista de clientes.')
-          setErrorMsg(msg)
+          console.error('[usePersonas] Error al obtener personas registradas:', error)
+          const { title, messages } = parseApiErrors(error, 'Error al consultar usuarios registrados.')
+          setErrorMsg(messages.join(', '))
+          showErrorAlert(title, messages)
         } finally {
+          isFetchingRef.current = false
           setLoading(false)
         }
       }
 
-      if (!clearSearch && (isSearchParamGiven || areFiltersChanged)) {
+      if (!clearSearch && isSearchParamGiven) {
+        const trimmed = search.trim()
+        if (trimmed === (filtrosRef.current.nombre || '') && !customFilters) {
+          return
+        }
         searchDebounceRef.current = setTimeout(executeFetch, 350)
       } else {
         return executeFetch()
       }
     },
-    [],
+    [dispatch],
   )
 
   const handleRecargar = useCallback(async () => {
     if (searchDebounceRef.current) {
       clearTimeout(searchDebounceRef.current)
     }
-    await fetchPersonas(1, porPaginaRef.current, '', true, {})
-  }, [fetchPersonas])
+    setFiltros({
+      nombre: '',
+      estado: null,
+      sancion: null,
+      estado_veto: null,
+      per_page: 10,
+    })
+    setTableKey((k) => k + 1)
+    setDetails([])
+    await fetchPersonas(1, paginacionRegistrados.per_page, '', true)
+  }, [fetchPersonas, paginacionRegistrados.per_page])
 
   const handleColumnFilterChange = useCallback(
-    (filters: PersonaColumnFilters) => {
-      fetchPersonas(1, porPaginaRef.current, undefined, false, filters)
+    (filters: Record<string, any>) => {
+      const estadoFilter = (filters?.estado || '').trim()
+      const sancionadoFilter = (filters?.sancionado || '').trim()
+
+      let estadoParam: number | null = null
+      if (estadoFilter === 'Activo' || estadoFilter === '1') {
+        estadoParam = 1
+      } else if (estadoFilter === 'Inactivo' || estadoFilter === '0') {
+        estadoParam = 0
+      }
+
+      let sancionParam: number | null = null
+      let estadoVetoParam: number | null = null
+
+      if (sancionadoFilter === 'Vetado') {
+        estadoVetoParam = 2
+      } else if (sancionadoFilter === 'Con sanción' || sancionadoFilter === '1') {
+        sancionParam = 1
+      } else if (sancionadoFilter === 'Sin sanción' || sancionadoFilter === '0') {
+        sancionParam = 0
+        estadoVetoParam = 0
+      }
+
+      const nuevosFiltros: Partial<FiltrosRegistrados> = {
+        estado: estadoParam,
+        sancion: sancionParam,
+        estado_veto: estadoVetoParam,
+      }
+
+      // Evitar disparo redundante si los filtros de columna no han cambiado
+      if (
+        estadoParam === filtrosRef.current.estado &&
+        sancionParam === filtrosRef.current.sancion &&
+        estadoVetoParam === filtrosRef.current.estado_veto
+      ) {
+        return
+      }
+
+      setFiltros((prev) => ({ ...prev, ...nuevosFiltros }))
+      fetchPersonas(1, paginacionRegistrados.per_page, undefined, false, nuevosFiltros)
     },
-    [fetchPersonas],
+    [fetchPersonas, paginacionRegistrados.per_page],
   )
 
-
-  const handleCrearPersonaNew = async (data: any) => {
+  const handleCrearPersona = async (data: FormData | Persona | any): Promise<boolean> => {
     if (!canGuardarUsuario && !canCrearUsuario) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Acceso Denegado',
-        text: 'No tienes permisos para registrar usuarios.',
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
+      showErrorAlert('Acceso Denegado', ['No tienes permisos para registrar usuarios.'])
       return false
     }
 
     const tienePermiso = await verificarAccionEnServidor('btn_guardar_gestion_usuario')
     if (!tienePermiso) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Acceso Denegado',
-        text: 'No tienes permisos para registrar usuarios.',
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
+      showErrorAlert('Acceso Denegado', ['No tienes permisos para registrar usuarios.'])
       return false
     }
 
@@ -763,126 +527,41 @@ const usePersonas = (autoFetch: boolean = true) => {
         if (typeof nom === 'string') data.set('NOMBRE_PERSONA', nom.trim().toUpperCase())
         const ape = data.get('APELLIDO_PERSONA')
         if (typeof ape === 'string') data.set('APELLIDO_PERSONA', ape.trim().toUpperCase())
+        await PersonasNueva(data)
+      } else {
+        const payload = {
+          ...data,
+          NOMBRE_PERSONA: data.NOMBRE_PERSONA ? String(data.NOMBRE_PERSONA).trim().toUpperCase() : '',
+          APELLIDO_PERSONA: data.APELLIDO_PERSONA ? String(data.APELLIDO_PERSONA).trim().toUpperCase() : '',
+        }
+        await CrearPersonas(payload)
       }
-      await PersonasNueva(data)
-      await fetchPersonas(1, porPagina, undefined, true)
+      await fetchPersonas(1, paginacionRegistrados.per_page, undefined, true)
       return true
     } catch (e: any) {
-      console.error('Error detallado de backend al registrar con personaNew:', e?.response?.data || e)
-      Swal.fire({
-        icon: 'error',
-        title: 'Error al registrar',
-        text: formatApiError(e, 'Error al registrar el usuario.'),
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
+      console.error('[usePersonas] Error al registrar persona:', e)
+      const { title, messages } = parseApiErrors(e, 'Error al registrar el usuario.')
+      showErrorAlert(title, messages)
       return false
     } finally {
       setGuardando(false)
     }
   }
 
-  const fetchPersonasNuevas = useCallback(async () => {
-    setLoading(true)
-    setErrorMsg(null)
-    try {
-      const response = await PersonaNueva(true)
-      let list: any[] = []
-      if (Array.isArray(response)) {
-        list = response
-      } else if (Array.isArray(response?.data?.data)) {
-        list = response.data.data
-      } else if (Array.isArray(response?.data)) {
-        list = response.data
-      } else if (Array.isArray(response?.personas)) {
-        list = response.personas
-      }
-      setPersonasNuevas(list)
-    } catch (error: any) {
-      const msg = formatApiError(error, 'Error al obtener personas nuevas/renovaciones.')
-      setErrorMsg(msg)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  const handleCrearPersona = async (personaData: Persona): Promise<boolean> => {
-    if (!canGuardarUsuario && !canCrearUsuario) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Acceso Denegado',
-        text: 'No tienes permisos para registrar usuarios.',
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
-      return false
-    }
-
-    const tienePermiso = await verificarAccionEnServidor('btn_guardar_gestion_usuario')
-    if (!tienePermiso) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Acceso Denegado',
-        text: 'No tienes permisos para registrar usuarios.',
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
-      return false
-    }
-
-    setGuardando(true)
-    try {
-      const payload = {
-        ...personaData,
-        NOMBRE_PERSONA: personaData.NOMBRE_PERSONA ? personaData.NOMBRE_PERSONA.trim().toUpperCase() : '',
-        APELLIDO_PERSONA: personaData.APELLIDO_PERSONA ? personaData.APELLIDO_PERSONA.trim().toUpperCase() : '',
-      }
-      await CrearPersonas(payload)
-      await fetchPersonas(1, porPagina, undefined, true)
-      return true
-    } catch (error: any) {
-      console.error('Error detallado de backend al registrar persona:', error?.response?.data || error)
-      const msg = formatApiError(error, 'No se pudo registrar la persona')
-      Swal.fire({
-        icon: 'error',
-        title: 'Error al registrar',
-        text: msg,
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
-      return false
-    } finally {
-      setGuardando(false)
-    }
-  }
+  const handleCrearPersonaNew = handleCrearPersona
 
   const handleActualizarPersona = async (
     id: string | number,
     personaData: any,
   ): Promise<boolean> => {
-    if (
-      !canActualizarUsuario &&
-      !canEditarUsuario
-    ) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Acceso Denegado',
-        text: 'No tienes permisos para actualizar usuarios.',
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
+    if (!canActualizarUsuario && !canEditarUsuario) {
+      showErrorAlert('Acceso Denegado', ['No tienes permisos para actualizar usuarios.'])
       return false
     }
 
     const tienePermiso = await verificarAccionEnServidor('btn_actualizar_gestion_usuario')
     if (!tienePermiso) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Acceso Denegado',
-        text: 'No tienes permisos para actualizar usuarios.',
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
+      showErrorAlert('Acceso Denegado', ['No tienes permisos para actualizar usuarios.'])
       return false
     }
 
@@ -902,18 +581,12 @@ const usePersonas = (autoFetch: boolean = true) => {
         }
         await ActualizarPersonaNueva(id, payload)
       }
-      await fetchPersonas(paginaActual, porPagina)
+      await fetchPersonas(paginacionRegistrados.current_page, paginacionRegistrados.per_page)
       return true
     } catch (error: any) {
-      console.error('Error detallado de backend al actualizar persona:', error?.response?.data || error)
-      const msg = formatApiError(error, 'No se pudo actualizar la persona')
-      Swal.fire({
-        icon: 'error',
-        title: 'Error al actualizar',
-        text: msg,
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
+      console.error('[usePersonas] Error al actualizar persona:', error)
+      const { title, messages } = parseApiErrors(error, 'No se pudo actualizar la persona.')
+      showErrorAlert(title, messages)
       return false
     } finally {
       setGuardando(false)
@@ -933,17 +606,11 @@ const usePersonas = (autoFetch: boolean = true) => {
         timer: 1800,
         showConfirmButton: false,
       })
-      await fetchPersonas(paginaActual, porPagina)
+      await fetchPersonas(paginacionRegistrados.current_page, paginacionRegistrados.per_page)
       return true
     } catch (error: any) {
-      const msg = formatApiError(error, 'No se pudo actualizar el estado')
-      Swal.fire({
-        icon: 'error',
-        title: 'Error de estado',
-        text: msg,
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
+      const { title, messages } = parseApiErrors(error, 'No se pudo actualizar el estado.')
+      showErrorAlert(title, messages)
       return false
     }
   }
@@ -953,59 +620,33 @@ const usePersonas = (autoFetch: boolean = true) => {
       const res = await verPersonas(id)
       return res?.data || res
     } catch (error: any) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Error al consultar',
-        text: 'No se pudo consultar la información del usuario.',
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
+      showErrorAlert('Error al consultar', ['No se pudo consultar la información del usuario.'])
       return null
     }
   }
 
-  useEffect(() => {
-    if (autoFetch) {
-      fetchPersonas(1)
-    }
-  }, [autoFetch, fetchPersonas])
-
-
-
   const handleEliminarPersona = async (id: string | number): Promise<boolean> => {
     if (!canEliminarUsuario) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Acceso Denegado',
-        text: 'No tienes permisos para eliminar usuarios.',
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
+      showErrorAlert('Acceso Denegado', ['No tienes permisos para eliminar usuarios.'])
       return false
     }
 
     const tienePermiso = await verificarAccionEnServidor('btn_eliminar_usuario_gestion_usuario')
     if (!tienePermiso) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Acceso Denegado',
-        text: 'No tienes permisos para eliminar usuarios.',
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
+      showErrorAlert('Acceso Denegado', ['No tienes permisos para eliminar usuarios.'])
       return false
     }
 
     setGuardando(true)
     try {
       await EliminarPersona(id)
-      await fetchPersonas(paginaActual, porPagina)
+      dispatch(eliminarRegistrado(id))
+      await fetchPersonas(paginacionRegistrados.current_page, paginacionRegistrados.per_page)
       return true
     } catch (error: any) {
-      console.error('Error al eliminar persona:', error)
+      console.error('[usePersonas] Error al eliminar persona:', error)
       const errStr = JSON.stringify(error?.response?.data || error?.message || '').toLowerCase()
-      let msg = formatApiError(error, 'No se pudo eliminar el usuario')
-
+      let msg = 'No se pudo eliminar el usuario.'
       if (
         errStr.includes('prestamo') ||
         errStr.includes('préstamo') ||
@@ -1016,28 +657,41 @@ const usePersonas = (autoFetch: boolean = true) => {
       ) {
         msg = 'No se puede eliminar el usuario porque se encuentra en préstamo o tiene registros asociados en el sistema.'
       }
-
-      Swal.fire({
-        icon: 'error',
-        title: 'No se puede eliminar',
-        text: msg,
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
+      showErrorAlert('No se puede eliminar', [msg])
       return false
     } finally {
       setGuardando(false)
     }
   }
 
+  useEffect(() => {
+    if (autoFetch && !hasMountedRef.current) {
+      hasMountedRef.current = true
+      fetchPersonas(1)
+    }
+  }, [autoFetch, fetchPersonas])
+
+  const totalCalculado = paginacionRegistrados.total ?? personas.length
+  const porPaginaVal = paginacionRegistrados.per_page || 10
+  const totalPaginasCalculado =
+    paginacionRegistrados.last_page || Math.max(1, Math.ceil(totalCalculado / porPaginaVal))
+
+  const items = useMemo(() => {
+    const rawList = personas || []
+    return rawList
+      .filter((item: any) => !debeExcluirDeRegistrados(item))
+      .map((item: any) => mapearPersona(item))
+  }, [personas])
+
   return {
+    items,
+    getBadge,
+    getBadgeSancion,
     personas,
-    personasNuevas,
     loading,
     guardando,
     errorMsg,
     fetchPersonas,
-    fetchPersonasNuevas,
     handleCrearPersona,
     handleActualizarPersona,
     handleActualizarEstado,
@@ -1048,27 +702,40 @@ const usePersonas = (autoFetch: boolean = true) => {
     setModalRegister,
     modalEdit,
     setModalEdit,
+    modalRenovaciones,
+    setModalRenovaciones,
     selectedUser,
-    setSelectedUser,
+    setSelectedUser: (user: any) => {
+      const entidadPura = user?.ID_PERSONA
+        ? personas.find((p) => p.ID_PERSONA === user.ID_PERSONA) || user
+        : user
+      dispatch(setPersonaSeleccionada(entidadPura))
+    },
     details,
     setDetails,
     toggleDetails,
     handleAbrirEditar,
-    paginaActual,
-    totalPaginas,
-    totalRegistros,
-    porPagina,
-    setPaginaActual,
-    setPorPagina,
-    columnFilters,
-    setColumnFilters,
+    handleAbrirCrear,
+    handleAbrirRenovar,
+    paginaActual: paginacionRegistrados.current_page || 1,
+    totalPaginas: totalPaginasCalculado,
+    totalRegistros: totalCalculado,
+    porPagina: porPaginaVal,
+    setPaginaActual: (page: number) => fetchPersonas(page, porPaginaVal),
+    setPorPagina: (perPage: number) => fetchPersonas(1, perPage),
+    columnFilters: filtros,
+    setColumnFilters: (filters: Partial<FiltrosRegistrados>) => {
+      setFiltros((prev) => ({ ...prev, ...filters }))
+    },
     handleColumnFilterChange,
-    searchTerm,
-    setSearchTerm,
+    searchTerm: filtros.nombre || '',
+    setSearchTerm: (term: string) => {
+      setFiltros((prev) => ({ ...prev, nombre: term }))
+      fetchPersonas(1, porPaginaVal, term)
+    },
     tableKey,
     setTableKey,
     handleRecargar,
-    handleAbrirCrear,
     canCrearUsuario,
     canGuardarUsuario,
     canVerDetalles,
@@ -1077,6 +744,9 @@ const usePersonas = (autoFetch: boolean = true) => {
     canEliminarUsuario,
     canRenovarUsuario,
     canGuardarRenovacion,
+    canEditar: canEditarUsuario,
+    canEliminar: canEliminarUsuario,
+    canRenovar: canRenovarUsuario,
     tieneAcciones,
     verificarAccionEnServidor,
   }

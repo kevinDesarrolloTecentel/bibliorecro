@@ -300,7 +300,7 @@ const Modal_Edit_bk: React.FC<ModalEditBkProps> = (props) => {
               <CFormInput
                 name="VOLUMEN_LIBROS"
                 placeholder="Ej: Vol. 1, Tomo 2"
-                value={formData.VOLUMEN_LIBROS}
+                value={formData.VOLUMEN_LIBROS ?? ''}
                 onChange={handleChange}
                 invalid={!!errors.VOLUMEN_LIBROS}
                 maxLength={30}
@@ -404,7 +404,7 @@ const Modal_Edit_bk: React.FC<ModalEditBkProps> = (props) => {
                 inputMode="decimal"
                 name="PRECIO_LIBROS"
                 placeholder="0.00"
-                value={formData.PRECIO_LIBROS}
+                value={formData.PRECIO_LIBROS ?? ''}
                 onChange={handlePrecioChange}
                 invalid={!!errors.PRECIO_LIBROS}
                 maxLength={10}
@@ -482,7 +482,7 @@ const Modal_Edit_bk: React.FC<ModalEditBkProps> = (props) => {
               <CFormInput
                 name="TITULOTEJUELO_LIBROS"
                 placeholder="Abreviatura del título"
-                value={formData.TITULOTEJUELO_LIBROS}
+                value={formData.TITULOTEJUELO_LIBROS ?? ''}
                 onChange={handleChange}
                 invalid={!!errors.TITULOTEJUELO_LIBROS}
                 maxLength={10}
@@ -505,7 +505,7 @@ const Modal_Edit_bk: React.FC<ModalEditBkProps> = (props) => {
               <CFormInput
                 name="AUTORTEJUELO_LIBROS"
                 placeholder="Código de autor"
-                value={formData.AUTORTEJUELO_LIBROS}
+                value={formData.AUTORTEJUELO_LIBROS ?? ''}
                 onChange={handleChange}
                 invalid={!!errors.AUTORTEJUELO_LIBROS}
                 maxLength={3}
@@ -528,7 +528,7 @@ const Modal_Edit_bk: React.FC<ModalEditBkProps> = (props) => {
               maxLength={255}
               rows={3}
               placeholder="Notas o descripción adicional del libro (máx. 255 caracteres)..."
-              value={formData.DESCRIPCION_LIBROS}
+              value={formData.DESCRIPCION_LIBROS ?? ''}
               onChange={handleChange}
             />
           </CCol>

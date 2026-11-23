@@ -13,16 +13,18 @@ import {
 } from '@coreui/react-pro'
 import CIcon from '@coreui/icons-react'
 import { cilCheckCircle, cilLockLocked, cilInfo } from '@coreui/icons'
-import { Accion, Pantalla } from '@/models/adm/permiso.model'
+import { AdminPermiso } from '@/models/adm/permiso.model'
+import { AdminPermisoAccion } from '@/models/adm/permisoAccion.model'
+import { AdminRol } from '@/models/adm/rol.model'
 import { useDetalleAcciones } from '@/hooks/admin-roles/useDetalleAcciones'
 import { ModalDetalleAccion } from './ModalDetalleAccion'
 
 interface ModalAccionesPantallaProps {
   visible: boolean
   onClose: () => void
-  pantalla: Pantalla | null
-  roles: any[]
-  allAcciones: Accion[]
+  pantalla: AdminPermiso | null
+  roles: AdminRol[]
+  allAcciones: AdminPermisoAccion[]
   isPermisoAsignado?: (rolId: number, idPermiso: number) => boolean
   isAccionAsignada: (rolId: number, idAccion: number) => boolean
   canModificarAcciones?: boolean
@@ -30,8 +32,8 @@ interface ModalAccionesPantallaProps {
   onToggleAccion: (
     rolId: number,
     nombreRol: string,
-    accion: Accion,
-    pantalla: Pantalla,
+    accion: AdminPermisoAccion,
+    pantalla: AdminPermiso,
   ) => Promise<void>
 }
 
@@ -59,8 +61,8 @@ export const ModalAccionesPantalla: React.FC<ModalAccionesPantallaProps> = ({
   // Seleccionar automáticamente el primer rol disponible si no hay uno seleccionado
   useEffect(() => {
     if (roles && roles.length > 0) {
-      if (selectedRolId === null || !roles.some((r) => Number(r.ID_ROL ?? r.id) === selectedRolId)) {
-        setSelectedRolId(Number(roles[0].ID_ROL ?? roles[0].id))
+      if (selectedRolId === null || !roles.some((r) => Number(r.ID_ROL) === selectedRolId)) {
+        setSelectedRolId(Number(roles[0].ID_ROL))
       }
     }
   }, [roles, selectedRolId])
@@ -68,27 +70,25 @@ export const ModalAccionesPantalla: React.FC<ModalAccionesPantallaProps> = ({
   const currentRol = useMemo(() => {
     if (!roles || roles.length === 0) return null
     return (
-      roles.find((r: any) => Number(r.ID_ROL ?? r.id) === selectedRolId) || roles[0]
+      roles.find((r) => Number(r.ID_ROL) === selectedRolId) || roles[0]
     )
   }, [roles, selectedRolId])
 
-  const currentRolId = currentRol ? Number(currentRol.ID_ROL ?? currentRol.id) : 0
-  const currentRolNombre = currentRol
-    ? String(currentRol.NOMBRE_ROL ?? currentRol.nombre ?? `Rol ${currentRolId}`)
-    : ''
-  const currentRolNivel = currentRol ? Number(currentRol.NIVEL_ROL ?? currentRol.nivel ?? 1) : 1
-  const isRolNivel1 = currentRolNivel === 1 || Boolean(currentRol?.ES_ADMINISTRADOR)
+  const currentRolId = currentRol ? Number(currentRol.ID_ROL) : 0
+  const currentRolNombre = currentRol?.NOMBRE_ROL || ''
+  const currentRolNivel = currentRol ? Number(currentRol.NIVEL_ROL) : 1
+  const isRolNivel1 = currentRolNivel === 1
 
   // Filtrar acciones que pertenecen a la pantalla seleccionada
   const accionesPantalla = useMemo(() => {
     if (!pantalla) return []
     const filtradas = allAcciones.filter(
-      (a: any) => Number(a.ID_PERMISO) === Number(pantalla.ID_PERMISO),
+      (a) => Number(a.ID_PERMISO) === Number(pantalla.ID_PERMISO),
     )
     const base = filtradas.length > 0 ? filtradas : (pantalla.ACCIONES || [])
     return base.map((acc) => {
       const dePantalla = (pantalla.ACCIONES || []).find(
-        (pa) => Number(pa.ID_ACCION ?? (pa as any).id) === Number(acc.ID_ACCION ?? (acc as any).id),
+        (pa) => Number(pa.ID_ACCION) === Number(acc.ID_ACCION),
       )
       return {
         ...acc,
@@ -144,14 +144,14 @@ export const ModalAccionesPantalla: React.FC<ModalAccionesPantallaProps> = ({
               Selecciona el Rol a configurar:
             </label>
             <div className="modal-roles-grid">
-              {roles.map((rol: any) => {
-                const rId = Number(rol.ID_ROL ?? rol.id)
-                const rNombre = String(rol.NOMBRE_ROL ?? rol.nombre ?? `Rol ${rId}`)
-                const rNivel = Number(rol.NIVEL_ROL ?? rol.nivel ?? 1)
+              {roles.map((rol: AdminRol) => {
+                const rId = Number(rol.ID_ROL)
+                const rNombre = rol.NOMBRE_ROL || ''
+                const rNivel = Number(rol.NIVEL_ROL)
                 const isSelected = rId === selectedRolId
                 // Conteo de acciones activas para este rol en esta pantalla
                 const rActiveCount = accionesPantalla.filter((a) =>
-                  isAccionAsignada(rId, Number(a.ID_ACCION ?? (a as any).id)),
+                  isAccionAsignada(rId, Number(a.ID_ACCION)),
                 ).length
 
                 return (
@@ -232,8 +232,8 @@ export const ModalAccionesPantalla: React.FC<ModalAccionesPantallaProps> = ({
                 }}
                 className="d-flex flex-column gap-2.5"
               >
-                {accionesPantalla.map((accion) => {
-                  const accionId = Number(accion.ID_ACCION ?? (accion as any).id)
+                {accionesPantalla.map((accion: AdminPermisoAccion) => {
+                  const accionId = Number(accion.ID_ACCION)
                   const isActiva = isAccionAsignada(currentRolId, accionId)
 
                   return (

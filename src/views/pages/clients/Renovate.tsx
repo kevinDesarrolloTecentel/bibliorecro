@@ -213,7 +213,7 @@ const Renovate = () => {
                   <span
                     className="font-monospace small rounded-pill border px-2 text-muted d-inline-block text-truncate"
                     style={{ maxWidth: '180px' }}
-                    title={item.CORREO_PERSONA}
+                    title={item.CORREO_PERSONA || undefined}
                   >
                     {item.CORREO_PERSONA}
                   </span>
@@ -235,7 +235,7 @@ const Renovate = () => {
               ),
               tipo: (item: PersonaRenovacion) => (
                 <td>
-                  <CBadge color={getBadgeColor(item.tipo_usuario)} shape="rounded-pill" className="px-3 py-1">
+                  <CBadge color={getBadgeColor(item.tipo_usuario || undefined)} shape="rounded-pill" className="px-3 py-1">
                     {item.tipo_usuario === 'Renovacion' || item.tipo_usuario === 'Renovación' ? 'Renovación' : 'Nuevo'}
                   </CBadge>
                 </td>
@@ -244,8 +244,8 @@ const Renovate = () => {
                 if (!canMostrarInfo) return null
                 const rowId = item.ID_PERSONA ?? item.IDENTIFICACION_PERSONA
                 const isVisible =
-                  (item.ID_PERSONA !== undefined && details.includes(item.ID_PERSONA)) ||
-                  (item.IDENTIFICACION_PERSONA !== undefined && details.includes(item.IDENTIFICACION_PERSONA))
+                  (item.ID_PERSONA !== undefined && item.ID_PERSONA !== null && details.includes(item.ID_PERSONA)) ||
+                  (item.IDENTIFICACION_PERSONA !== undefined && item.IDENTIFICACION_PERSONA !== null && details.includes(item.IDENTIFICACION_PERSONA))
                 const fotoUrl = getUserImageUrl(item.FOTO_PERSONA)
 
                 const fechaNac = formatFecha(item.FECHA_PERSONA)
@@ -269,8 +269,8 @@ const Renovate = () => {
                           <ClienteAvatar
                             key={`${rowId}_${item.FOTO_PERSONA || 'avatar'}`}
                             src={fotoUrl}
-                            nombre={item.NOMBRE_PERSONA}
-                            apellido={item.APELLIDO_PERSONA}
+                            nombre={item.NOMBRE_PERSONA || undefined}
+                            apellido={item.APELLIDO_PERSONA || undefined}
                           />
                           <h5 className="fw-bold mb-1 text-body">
                             {item.NOMBRE_PERSONA} {item.APELLIDO_PERSONA}
@@ -279,7 +279,7 @@ const Renovate = () => {
                             {item.CORREO_PERSONA || 'Sin correo registrado'}
                           </span>
                           <div className="d-flex flex-wrap gap-1 justify-content-center">
-                            <CBadge color={getBadgeColor(item.tipo_usuario)} shape="rounded-pill" className="px-3 py-1">
+                            <CBadge color={getBadgeColor(item.tipo_usuario || undefined)} shape="rounded-pill" className="px-3 py-1">
                               {isRenovacion ? 'Solicitud Renovación' : 'Usuario Nuevo'}
                             </CBadge>
                             <CBadge

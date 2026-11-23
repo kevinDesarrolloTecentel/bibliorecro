@@ -1,9 +1,17 @@
-import { useCallback, useMemo, useState, useEffect } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
 import Swal from 'sweetalert2'
-import { Editorial } from '@/models/rco/editorial'
+import { Editorial } from '@/models/rco/editorial.model'
 import { ActualizarEditLib, EliminarEditLib, ListarEditLib, NuevaEditLib } from '@/Service/rco/EditLib'
-import { usePermissions } from '@/context/PermissionsContext'
-
+import { usePermissions } from '@/hooks/auth/usePermissions'
+import { RootState, AppDispatch } from '@/store'
+import {
+  setEditoriales,
+  setEditorialSeleccionada,
+  addEditorial,
+  updateEditorial,
+  removeEditorial,
+} from '@/slices/detallesLibroSlice'
 
 export type EditorialItem = Editorial
 
@@ -24,6 +32,16 @@ export const useEditorial = ({
   onEditorialActualizado,
   onEditorialEliminado,
 }: UseEditorialProps = {}) => {
+  const dispatch = useDispatch<AppDispatch>()
+  const { editoriales: listaEditorial, editorialSeleccionada: editorialSeleccionado } = useSelector(
+    (state: RootState) => state.detallesLibro,
+  )
+
+  const editorialSeleccionadoRef = useRef(editorialSeleccionado)
+  useEffect(() => {
+    editorialSeleccionadoRef.current = editorialSeleccionado
+  }, [editorialSeleccionado])
+
   const { canDoAction, verificarAccionEnServidor } = usePermissions()
 
   const canCrearEditorial = canDoAction('btn_crear_editorial')
@@ -31,76 +49,152 @@ export const useEditorial = ({
   const canEditarEditorial = canDoAction('btn_editar_editorial')
   const canActualizarEditorial = canDoAction('btn_actualizar_editorial')
   const canEliminarEditorial = canDoAction('btn_eliminar_editorial')
-  const canVerInfoEditorial =canDoAction('btn_ver_info_editorial')
+  const canVerInfoEditorial = canDoAction('btn_ver_info_editorial')
 
   const [internalVisible, setInternalVisible] = useState(false)
   const isControlled = typeof visibleProp === 'boolean'
   const isVisible = isControlled ? visibleProp : internalVisible
 
-  const [listaEditorial, setListaEditorial] = useState<Editorial[]>([])
   const [loadingEditorial, setLoadingEditorial] = useState(false)
   const [busquedaEditorial, setBusquedaEditorial] = useState('')
-  const [editorialSeleccionado, setEditorialSeleccionado] = useState<Editorial | null>(null)
   const [nombreEditorial, setNombreEditorial] = useState('')
   const [editorialEnEdicion, setEditorialEnEdicion] = useState<Editorial | null>(null)
   const [guardando, setGuardando] = useState(false)
 
-  const fetchEditoriales = useCallback(async (preserveSelection = true) => {
-    setLoadingEditorial(true)
-    try {
-      const response = await ListarEditLib()
-      let rawList: any[] = []
-      if (Array.isArray(response)) {
-        rawList = response
-      } else if (Array.isArray(response?.data)) {
-        rawList = response.data
-      } else if (Array.isArray(response?.data?.data)) {
-        rawList = response.data.data
-      } else if (Array.isArray(response?.editorials)) {
-        rawList = response.editorials
-      } else if (Array.isArray(response?.editoriales)) {
-        rawList = response.editoriales
+  // Paginación 100% de servidor
+  const [paginaActual, setPaginaActual] = useState(1)
+  const [totalPaginas, setTotalPaginas] = useState(1)
+  const [totalEditoriales, setTotalEditoriales] = useState(0)
+
+  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null)
+  const isFirstRender = useRef(true)
+
+  const handleSetEditorialSeleccionado = useCallback(
+    (edi: Editorial | null | ((prev: Editorial | null) => Editorial | null)) => {
+      if (typeof edi === 'function') {
+        dispatch(setEditorialSeleccionada(edi(editorialSeleccionadoRef.current)))
+      } else {
+        dispatch(setEditorialSeleccionada(edi))
       }
+    },
+    [dispatch],
+  )
 
-      const parsedList: Editorial[] = rawList.map((item: any, index: number) => ({
-        id: item.ID_EDITORIAL ?? item.id ?? index + 1,
-        ID_EDITORIAL: item.ID_EDITORIAL ?? item.id ?? index + 1,
-        NOMBRE_EDITORIAL: String(item.NOMBRE_EDITORIAL ?? item.nombre ?? '').trim(),
-        FECHAINGRESO_EDITORIAL: item.FECHAINGRESO_EDITORIAL ?? item.fecha_ingreso ?? null,
-      }))
+  const handleSetListaEditorial = useCallback(
+    (list: Editorial[] | ((prev: Editorial[]) => Editorial[])) => {
+      if (typeof list === 'function') {
+        dispatch(setEditoriales(list(listaEditorial)))
+      } else {
+        dispatch(setEditoriales(list))
+      }
+    },
+    [dispatch, listaEditorial],
+  )
 
-      setListaEditorial(parsedList)
-      if (preserveSelection) {
-        setEditorialSeleccionado((prev) => {
-          if (!prev) return null
-          const prevId = String(prev.ID_EDITORIAL ?? prev.id)
+  const fetchEditoriales = useCallback(
+    async (page: number = 1, searchQuery: string = '', preserveSelection: boolean = true) => {
+      setLoadingEditorial(true)
+      try {
+        const q = searchQuery.trim()
+        const response = await ListarEditLib({ page, search: q, per_page: 10 })
+        let rawList: any[] = []
+        let total = 0
+        let lastPage = 1
+
+        if (response && response.data) {
+          rawList = Array.isArray(response.data) ? response.data : []
+          total = Number(response.total ?? rawList.length)
+          lastPage = Number(response.last_page ?? 1)
+        } else if (Array.isArray(response)) {
+          rawList = response
+          total = response.length
+          lastPage = 1
+        } else if (Array.isArray(response?.editorials)) {
+          rawList = response.editorials
+          total = rawList.length
+          lastPage = 1
+        } else if (Array.isArray(response?.editoriales)) {
+          rawList = response.editoriales
+          total = rawList.length
+          lastPage = 1
+        }
+
+        // Mapeo canónico exacto (sin adivinanzas ni parches)
+        const parsedList: Editorial[] = rawList.map((item: any) => ({
+          id: item.ID_EDITORIAL,
+          ID_EDITORIAL: item.ID_EDITORIAL,
+          NOMBRE_EDITORIAL: String(item.NOMBRE_EDITORIAL ?? '').trim(),
+          FECHAINGRESO_EDITORIAL: item.FECHAINGRESO_EDITORIAL ?? null,
+        }))
+
+        dispatch(setEditoriales(parsedList))
+        setTotalEditoriales(total)
+        setTotalPaginas(Math.max(1, lastPage))
+        setPaginaActual(page)
+
+        if (preserveSelection && editorialSeleccionadoRef.current) {
+          const prevId = String(
+            editorialSeleccionadoRef.current.ID_EDITORIAL ??
+            editorialSeleccionadoRef.current.id,
+          )
           const matched = parsedList.find(
             (e) => String(e.ID_EDITORIAL ?? e.id) === prevId,
           )
-          return matched || null
-        })
-      } else {
-        setEditorialSeleccionado(null)
+          dispatch(setEditorialSeleccionada(matched || null))
+        } else if (!preserveSelection) {
+          dispatch(setEditorialSeleccionada(null))
+        }
+      } catch (error: any) {
+        console.error('Error al cargar editoriales desde la API:', error)
+      } finally {
+        setLoadingEditorial(false)
       }
-    } catch (error: any) {
-      console.error('Error al cargar editoriales desde la API:', error)
-    } finally {
-      setLoadingEditorial(false)
-    }
-  }, [])
+    },
+    [dispatch],
+  )
 
+  // Carga inicial
   useEffect(() => {
-    if(autoFetch){
-      fetchEditoriales()
+    if (autoFetch) {
+      fetchEditoriales(1, '')
     }
   }, [autoFetch, fetchEditoriales])
 
+  // Búsqueda con debounce en servidor
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      return
+    }
+
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current)
+    }
+    searchDebounceRef.current = setTimeout(() => {
+      fetchEditoriales(1, busquedaEditorial, true)
+    }, 400)
+
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current)
+      }
+    }
+  }, [busquedaEditorial, fetchEditoriales])
+
+  const handlePageChange = useCallback(
+    (page: number) => {
+      if (page >= 1 && page <= totalPaginas && page !== paginaActual) {
+        fetchEditoriales(page, busquedaEditorial, true)
+      }
+    },
+    [fetchEditoriales, busquedaEditorial, totalPaginas, paginaActual],
+  )
+
   const handleRecargar = useCallback(async () => {
     setBusquedaEditorial('')
-    setPaginaActual(1)
-    setEditorialSeleccionado(null)
-    await fetchEditoriales(false)
-  }, [fetchEditoriales])
+    dispatch(setEditorialSeleccionada(null))
+    await fetchEditoriales(1, '', false)
+  }, [fetchEditoriales, dispatch])
 
   const handleOpen = useCallback(
     (editorial?: Editorial) => {
@@ -109,7 +203,7 @@ export const useEditorial = ({
           Swal.fire({
             icon: 'error',
             title: 'Acceso Denegado',
-            text: 'No tienes permisos para editar editoriales.',
+            text: 'No tienes permisos para editar la editorial.',
             confirmButtonColor: '#dc3545',
             confirmButtonText: 'Entendido',
           })
@@ -131,6 +225,7 @@ export const useEditorial = ({
         setEditorialEnEdicion(null)
         setNombreEditorial('')
       }
+
       if (setVisibleProp) {
         setVisibleProp(true)
       } else {
@@ -150,52 +245,6 @@ export const useEditorial = ({
     setNombreEditorial('')
   }, [setVisibleProp])
 
-  const editorialFiltrados = useMemo(() => {
-    const sorted = [...listaEditorial].sort((a, b) => {
-      const numA = Number(a.ID_EDITORIAL ?? a.id)
-      const numB = Number(b.ID_EDITORIAL ?? b.id)
-
-      if (!isNaN(numA) && !isNaN(numB)) {
-        return numA - numB
-      }
-      return String(a.NOMBRE_EDITORIAL).localeCompare(String(b.NOMBRE_EDITORIAL), undefined, {
-        numeric: true,
-      })
-    })
-
-    if (!busquedaEditorial.trim()) return sorted
-    const q = busquedaEditorial.toLowerCase().trim()
-    return sorted.filter((editorial) => {
-      const nombre = (editorial.NOMBRE_EDITORIAL || '').toLowerCase()
-      const id = String(editorial.ID_EDITORIAL ?? editorial.id ?? '').toLowerCase()
-      return nombre.includes(q) || id.includes(q)
-    })
-  }, [busquedaEditorial, listaEditorial])
-
-  const [paginaActual, setPaginaActual] = useState(1)
-  const itemsPorPagina = 10
-
-  useEffect(() => {
-    setPaginaActual(1)
-  }, [busquedaEditorial])
-
-  const totalPaginas = Math.max(1, Math.ceil(editorialFiltrados.length / itemsPorPagina))
-
-  useEffect(() => {
-    if (paginaActual > totalPaginas) {
-      setPaginaActual(totalPaginas)
-    }
-  }, [totalPaginas, paginaActual])
-
-  const editorialPaginados = useMemo(() => {
-    const start = (paginaActual - 1) * itemsPorPagina
-    return editorialFiltrados.slice(start, start + itemsPorPagina)
-  }, [editorialFiltrados, paginaActual, itemsPorPagina])
-
-  const handlePageChange = useCallback((page: number) => {
-    setPaginaActual(page)
-  }, [])
-
   const handleGuardarEditorial = useCallback(
     async (e?: React.FormEvent) => {
       if (e) e.preventDefault()
@@ -203,8 +252,8 @@ export const useEditorial = ({
       if (!nombreEditorial.trim()) {
         Swal.fire({
           icon: 'warning',
-          title: 'Campo Requerido',
-          text: 'Ingrese el nombre de la Editorial.',
+          title: 'Campo requerido',
+          text: 'Por favor ingrese el nombre de la editorial.',
           confirmButtonColor: '#dc3545',
           confirmButtonText: 'Entendido',
         })
@@ -275,12 +324,14 @@ export const useEditorial = ({
             showConfirmButton: false,
           })
 
-          await fetchEditoriales()
+          const editorialActualizada: Editorial = {
+            ...editorialEnEdicion,
+            ...payload,
+          }
+          dispatch(updateEditorial(editorialActualizada))
+          await fetchEditoriales(paginaActual, busquedaEditorial)
           if (onEditorialActualizado) {
-            onEditorialActualizado({
-              ...editorialEnEdicion,
-              ...payload,
-            })
+            onEditorialActualizado(editorialActualizada)
           }
         } else {
           const res = await NuevaEditLib(payload)
@@ -293,16 +344,16 @@ export const useEditorial = ({
             showConfirmButton: false,
           })
 
-          await fetchEditoriales()
+          const editorialNueva: Editorial = res?.data ||
+            res || {
+              id: Date.now(),
+              ID_EDITORIAL: Date.now(),
+              ...payload,
+            }
+          dispatch(addEditorial(editorialNueva))
+          await fetchEditoriales(1, '')
           if (onEditorialcreado) {
-            onEditorialcreado(
-              res?.data ||
-                res || {
-                  id: Date.now(),
-                  ID_EDITORIAL: Date.now(),
-                  ...payload,
-                },
-            )
+            onEditorialcreado(editorialNueva)
           }
         }
 
@@ -329,10 +380,14 @@ export const useEditorial = ({
       editorialEnEdicion,
       canActualizarEditorial,
       canGuardarEditorial,
+      dispatch,
       fetchEditoriales,
       handleClose,
       onEditorialActualizado,
       onEditorialcreado,
+      paginaActual,
+      busquedaEditorial,
+      verificarAccionEnServidor,
     ],
   )
 
@@ -349,7 +404,7 @@ export const useEditorial = ({
         return
       }
 
-      const edi = ediParam || editorialSeleccionado
+      const edi = ediParam || editorialSeleccionadoRef.current
       if (!edi) return
 
       const id = edi.ID_EDITORIAL ?? edi.id
@@ -388,13 +443,17 @@ export const useEditorial = ({
             timer: 1800,
             showConfirmButton: false,
           })
+          dispatch(removeEditorial(id))
           if (
-            editorialSeleccionado &&
-            String(editorialSeleccionado.ID_EDITORIAL ?? editorialSeleccionado.id) === String(id)
+            editorialSeleccionadoRef.current &&
+            String(
+              editorialSeleccionadoRef.current.ID_EDITORIAL ??
+              editorialSeleccionadoRef.current.id,
+            ) === String(id)
           ) {
-            setEditorialSeleccionado(null)
+            dispatch(setEditorialSeleccionada(null))
           }
-          await fetchEditoriales()
+          await fetchEditoriales(paginaActual, busquedaEditorial)
           if (onEditorialEliminado) {
             onEditorialEliminado(id)
           }
@@ -414,7 +473,15 @@ export const useEditorial = ({
         }
       }
     },
-    [canEliminarEditorial, editorialSeleccionado, fetchEditoriales, onEditorialEliminado],
+    [
+      canEliminarEditorial,
+      dispatch,
+      fetchEditoriales,
+      paginaActual,
+      busquedaEditorial,
+      onEditorialEliminado,
+      verificarAccionEnServidor,
+    ],
   )
 
   return {
@@ -423,27 +490,27 @@ export const useEditorial = ({
     handleOpen,
     handleClose,
     listaEditorial,
-    setListaEditorial,
+    setListaEditorial: handleSetListaEditorial,
     loadingEditorial,
     setLoadingEditorial,
     busquedaEditorial,
     setBusquedaEditorial,
     guardando,
-    editorialFiltrados,
-    editorialPaginados,
+    editorialFiltrados: listaEditorial,
+    editorialPaginados: listaEditorial,
     handleGuardarEditorial,
     handleEliminarEditorial,
     editorialEnEdicion,
     nombreEditorial,
     setNombreEditorial,
     editorialSeleccionado,
-    setEditorialSeleccionado,
+    setEditorialSeleccionado: handleSetEditorialSeleccionado,
     fetchEditoriales,
     handleRecargar,
     paginaActual,
     totalPaginas,
-    totalEditoriales: listaEditorial.length,
-    totalFiltrados: editorialFiltrados.length,
+    totalEditoriales,
+    totalFiltrados: totalEditoriales,
     handlePageChange,
     canCrearEditorial,
     canGuardarEditorial,

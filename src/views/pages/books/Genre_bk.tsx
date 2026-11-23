@@ -16,7 +16,7 @@ const Genre = () => {
     generoPaginados,
     generoSeleccionado,
     setGeneroSeleccionado,
-    handleEliminarGnerol,
+    handleEliminarGenero,
     paginaActual,
     totalPaginas,
     totalGeneros,
@@ -132,11 +132,13 @@ const Genre = () => {
                     <span className="ms-2 small text-muted">Cargando generos...</span>
                   </div>
                 ) : generoFiltrados.length === 0 ? (
-                  <>
-                    <div className="text-center text-muted py-5 small">
-                      No se encontraron coincidencias con &quot;{busquedagenero}&quot;.
-                    </div>
-                  </>
+                  <div className="text-center text-muted py-5 small">
+                    {busquedagenero ? (
+                      <>No se encontraron coincidencias con &quot;{busquedagenero}&quot;.</>
+                    ) : (
+                      <>No hay géneros registrados en el catálogo.</>
+                    )}
+                  </div>
                 ) : (
                   <div className="d-flex flex-column gap-2">
                     {generoPaginados.map((genero) => {
@@ -244,7 +246,7 @@ const Genre = () => {
                             variant="outline"
                             size="sm"
                             className="d-flex align-items-center gap-2 shadow-sm hover:text-white"
-                            onClick={() => handleEliminarGnerol(generoSeleccionado)}>
+                            onClick={() => handleEliminarGenero(generoSeleccionado)}>
                             <CIcon icon={cilTrash} />
                             <span>Eliminar Género</span>
                           </CButton>

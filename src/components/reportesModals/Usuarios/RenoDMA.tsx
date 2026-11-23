@@ -85,17 +85,17 @@ const MDAModal: React.FC<UsuMDAModalProps> = ({ visible, setVisible }) => {
 
   const tableItems = useMemo(() => {
     return usuarios.map((item: PersonaReporteItem) => {
-      const persona = item.PERSONA || (item as any).persona || {}
+      const persona = item.PERSONA || {}
       const primeraRenov = Array.isArray(item.RENOVACIONES) && item.RENOVACIONES.length > 0 ? item.RENOVACIONES[0] : {}
 
-      const nombres = item.NOMBRE_PERSONA?.trim() || persona.NOMBRE_PERSONA?.trim() || item.nombre?.trim() || ''
-      const apellidos = item.APELLIDO_PERSONA?.trim() || persona.APELLIDO_PERSONA?.trim() || item.apellido?.trim() || ''
-      const identificacion = item.IDENTIFICACION_PERSONA?.trim() || persona.IDENTIFICACION_PERSONA?.trim() || item.cedula?.trim() || ''
-      const correo = item.CORREO_PERSONA?.trim() || persona.CORREO_PERSONA?.trim() || item.correo?.trim() || ''
+      const nombres = item.NOMBRE_PERSONA?.trim() || persona.NOMBRE_PERSONA?.trim() || ''
+      const apellidos = item.APELLIDO_PERSONA?.trim() || persona.APELLIDO_PERSONA?.trim() || ''
+      const identificacion = item.IDENTIFICACION_PERSONA?.trim() || persona.IDENTIFICACION_PERSONA?.trim() || ''
+      const correo = item.CORREO_PERSONA?.trim() || persona.CORREO_PERSONA?.trim() || ''
       const edadVal = item.EDAD_PERSONA ?? persona.EDAD_PERSONA
       const edad = edadVal !== undefined && edadVal !== null ? String(edadVal) : ''
       const genero = item.NOMBRE_GENERO?.trim() || persona.NOMBRE_GENERO?.trim() || ''
-      const fechaNacimiento = formatFechaDisplay(item.FECHA_PERSONA || persona.FECHA_PERSONA || (item as any).FECHA_NACIMIENTO_PERSONA)
+      const fechaNacimiento = formatFechaDisplay(item.FECHA_PERSONA || persona.FECHA_PERSONA)
       
       const inicioInscripcion = formatFechaDisplay(
         primeraRenov.FECHAINICIO_RENOVACIONES ||

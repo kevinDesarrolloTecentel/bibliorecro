@@ -3,7 +3,7 @@ import { Navigate, useLocation, Outlet } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import type { RootState } from '../../store'
 import { isSessionValid } from '../../utils/auth'
-import { UserData } from '@/models/auth'
+import { UserData } from '@/slices/authSlice'
 
 interface PublicRouteProps {
   children?: React.ReactNode

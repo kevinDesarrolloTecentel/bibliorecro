@@ -3,8 +3,9 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { CContainer, CSpinner } from '@coreui/react-pro'
 import routes from '@/routes'
 import ProtectedRoute from '../guards/ProtectedRoute'
-import NotFoundRedirect from '../guards/NotFoundRedirect'
-import { usePermissions } from '@/context/PermissionsContext'
+import Page403 from '@/views/pages/Errors/Page403'
+import Page404 from '@/views/pages/Errors/Page404'
+import { usePermissions } from '@/hooks/auth/usePermissions'
 
 const RootRedirect = () => {
   const { canAccessPath, rutasPermitidas } = usePermissions()
@@ -28,7 +29,10 @@ const AppContent = () => {
                 key={idx}
                 path={route.path}
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute
+                    requiredPermission={route.permission}
+                    requiredRoles={route.roles}
+                  >
                     <ElementComponent />
                   </ProtectedRoute>
                 }
@@ -36,7 +40,9 @@ const AppContent = () => {
             )
           })}
           <Route path="/" element={<RootRedirect />} />
-          <Route path="*" element={<NotFoundRedirect />} />
+          <Route path="/403" element={<Page403 />} />
+          <Route path="/404" element={<Page404 />} />
+          <Route path="*" element={<Page404 />} />
         </Routes>
       </Suspense>
     </CContainer>

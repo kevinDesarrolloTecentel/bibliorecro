@@ -35,7 +35,7 @@ export const AppSidebarNav = ({ items }: { items: NavItem[] }) => {
   }
 
   const navItem = (item: NavItem, index: number, indent = false) => {
-    const { component, name, badge, icon, ...rest } = item
+    const { component, name, badge, icon, permission, roles, ...rest } = item
     const Component = component
     return (
       <Component as="div" key={index}>
@@ -51,7 +51,7 @@ export const AppSidebarNav = ({ items }: { items: NavItem[] }) => {
   }
 
   const navGroup = (item: NavItem, index: number) => {
-    const { component, name, icon, items, to, ...rest } = item
+    const { component, name, icon, items, to, permission, roles, ...rest } = item
     const Component = component
     return (
       <Component compact as="div" key={index} toggler={navLink(name, icon)} {...rest}>

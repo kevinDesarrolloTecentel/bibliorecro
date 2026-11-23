@@ -1,11 +1,11 @@
 import React, { useState } from 'react'
 import Swal from 'sweetalert2'
-import { LibroFormData, initialLibroFormData } from '@/models/rco/libros'
+import { LibroFormData, initialLibroFormData } from '@/models/rco/libros.model'
 
 import { useCatalogosLibros } from './useCatalogosLibros'
 import { NuevoLibro } from '@/Service/rco/Libros'
 import { parseDatePickerValue } from '@/utils/dateUtils'
-import { usePermissions } from '@/context/PermissionsContext'
+import { usePermissions } from '@/hooks/auth/usePermissions'
 
 export interface UseLibroRegisterProps {
   visible?: boolean
@@ -131,19 +131,19 @@ export const useLibroRegister = ({
       newErrors.ID_TIPO = 'Seleccione un tipo'
       camposFaltantes.push('Tipo')
     }
-    if (!formData.ISBN_LIBROS || !formData.ISBN_LIBROS.trim()) {
+    if (!formData.ISBN_LIBROS || !String(formData.ISBN_LIBROS).trim()) {
       newErrors.ISBN_LIBROS = 'El ISBN es obligatorio (o marque S/N)'
       camposFaltantes.push('ISBN')
     }
-    if (!formData.VOLUMEN_LIBROS || !formData.VOLUMEN_LIBROS.trim()) {
+    if (!formData.VOLUMEN_LIBROS || !String(formData.VOLUMEN_LIBROS).trim()) {
       newErrors.VOLUMEN_LIBROS = 'El volumen es obligatorio'
       camposFaltantes.push('Volumen')
     }
-    if (!formData.PAIS_LIBROS || !formData.PAIS_LIBROS.trim()) {
+    if (!formData.PAIS_LIBROS || !String(formData.PAIS_LIBROS).trim()) {
       newErrors.PAIS_LIBROS = 'Seleccione o ingrese un país'
       camposFaltantes.push('País')
     }
-    if (!formData.CODIGODEBARRAS_LIBROS || !formData.CODIGODEBARRAS_LIBROS.trim()) {
+    if (!formData.CODIGODEBARRAS_LIBROS || !String(formData.CODIGODEBARRAS_LIBROS).trim()) {
       newErrors.CODIGODEBARRAS_LIBROS = 'El código de barras es obligatorio (o marque S/N)'
       camposFaltantes.push('Código de Barras')
     }
@@ -154,17 +154,17 @@ export const useLibroRegister = ({
       newErrors.PRECIO_LIBROS = 'El precio debe contener solo números y hasta 2 decimales'
       camposFaltantes.push('Precio válido')
     }
-    if (!formData.TITULOTEJUELO_LIBROS || !formData.TITULOTEJUELO_LIBROS.trim()) {
+    if (!formData.TITULOTEJUELO_LIBROS || !String(formData.TITULOTEJUELO_LIBROS).trim()) {
       newErrors.TITULOTEJUELO_LIBROS = 'El título tejuelo es obligatorio'
       camposFaltantes.push('Título tejuelo')
-    } else if (formData.TITULOTEJUELO_LIBROS.length > 10) {
+    } else if (String(formData.TITULOTEJUELO_LIBROS).length > 10) {
       newErrors.TITULOTEJUELO_LIBROS = 'El título tejuelo no debe superar 10 caracteres'
       camposFaltantes.push('Título tejuelo (máx 10)')
     }
-    if (!formData.AUTORTEJUELO_LIBROS || !formData.AUTORTEJUELO_LIBROS.trim()) {
+    if (!formData.AUTORTEJUELO_LIBROS || !String(formData.AUTORTEJUELO_LIBROS).trim()) {
       newErrors.AUTORTEJUELO_LIBROS = 'El autor tejuelo es obligatorio'
       camposFaltantes.push('Autor tejuelo')
-    } else if (formData.AUTORTEJUELO_LIBROS.length > 3) {
+    } else if (String(formData.AUTORTEJUELO_LIBROS).length > 3) {
       newErrors.AUTORTEJUELO_LIBROS = 'El autor tejuelo no debe superar 3 caracteres'
       camposFaltantes.push('Autor tejuelo (máx 3)')
     }
@@ -223,17 +223,17 @@ export const useLibroRegister = ({
       payload.append('ID_FORMATOS', String(formData.ID_FORMATOS))
       payload.append('ID_TIPO', String(formData.ID_TIPO))
       payload.append('ID_AUTOR', String(formData.ID_AUTOR))
-      payload.append('ISBN_LIBROS', formData.ISBN_LIBROS || 'S/N')
-      payload.append('TITULO_LIBROS', formData.TITULO_LIBROS.trim())
+      payload.append('ISBN_LIBROS', String(formData.ISBN_LIBROS || 'S/N'))
+      payload.append('TITULO_LIBROS', String(formData.TITULO_LIBROS || '').trim())
       payload.append('PRECIO_LIBROS', String(formData.PRECIO_LIBROS || '0'))
-      payload.append('CODIGODEBARRAS_LIBROS', formData.CODIGODEBARRAS_LIBROS || 'S/N')
-      payload.append('VOLUMEN_LIBROS', formData.VOLUMEN_LIBROS || '')
-      const fechaNormalizada = parseDatePickerValue(formData.FECHAEDICION_LIBROS)
-      payload.append('FECHAEDICION_LIBROS', fechaNormalizada || formData.FECHAEDICION_LIBROS)
-      payload.append('PAIS_LIBROS', formData.PAIS_LIBROS || '')
-      payload.append('DESCRIPCION_LIBROS', formData.DESCRIPCION_LIBROS || '')
-      payload.append('TITULOTEJUELO_LIBROS', formData.TITULOTEJUELO_LIBROS || '')
-      payload.append('AUTORTEJUELO_LIBROS', formData.AUTORTEJUELO_LIBROS || '')
+      payload.append('CODIGODEBARRAS_LIBROS', String(formData.CODIGODEBARRAS_LIBROS || 'S/N'))
+      payload.append('VOLUMEN_LIBROS', String(formData.VOLUMEN_LIBROS || ''))
+      const fechaNormalizada = parseDatePickerValue(formData.FECHAEDICION_LIBROS as any)
+      payload.append('FECHAEDICION_LIBROS', String(fechaNormalizada || formData.FECHAEDICION_LIBROS || ''))
+      payload.append('PAIS_LIBROS', String(formData.PAIS_LIBROS || ''))
+      payload.append('DESCRIPCION_LIBROS', String(formData.DESCRIPCION_LIBROS || ''))
+      payload.append('TITULOTEJUELO_LIBROS', String(formData.TITULOTEJUELO_LIBROS || ''))
+      payload.append('AUTORTEJUELO_LIBROS', String(formData.AUTORTEJUELO_LIBROS || ''))
       payload.append('ESTADO_LIBROS', '1')
 
       await NuevoLibro(payload)

@@ -67,7 +67,7 @@ const Modal_Edit = (props: ModalEditProps) => {
         formData,
         errors,
         loading,
-        tiposId,
+        tiposIdentificacion,
         nacionalidades,
         generos,
         estadosCiviles,
@@ -122,9 +122,9 @@ const Modal_Edit = (props: ModalEditProps) => {
                                     invalid={!!errors.ID_TIPOIDENTIFICACION}
                                 >
                                     <option value="">Seleccione tipo...</option>
-                                    {tiposId.map(tipo => (
-                                        <option key={tipo.id} value={tipo.id}>
-                                            {tipo.nombre}
+                                    {tiposIdentificacion.map(tipo => (
+                                        <option key={tipo.ID_TIPOIDENTIFICACION} value={tipo.ID_TIPOIDENTIFICACION}>
+                                            {tipo.NOMBRE_TIPOIDENTIFICACION}
                                         </option>
                                     ))}
                                 </CFormSelect>
@@ -263,8 +263,8 @@ const Modal_Edit = (props: ModalEditProps) => {
                                 >
                                     <option value="">Seleccione nacionalidad...</option>
                                     {nacionalidades.map(nac => (
-                                        <option key={nac.id} value={nac.id}>
-                                            {nac.nombre}
+                                        <option key={nac.ID_NACIONALIDAD} value={nac.ID_NACIONALIDAD}>
+                                            {nac.NOMBRE_NACIONALIDAD}
                                         </option>
                                     ))}
                                 </CFormSelect>
@@ -289,8 +289,8 @@ const Modal_Edit = (props: ModalEditProps) => {
                                 >
                                     <option value="">Seleccione género...</option>
                                     {generos.map(gen => (
-                                        <option key={gen.id} value={gen.id}>
-                                            {gen.nombre}
+                                        <option key={gen.ID_GENERO} value={gen.ID_GENERO}>
+                                            {gen.NOMBRE_GENERO}
                                         </option>
                                     ))}
                                 </CFormSelect>
@@ -315,8 +315,8 @@ const Modal_Edit = (props: ModalEditProps) => {
                                 >
                                     <option value="">Seleccione estado civil...</option>
                                     {estadosCiviles.map(est => (
-                                        <option key={est.id} value={est.id}>
-                                            {est.nombre}
+                                        <option key={est.ID_ESTADOCIVIL} value={est.ID_ESTADOCIVIL}>
+                                            {est.NOMBRE_ESTADOCIVIL}
                                         </option>
                                     ))}
                                 </CFormSelect>

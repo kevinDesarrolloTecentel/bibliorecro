@@ -38,8 +38,8 @@ const Newuser = ({ userState, onUserCreated }: NewuserProps) => {
                             placeholder="Usuario"
                             maxLength={25}
 
-                            value={userState.formData.usuario}
-                            onChange={(e) => userState.setFormData({ ...userState.formData, usuario: e.target.value })}
+                            value={userState.formData.NICK_USUARIO || ''}
+                            onChange={(e) => userState.setFormData({ ...userState.formData, NICK_USUARIO: e.target.value })}
                         />
                     </CCol>
                     <CCol md={6}>
@@ -54,8 +54,8 @@ const Newuser = ({ userState, onUserCreated }: NewuserProps) => {
                                 autoComplete="new-password"
                                 placeholder="••••••••"
                                 maxLength={25}
-                                value={userState.formData.password}
-                                onChange={(e) => userState.setFormData({ ...userState.formData, password: e.target.value })}
+                                value={userState.formData.PASSWORD_USUARIO || ''}
+                                onChange={(e) => userState.setFormData({ ...userState.formData, PASSWORD_USUARIO: e.target.value })}
                             />
                             {userState.verContraseñaUsuario && (
 
@@ -81,10 +81,10 @@ const Newuser = ({ userState, onUserCreated }: NewuserProps) => {
                             autoComplete="off"
                             placeholder="Nombre Completo"
                             maxLength={25}
-                            value={userState.formData.nombres}
+                            value={userState.formData.NOMBRES_USUARIO || ''}
                             onChange={(e) => {
                                 const val = e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '').slice(0, 25)
-                                userState.setFormData({ ...userState.formData, nombres: val })
+                                userState.setFormData({ ...userState.formData, NOMBRES_USUARIO: val })
                             }}
                         />
                     </CCol>

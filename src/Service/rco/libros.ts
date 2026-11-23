@@ -23,11 +23,9 @@ export const ReporteIngesosPDF = async (params?: any) => {
   return data;
 };
 
-export const listarLibros = async (params?: any, config?: any) => {
+export const listarLibros = async (params?: any) => {
   const { data } = await apiClient.get(`${API_BASE_URL_LIBROS}/librosC`, {
     params,
-    timeout: 180000,
-    ...config,
   });
   return data;
 };
@@ -58,35 +56,14 @@ export const VerLibros = async (id: any) => {
 };
 
 // Metodos POST
-export interface BuscarLibrosFiltros {
-  estado_prestamo?: string | null
-  estado_libro?: string | null
-}
-
-export const BuscarLibros = async (
-  busqueda: string = '',
-  page: number = 1,
-  per_page?: number,
-  filtros?: BuscarLibrosFiltros,
-) => {
-  const payload: any = { busqueda }
-  if (per_page) payload.per_page = per_page
-  if (filtros?.estado_prestamo) payload.estado_prestamo = filtros.estado_prestamo
-  if (filtros?.estado_libro) payload.estado_libro = filtros.estado_libro
-
-  const params: any = { page }
-  if (per_page) params.per_page = per_page
-  if (busqueda) params.busqueda = busqueda
-  if (filtros?.estado_prestamo) params.estado_prestamo = filtros.estado_prestamo
-  if (filtros?.estado_libro) params.estado_libro = filtros.estado_libro
-
+export const BuscarLibros = async (payload?: any, params?: any) => {
   const { data } = await apiClient.post(
     `${API_BASE_URL_LIBROS}/librosNew`,
     payload,
     { params },
-  )
-  return data
-}
+  );
+  return data;
+};
 
 export const NuevoLibro = async (payload?: any) => {
   const { data } = await apiClient.post(`${API_BASE_URL_LIBROS}/libro`, payload);

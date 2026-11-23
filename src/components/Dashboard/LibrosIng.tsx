@@ -1,7 +1,7 @@
 import React from 'react'
 import { CRow, CCol } from '@coreui/react-pro'
 import { useLibrosIng } from '@/hooks/dashboard/useLibrosIng'
-import { LibroIngresoItem } from '@/models/dashboard/dashboard.model'
+import { LibroIngresoItem } from '@/slices/reporteSlice'
 import LibrosIngFiltros from './LibrosIngFiltros'
 import LibrosIngTabla from './LibrosIngTabla'
 

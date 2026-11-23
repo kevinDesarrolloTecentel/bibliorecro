@@ -13,12 +13,14 @@ import {
 } from "@coreui/react-pro"
 import CIcon from "@coreui/icons-react"
 import { cilExitToApp, cilLockLocked, cilShieldAlt, cilUser } from "@coreui/icons"
+import { MisPermisosModulo, MisPermisosPantalla } from "@/slices/authSlice"
+import { AdminRol } from "@/models/adm/rol.model"
 
 interface ModalVerPermisosProps {
     visible: boolean
     setVisible: (v: boolean) => void
-    modulos: any[]
-    roles?: any[]
+    modulos: MisPermisosModulo[]
+    roles?: AdminRol[]
     loading?: boolean
     userName?: string
 }
@@ -165,7 +167,7 @@ const ModalVerPermisos: React.FC<ModalVerPermisosProps> = ({
         modulos.forEach((m) => {
             if (Array.isArray(m.PANTALLAS)) {
                 pantallas += m.PANTALLAS.length
-                m.PANTALLAS.forEach((p: any) => {
+                m.PANTALLAS.forEach((p) => {
                     if (Array.isArray(p.ACCIONES)) {
                         acciones += p.ACCIONES.length
                     }
@@ -270,7 +272,7 @@ const ModalVerPermisos: React.FC<ModalVerPermisosProps> = ({
                             <thead>
                                 <tr>
                                     {/* Fila 1 de encabezado: Todos los Módulos */}
-                                    {modulos.map((modulo: any, mIdx: number) => {
+                                    {modulos.map((modulo: MisPermisosModulo, mIdx: number) => {
                                         const colSpan = modulo.PANTALLAS?.length || 1
                                         const style = getClusterStyle(modulo.MODULO, isDark)
                                         return (
@@ -296,14 +298,14 @@ const ModalVerPermisos: React.FC<ModalVerPermisosProps> = ({
 
                                 {/* Fila 2 de encabezado: Todas las Pantallas */}
                                 <tr style={{ backgroundColor: 'var(--cui-tertiary-bg)' }}>
-                                    {modulos.flatMap((modulo: any) =>
-                                        (modulo.PANTALLAS || []).map((pantalla: any, pIdx: number) => {
+                                    {modulos.flatMap((modulo: MisPermisosModulo) =>
+                                        (modulo.PANTALLAS || []).map((pantalla: MisPermisosPantalla, pIdx: number) => {
                                             const isLastInModulo = pIdx === (modulo.PANTALLAS.length - 1)
                                             const style = getClusterStyle(modulo.MODULO, isDark)
 
                                             return (
                                                 <th
-                                                    key={pantalla.ID_PERMISO ?? pIdx}
+                                                    key={Number(pantalla.ID_PERMISO)}
                                                     className="py-3 px-3 text-center align-top"
                                                     style={{
                                                         minWidth: '220px',
@@ -347,11 +349,11 @@ const ModalVerPermisos: React.FC<ModalVerPermisosProps> = ({
                             <tbody>
                                 <tr>
                                     {/* Celdas para cada pantalla con las acciones limitadas por actionsLimit */}
-                                    {modulos.flatMap((modulo: any) =>
-                                        (modulo.PANTALLAS || []).map((pantalla: any, pIdx: number) => {
+                                    {modulos.flatMap((modulo: MisPermisosModulo) =>
+                                        (modulo.PANTALLAS || []).map((pantalla: MisPermisosPantalla, pIdx: number) => {
                                             const isLastInModulo = pIdx === (modulo.PANTALLAS.length - 1)
-                                            const pantallaId = pantalla.ID_PERMISO ?? pIdx
-                                            const acciones: any[] = pantalla.ACCIONES || []
+                                            const pantallaId = Number(pantalla.ID_PERMISO)
+                                            const acciones = pantalla.ACCIONES || []
                                             const visibleAcciones = actionsLimit >= 9999 ? acciones : acciones.slice(0, actionsLimit)
 
                                             return (
@@ -369,8 +371,8 @@ const ModalVerPermisos: React.FC<ModalVerPermisosProps> = ({
                                                     {/* Acciones como filas verticales */}
                                                     <div className="d-flex flex-column gap-1.5 w-100">
                                                         {visibleAcciones.length > 0 ? (
-                                                            visibleAcciones.map((acc: any, aIdx: number) => {
-                                                                const codigo = typeof acc === 'string' ? acc : acc?.CODIGO_ACCION || acc?.NOMBRE_ACCION || ''
+                                                            visibleAcciones.map((acc, aIdx: number) => {
+                                                                const codigo = String(acc || '')
                                                                 return (
                                                                     <div
                                                                         key={aIdx}

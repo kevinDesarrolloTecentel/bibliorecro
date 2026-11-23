@@ -2,43 +2,68 @@ import React, { useEffect } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
 import type { RootState } from '../../store'
-import type { UserData } from '../../models/auth'
+import type { UserData } from '@/slices/authSlice'
 import { isSessionValid, isUserActive, clearAuthSession } from '../../utils/auth'
-import { sessionExpired } from '../../authSlice'
-import { usePermissions } from '@/context/PermissionsContext'
+import { sessionExpired } from '@/slices/authSlice'
+import { usePermissions, normalizePath } from '@/hooks/auth/usePermissions'
 import { CSpinner } from '@coreui/react-pro'
+import Page403 from '@/views/pages/Errors/Page403'
 
 interface ProtectedRouteProps {
   children?: React.ReactNode
   redirectTo?: string
+  requiredPermission?: string
+  requiredRoles?: string[]
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
   redirectTo = '/login',
+  requiredPermission,
+  requiredRoles,
 }) => {
   const dispatch = useDispatch()
   const location = useLocation()
   const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated)
   const user = useSelector((state: RootState) => state.auth.user) as UserData | null
-  const { canAccessPath, permisosCargados, loadingPermisos, rutasPermitidas } = usePermissions()
+  const {
+    canAccessPath,
+    hasPermission,
+    hasAnyRole,
+    permisosCargados,
+    loadingPermisos,
+    rutasPermitidas,
+    recargarPermisos,
+  } = usePermissions()
 
   const currentPath = location.pathname.split('?')[0].replace(/\/+$/, '') || '/'
+  const normalizedPath = normalizePath(currentPath)
+
+  useEffect(() => {
+    if (isAuthenticated && !permisosCargados) {
+      recargarPermisos()
+    }
+  }, [isAuthenticated, permisosCargados, recargarPermisos])
 
   // Recordar la ruta válida en la que está actualmente el usuario
   useEffect(() => {
-    if (isAuthenticated && permisosCargados && (currentPath === '/' || canAccessPath(currentPath))) {
-      try {
-        sessionStorage.setItem('last_valid_route', currentPath)
-      } catch { }
+    if (isAuthenticated && permisosCargados) {
+      const isAllowed = requiredPermission
+        ? hasPermission(requiredPermission)
+        : normalizedPath === '/' || canAccessPath(normalizedPath)
+
+      if (isAllowed) {
+        try {
+          sessionStorage.setItem('last_valid_route', normalizedPath)
+        } catch {}
+      }
     }
-  }, [isAuthenticated, permisosCargados, currentPath, canAccessPath])
+  }, [isAuthenticated, permisosCargados, normalizedPath, requiredPermission, hasPermission, canAccessPath])
 
   useEffect(() => {
     if (!isAuthenticated) return
 
     const verificarExpiracion = () => {
-      // Verificación en memoria local (0 peticiones de red)
       if (!isSessionValid(user)) {
         clearAuthSession()
         dispatch(sessionExpired())
@@ -79,42 +104,19 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/login" replace />
   }
 
-  // Si el usuario intenta entrar a una ruta no permitida, redirigirlo a la siguiente ruta válida de la BD
-  if (currentPath !== '/' && !canAccessPath(currentPath)) {
-    let siguienteRuta = ''
+  // 1. Verificación declarativa por roles (si están configurados)
+  if (requiredRoles && requiredRoles.length > 0 && !hasAnyRole(requiredRoles)) {
+    return <Page403 />
+  }
 
-    try {
-      // 1. Intentar con la última ruta válida que tenía si aún tiene acceso a ella
-      const last = sessionStorage.getItem('last_valid_route')
-      if (last && last !== currentPath && canAccessPath(last)) {
-        siguienteRuta = last
-      }
+  // 2. Verificación declarativa por permiso (si está configurado)
+  if (requiredPermission && !hasPermission(requiredPermission)) {
+    return <Page403 />
+  }
 
-      // 2. Tomar la primera ruta disponible en las rutas permitidas de su rol (directamente desde la base de datos)
-      if (!siguienteRuta && rutasPermitidas && rutasPermitidas.size > 0) {
-        const anyPermitted = Array.from(rutasPermitidas).find((r) => r !== currentPath && canAccessPath(r))
-        if (anyPermitted) {
-          siguienteRuta = anyPermitted
-        }
-      }
-    } catch { }
-
-    // Si tiene una siguiente ruta permitida, redirigirlo automáticamente a ella
-    if (siguienteRuta && siguienteRuta !== currentPath) {
-      return <Navigate to={siguienteRuta} replace />
-    }
-
-    if (rutasPermitidas.size > 0) {
-      const first = Array.from(rutasPermitidas)[0]
-      if (first && first !== currentPath) {
-        return <Navigate to={first} replace />
-      }
-    }
-
-    // Si no tiene ninguna ruta asignada en el sistema, sacarlo al login
-    clearAuthSession()
-    dispatch(sessionExpired())
-    return <Navigate to="/login" replace />
+  // 3. Fallback: Verificación de ruta si no se declaró permiso explícito
+  if (!requiredPermission && normalizedPath !== '/' && !canAccessPath(normalizedPath)) {
+    return <Page403 />
   }
 
   return <>{children}</>

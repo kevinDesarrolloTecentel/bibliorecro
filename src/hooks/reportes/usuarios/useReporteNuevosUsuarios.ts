@@ -1,27 +1,34 @@
 import { useState, useCallback } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
 import Swal from 'sweetalert2'
+import { RootState, AppDispatch } from '@/store'
 import { PersonasNuevasReport } from '@/Service/tab/Persona'
 import { STORAGE_BASE_URL, descargarArchivo } from '@/utils/imageUtils'
-import { usePermissions } from '@/context/PermissionsContext'
+import { usePermissions } from '@/hooks/auth/usePermissions'
+import {
+  setReporteActivo,
+  limpiarReporte,
+  PersonaReporteItem,
+} from '@/slices/reporteSlice'
 
 export { STORAGE_BASE_URL, descargarArchivo }
-
-import { PersonaReporteItem } from '@/models/reportes/usuarios'
-
 export type { PersonaReporteItem }
 
 export const useReporteNuevosUsuarios = () => {
-  const { canDoAction, verificarAccionEnServidor } = usePermissions()
-  const canGenerarNuevosUsuarios = canDoAction('btn_generar_nuevos_usuarios')
-  const canDescargarNuevosUsuarios = canDoAction('btn_descargar_nuevos_usuarios')
+  const dispatch = useDispatch<AppDispatch>()
+  const reporteState = useSelector((state: RootState) => state.reportes)
 
+  const [usuarios, setUsuarios] = useState<PersonaReporteItem[]>([])
+  const [excelLink, setExcelLink] = useState<string | null>(null)
   const [diaRegistro, setDiaRegistro] = useState<string>('')
   const [mesRegistro, setMesRegistro] = useState<string>('')
   const [anoRegistro, setAnoRegistro] = useState<string>('')
-  const [usuarios, setUsuarios] = useState<PersonaReporteItem[]>([])
   const [isLoading, setIsLoading] = useState<boolean>(false)
-  const [excelLink, setExcelLink] = useState<string | null>(null)
   const [haBuscado, setHaBuscado] = useState<boolean>(false)
+
+  const { canDoAction, verificarAccionEnServidor } = usePermissions()
+  const canGenerarNuevosUsuarios = canDoAction('btn_generar_nuevos_usuarios')
+  const canDescargarNuevosUsuarios = canDoAction('btn_descargar_nuevos_usuarios')
 
   const handleGetNuevosUsuarios = useCallback(async () => {
     if (!canGenerarNuevosUsuarios) {
@@ -63,6 +70,7 @@ export const useReporteNuevosUsuarios = () => {
 
     setUsuarios([])
     setExcelLink(null)
+    dispatch(limpiarReporte())
 
     try {
       const params: Record<string, any> = {
@@ -81,17 +89,29 @@ export const useReporteNuevosUsuarios = () => {
           confirmButtonText: 'Entendido',
         })
         setUsuarios([])
+        setExcelLink(null)
+        setHaBuscado(true)
+        dispatch(limpiarReporte())
       } else {
         const rawList = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
         const ordenados = [...rawList].sort(
           (a: PersonaReporteItem, b: PersonaReporteItem) => (a.EDAD_PERSONA || 0) - (b.EDAD_PERSONA || 0),
         )
-        setUsuarios(ordenados)
 
         const rutaExcel: string | null = data?.excel?.nombre || data?.excel_path || null
-        setExcelLink(rutaExcel)        
+
+        setUsuarios(ordenados)
+        setExcelLink(rutaExcel)
         setHaBuscado(true)
 
+        dispatch(
+          setReporteActivo({
+            tipoReporte: 'usuarios_nuevos',
+            archivoDescarga: rutaExcel,
+            total: ordenados.length,
+            filtros: { diaRegistro, mesRegistro, anoRegistro },
+          }),
+        )
 
         if (ordenados.length === 0) {
           Swal.fire({
@@ -105,25 +125,23 @@ export const useReporteNuevosUsuarios = () => {
       }
     } catch (error: any) {
       setHaBuscado(true)
-
-      console.error('Error al obtener nuevos usuarios', error)
+      console.error('Error al obtener nuevos usuarios:', error)
       setUsuarios([])
       setExcelLink(null)
+      dispatch(limpiarReporte())
       const respData = error?.response?.data
       const errStr = typeof respData === 'string' ? respData : JSON.stringify(respData || '')
       const errorMsg = error?.response?.data?.message || error?.message || ''
-
-      const isZeroResultsError =
+      const isNotFound =
         error?.response?.status === 404 ||
-        (error?.response?.status === 500 &&
-          (errStr.includes('PersonasExport') || errStr.includes('toArray() on null'))) ||
+        (error?.response?.status === 500 && (errStr.includes('toArray() on null') || errStr.includes('PersonasExport'))) ||
         errorMsg.toLowerCase().includes('no existe') ||
         errorMsg.toLowerCase().includes('no se encontr') ||
         errorMsg.toLowerCase().includes('sin registros') ||
         errStr.toLowerCase().includes('no existe') ||
         errStr.toLowerCase().includes('no se encontr')
 
-      if (isZeroResultsError) {
+      if (isNotFound) {
         Swal.fire({
           icon: 'info',
           title: 'Sin nuevos usuarios',
@@ -135,7 +153,7 @@ export const useReporteNuevosUsuarios = () => {
         Swal.fire({
           icon: 'error',
           title: 'Error al consultar',
-          text: 'Hubo un problema al obtener los nuevos usuarios.',
+          text: 'Hubo un problema al consultar los nuevos usuarios. Por favor, inténtelo de nuevo más tarde.',
           confirmButtonColor: '#dc3545',
           confirmButtonText: 'Entendido',
         })
@@ -143,7 +161,7 @@ export const useReporteNuevosUsuarios = () => {
     } finally {
       setIsLoading(false)
     }
-  }, [canGenerarNuevosUsuarios, diaRegistro, mesRegistro, anoRegistro])
+  }, [diaRegistro, mesRegistro, anoRegistro, canGenerarNuevosUsuarios, verificarAccionEnServidor, dispatch])
 
   const handleDescargarExcel = useCallback(async () => {
     if (!canDescargarNuevosUsuarios) {
@@ -169,10 +187,11 @@ export const useReporteNuevosUsuarios = () => {
       return
     }
 
-    if (excelLink) {
-     await descargarArchivo(`${STORAGE_BASE_URL}/personas/${excelLink}`)
+    const downloadLink = excelLink || reporteState.archivoDescarga
+    if (downloadLink) {
+      await descargarArchivo(`${STORAGE_BASE_URL}/personas/${downloadLink}`)
     }
-  }, [canDescargarNuevosUsuarios, excelLink, verificarAccionEnServidor])
+  }, [canDescargarNuevosUsuarios, excelLink, reporteState.archivoDescarga, verificarAccionEnServidor])
 
   const handleReset = useCallback(() => {
     setDiaRegistro('')
@@ -181,7 +200,8 @@ export const useReporteNuevosUsuarios = () => {
     setUsuarios([])
     setExcelLink(null)
     setHaBuscado(false)
-  }, [])
+    dispatch(limpiarReporte())
+  }, [dispatch])
 
   return {
     diaRegistro,

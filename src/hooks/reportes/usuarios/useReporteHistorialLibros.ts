@@ -1,26 +1,32 @@
 import { useState, useCallback } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
 import Swal from 'sweetalert2'
-
+import { RootState, AppDispatch } from '@/store'
 import { STORAGE_BASE_URL, descargarArchivo } from '@/utils/imageUtils'
 import { listarPrestamosCedula } from '@/Service/rco/Prestamos'
-import { usePermissions } from '@/context/PermissionsContext'
+import { usePermissions } from '@/hooks/auth/usePermissions'
+import {
+  setReporteActivo,
+  limpiarReporte,
+  PrestamoReporteItem,
+} from '@/slices/reporteSlice'
 
 export { STORAGE_BASE_URL, descargarArchivo }
-
-import { PrestamoReporteItem } from '@/models/reportes/prestamos'
-
 export type { PrestamoReporteItem }
 
 export const useReporteHistorialLibrosUsuario = () => {
-  const { canDoAction, verificarAccionEnServidor } = usePermissions()
-  const canGenerarLibrosUsuario = canDoAction('btn_generar_libros_usuario')
-  const canDescargarLibrosUsuarios = canDoAction('btn_descargar_libros_usuarios')
+  const dispatch = useDispatch<AppDispatch>()
+  const reporteState = useSelector((state: RootState) => state.reportes)
 
   const [cedula, setCedula] = useState<string>('')
   const [libros, setLibros] = useState<PrestamoReporteItem[]>([])
-  const [isLoading, setIsLoading] = useState<boolean>(false)
   const [excelLink, setExcelLink] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState<boolean>(false)
   const [haBuscado, setHaBuscado] = useState<boolean>(false)
+
+  const { canDoAction, verificarAccionEnServidor } = usePermissions()
+  const canGenerarLibrosUsuario = canDoAction('btn_generar_libros_usuario')
+  const canDescargarLibrosUsuarios = canDoAction('btn_descargar_libros_usuarios')
 
   const handleGetPrestamos = useCallback(async () => {
     if (!canGenerarLibrosUsuario) {
@@ -74,6 +80,7 @@ export const useReporteHistorialLibrosUsuario = () => {
 
     setLibros([])
     setExcelLink(null)
+    dispatch(limpiarReporte())
 
     try {
       const params = {
@@ -98,112 +105,51 @@ export const useReporteHistorialLibrosUsuario = () => {
                     : []
 
       const normalizados: PrestamoReporteItem[] = rawList
-        .map((item: any) => ({
-          ...item,
-          ID_PRESTAMO: item.ID_PRESTAMO ?? item.id_prestamo ?? item.id,
-          NOMBRE_PERSONA:
-            item.NOMBRE_PERSONA ??
-            item.nombre_persona ??
-            item.nombre ??
-            item.nombres ??
-            item.persona?.NOMBRE_PERSONA ??
-            item.persona?.nombre,
-          APELLIDO_PERSONA:
-            item.APELLIDO_PERSONA ??
-            item.apellido_persona ??
-            item.apellido ??
-            item.apellidos ??
-            item.persona?.APELLIDO_PERSONA ??
-            item.persona?.apellido,
-          IDENTIFICACION_PERSONA:
-            item.IDENTIFICACION_PERSONA ??
-            item.identificacion_persona ??
-            item.cedula ??
-            item.identificacion ??
-            item.persona?.IDENTIFICACION_PERSONA ??
-            item.persona?.identificacion,
-          CORREO_PERSONA:
-            item.CORREO_PERSONA ??
-            item.correo_persona ??
-            item.correo ??
-            item.email ??
-            item.persona?.CORREO_PERSONA ??
-            item.persona?.correo,
-          CELULAR_PERSONA:
-            item.CELULAR_PERSONA ??
-            item.celular_persona ??
-            item.celular ??
-            item.persona?.CELULAR_PERSONA ??
-            item.persona?.celular,
-          TELEFONO_PERSONA:
-            item.TELEFONO_PERSONA ??
-            item.telefono_persona ??
-            item.telefono ??
-            item.persona?.TELEFONO_PERSONA ??
-            item.persona?.telefono,
-          EDAD_PERSONA:
-            item.EDAD_PERSONA ??
-            item.edad_persona ??
-            item.edad ??
-            item.persona?.EDAD_PERSONA ??
-            item.persona?.edad,
-          DETALLE_PRESTAMO:
-            item.DETALLE_PRESTAMO ??
-            item.detalle_prestamo ??
-            item.detalle,
-          ESTADO_PRESTAMO:
-            item.ESTADO_PRESTAMO ??
-            item.estado_prestamo ??
-            item.estado,
-          FECHAINICIO_PRESTAMO_FORMATO:
-            item.FECHAINICIO_PRESTAMO_FORMATO ??
-            item.fechainicio_prestamo_formato,
-          FECHAFIN_PRESTAMO_FORMATO:
-            item.FECHAFIN_PRESTAMO_FORMATO ??
-            item.fechafin_prestamo_formato,
-          FECHAENTREGA_PRESTAMO_FORMATO:
-            item.FECHAENTREGA_PRESTAMO_FORMATO ??
-            item.fechaentrega_prestamo_formato,
-          ISBN_LIBROS:
-            item.ISBN_LIBROS ??
-            item.isbn_libros ??
-            item.isbn ??
-            item.ISBN ??
-            item.libro?.ISBN_LIBROS ??
-            item.libro?.isbn,
-          TITULO_LIBROS:
-            item.TITULO_LIBROS ??
-            item.titulo_libros ??
-            item.titulo ??
-            item.titulo_libro ??
-            item.libro?.TITULO_LIBROS ??
-            item.libro?.titulo,
-          NOMBRE_AUTOR:
-            item.NOMBRE_AUTOR ??
-            item.nombre_autor ??
-            item.autor ??
-            item.libro?.NOMBRE_AUTOR ??
-            item.libro?.autor?.NOMBRE_AUTOR ??
-            item.libro?.autor?.nombre ??
-            item.libro?.autor,
-          PRECIO_LIBROS:
-            item.PRECIO_LIBROS ??
-            item.precio_libros ??
-            item.precio ??
-            item.libro?.PRECIO_LIBROS ??
-            item.libro?.precio,
-        }))
+        .map((item: any) => {
+          const persona = item.persona || item.PERSONA || {}
+          const libro = item.libro || item.LIBRO || {}
+          const autor = libro.autor || libro.AUTOR || {}
+
+          return {
+            ...item,
+            ID_PRESTAMO: item.ID_PRESTAMO,
+            NOMBRE_PERSONA: item.NOMBRE_PERSONA ?? persona.NOMBRE_PERSONA,
+            APELLIDO_PERSONA: item.APELLIDO_PERSONA ?? persona.APELLIDO_PERSONA,
+            IDENTIFICACION_PERSONA: item.IDENTIFICACION_PERSONA ?? persona.IDENTIFICACION_PERSONA,
+            CORREO_PERSONA: item.CORREO_PERSONA ?? persona.CORREO_PERSONA,
+            CELULAR_PERSONA: item.CELULAR_PERSONA ?? persona.CELULAR_PERSONA,
+            TELEFONO_PERSONA: item.TELEFONO_PERSONA ?? persona.TELEFONO_PERSONA,
+            EDAD_PERSONA: item.EDAD_PERSONA ?? persona.EDAD_PERSONA,
+            DETALLE_PRESTAMO: item.DETALLE_PRESTAMO,
+            ESTADO_PRESTAMO: item.ESTADO_PRESTAMO,
+            FECHAINICIO_PRESTAMO_FORMATO: item.FECHAINICIO_PRESTAMO_FORMATO,
+            FECHAFIN_PRESTAMO_FORMATO: item.FECHAFIN_PRESTAMO_FORMATO,
+            FECHAENTREGA_PRESTAMO_FORMATO: item.FECHAENTREGA_PRESTAMO_FORMATO,
+            ISBN_LIBROS: item.ISBN_LIBROS ?? libro.ISBN_LIBROS,
+            TITULO_LIBROS: item.TITULO_LIBROS ?? libro.TITULO_LIBROS,
+            NOMBRE_AUTOR: item.NOMBRE_AUTOR ?? libro.NOMBRE_AUTOR ?? autor.NOMBRE_AUTOR,
+            PRECIO_LIBROS: item.PRECIO_LIBROS ?? libro.PRECIO_LIBROS,
+          }
+        })
         .sort(
           (a: PrestamoReporteItem, b: PrestamoReporteItem) =>
             Number(a.ID_PRESTAMO || 0) - Number(b.ID_PRESTAMO || 0),
         )
 
-      setLibros(normalizados)
-
       const rutaExcel: string | null = data?.excel?.nombre || data?.excel_path || null
-      setExcelLink(rutaExcel)      
+
+      setLibros(normalizados)
+      setExcelLink(rutaExcel)
       setHaBuscado(true)
 
+      dispatch(
+        setReporteActivo({
+          tipoReporte: 'usuarios_historial_libros',
+          archivoDescarga: rutaExcel,
+          total: normalizados.length,
+          filtros: { cedula: cleanCedula },
+        }),
+      )
 
       if (normalizados.length === 0) {
         Swal.fire({
@@ -219,6 +165,7 @@ export const useReporteHistorialLibrosUsuario = () => {
       console.error('Error al obtener historial de libros', error)
       setLibros([])
       setExcelLink(null)
+      dispatch(limpiarReporte())
       const respData = error?.response?.data
       const errStr = typeof respData === 'string' ? respData : JSON.stringify(respData || '')
       const errorMsg = error?.response?.data?.message || error?.message || ''
@@ -243,7 +190,7 @@ export const useReporteHistorialLibrosUsuario = () => {
         Swal.fire({
           icon: 'error',
           title: 'Error al consultar',
-          text: 'Hubo un problema al obtener los préstamos. Por favor, inténtelo de nuevo más tarde.',
+          text: 'Hubo un problema al consultar el historial de libros. Por favor, inténtelo de nuevo más tarde.',
           confirmButtonColor: '#dc3545',
           confirmButtonText: 'Entendido',
         })
@@ -251,7 +198,7 @@ export const useReporteHistorialLibrosUsuario = () => {
     } finally {
       setIsLoading(false)
     }
-  }, [canGenerarLibrosUsuario, cedula])
+  }, [canGenerarLibrosUsuario, cedula, verificarAccionEnServidor, dispatch])
 
   const handleDescargarExcel = useCallback(async () => {
     if (!canDescargarLibrosUsuarios) {
@@ -277,17 +224,19 @@ export const useReporteHistorialLibrosUsuario = () => {
       return
     }
 
-    if (excelLink) {
-      await descargarArchivo(`${STORAGE_BASE_URL}/prestamos/${excelLink}`)
+    const downloadLink = excelLink || reporteState.archivoDescarga
+    if (downloadLink) {
+      await descargarArchivo(`${STORAGE_BASE_URL}/prestamos/${downloadLink}`)
     }
-  }, [canDescargarLibrosUsuarios, excelLink, verificarAccionEnServidor])
+  }, [canDescargarLibrosUsuarios, excelLink, reporteState.archivoDescarga, verificarAccionEnServidor])
 
   const handleReset = useCallback(() => {
     setCedula('')
     setLibros([])
     setExcelLink(null)
     setHaBuscado(false)
-  }, [])
+    dispatch(limpiarReporte())
+  }, [dispatch])
 
   return {
     cedula,
@@ -305,5 +254,4 @@ export const useReporteHistorialLibrosUsuario = () => {
   }
 }
 
-export const useReporteHistorialLibros = useReporteHistorialLibrosUsuario
 export default useReporteHistorialLibrosUsuario

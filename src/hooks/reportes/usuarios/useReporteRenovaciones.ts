@@ -1,13 +1,17 @@
 import { useState, useCallback } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
 import Swal from 'sweetalert2'
+import { RootState, AppDispatch } from '@/store'
 import { PersonasRenovacionesReport } from '@/Service/tab/Persona'
 import { STORAGE_BASE_URL, descargarArchivo } from '@/utils/imageUtils'
-import { usePermissions } from '@/context/PermissionsContext'
+import { usePermissions } from '@/hooks/auth/usePermissions'
+import {
+  setReporteActivo,
+  limpiarReporte,
+  PersonaReporteItem,
+} from '@/slices/reporteSlice'
 
 export { STORAGE_BASE_URL, descargarArchivo }
-
-import { PersonaReporteItem } from '@/models/reportes/usuarios'
-
 export type { PersonaReporteItem }
 
 export const normalizarRenovacion = (item: any): PersonaReporteItem => {
@@ -48,13 +52,6 @@ export const normalizarRenovacion = (item: any): PersonaReporteItem => {
     CELULAR_PERSONA: celular,
     EDAD_PERSONA: edad,
     NOMBRE_GENERO: genero,
-    genero: genero,
-    // Alias directos para las columnas y el ordenamiento de CSmartTable
-    cedula: identificacion,
-    nombre: nombre,
-    apellido: apellido,
-    correo: correo,
-    fechaNacimiento: fecha,
     RENOVACIONES: renovaciones,
     PERSONA: persona,
     FECHAINICIO_RENOVACIONES: inicioRenov,
@@ -69,17 +66,20 @@ export const normalizarRenovacion = (item: any): PersonaReporteItem => {
 }
 
 export const useReporteRenovaciones = () => {
-  const { canDoAction, verificarAccionEnServidor } = usePermissions()
-  const canGenerarRenovacionesUsuario = canDoAction('btn_generar_renovaciones_usuario')
-  const canDescargarRenovacionesUsuario = canDoAction('btn_descargar_renovaciones_usuario')
+  const dispatch = useDispatch<AppDispatch>()
+  const reporteState = useSelector((state: RootState) => state.reportes)
 
+  const [usuarios, setUsuarios] = useState<PersonaReporteItem[]>([])
+  const [excelLink, setExcelLink] = useState<string | null>(null)
   const [diaRegistro, setDiaRegistro] = useState<string>('')
   const [mesRegistro, setMesRegistro] = useState<string>('')
   const [anoRegistro, setAnoRegistro] = useState<string>('')
-  const [usuarios, setUsuarios] = useState<PersonaReporteItem[]>([])
   const [isLoading, setIsLoading] = useState<boolean>(false)
-  const [excelLink, setExcelLink] = useState<string | null>(null)
   const [haBuscado, setHaBuscado] = useState<boolean>(false)
+
+  const { canDoAction, verificarAccionEnServidor } = usePermissions()
+  const canGenerarRenovacionesUsuario = canDoAction('btn_generar_renovaciones_usuario')
+  const canDescargarRenovacionesUsuario = canDoAction('btn_descargar_renovaciones_usuario')
 
   const handleGetRenovaciones = useCallback(async () => {
     if (!canGenerarRenovacionesUsuario) {
@@ -93,11 +93,11 @@ export const useReporteRenovaciones = () => {
       return
     }
 
-    if (!mesRegistro || !anoRegistro || !diaRegistro) {
+    if (!diaRegistro || !mesRegistro || !anoRegistro) {
       Swal.fire({
         icon: 'warning',
-        title: 'Campo requerido',
-        text: 'Por favor, seleccione una fecha.',
+        title: 'Campos requeridos',
+        text: 'Por favor, ingrese el día, mes y año para consultar el reporte.',
         confirmButtonColor: '#dc3545',
         confirmButtonText: 'Entendido',
       })
@@ -121,40 +121,54 @@ export const useReporteRenovaciones = () => {
 
     setUsuarios([])
     setExcelLink(null)
+    dispatch(limpiarReporte())
 
     try {
       const params: Record<string, any> = {
+        diaRegistro,
         mesRegistro,
         anoRegistro,
-        diaRegistro,
       }
 
       const data = await PersonasRenovacionesReport(params)
       const rawList = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
-      const personasNormalizadas = rawList.map(normalizarRenovacion)
-      const personasFiltradas = personasNormalizadas
+
+      const normalizados = rawList.map(normalizarRenovacion)
+
+      const personasFiltradas = normalizados
         .filter((item: PersonaReporteItem) => item.ESTADO_RENOVACIONES === undefined || item.ESTADO_RENOVACIONES === 1 || item.tipo_usuario === 'Renovacion')
         .sort((a: PersonaReporteItem, b: PersonaReporteItem) => (Number(a.EDAD_PERSONA) || 0) - (Number(b.EDAD_PERSONA) || 0))
 
-      setUsuarios(personasFiltradas)
       const rutaExcel: string | null = data?.excel?.nombre || data?.excel_path || null
-      setExcelLink(rutaExcel)      
+
+      setUsuarios(personasFiltradas)
+      setExcelLink(rutaExcel)
       setHaBuscado(true)
 
+      dispatch(
+        setReporteActivo({
+          tipoReporte: 'usuarios_renovaciones',
+          archivoDescarga: rutaExcel,
+          total: personasFiltradas.length,
+          filtros: { diaRegistro, mesRegistro, anoRegistro },
+        }),
+      )
 
       if (personasFiltradas.length === 0) {
         Swal.fire({
           icon: 'info',
-          title: 'Sin renovaciones',
-          text: 'No se encontraron renovaciones registradas en la fecha seleccionada.',
+          title: 'Sin renovaciones encontradas',
+          text: `No se encontraron renovaciones de usuarios registradas en la fecha seleccionada.`,
           confirmButtonColor: '#044c8c',
           confirmButtonText: 'Entendido',
         })
       }
     } catch (error: any) {
       setHaBuscado(true)
-
-      console.error('Error al obtener renovaciones', error)
+      console.error('Error al obtener renovaciones de usuarios:', error)
+      setUsuarios([])
+      setExcelLink(null)
+      dispatch(limpiarReporte())
       const respData = error?.response?.data
       const errStr = typeof respData === 'string' ? respData : JSON.stringify(respData || '')
       const errorMsg = error?.response?.data?.message || error?.message || ''
@@ -162,42 +176,27 @@ export const useReporteRenovaciones = () => {
       const isZeroResultsError =
         error?.response?.status === 404 ||
         (error?.response?.status === 500 &&
-          (errStr.includes('PersonasExport') || errStr.includes('toArray() on null'))) ||
+          ((typeof respData === 'string' && (respData.includes('PersonasExport') || respData.includes('toArray() on null'))) ||
+            (errorMsg && errorMsg.includes('toArray() on null')))) ||
         errorMsg.toLowerCase().includes('no existe') ||
         errorMsg.toLowerCase().includes('no se encontr') ||
         errorMsg.toLowerCase().includes('sin registros') ||
         errStr.toLowerCase().includes('no existe') ||
         errStr.toLowerCase().includes('no se encontr')
 
-      const isBackendSchemaError =
-        error?.response?.status === 500 &&
-        (errStr.includes('ID_RENOVACION') || errStr.includes('Column not found'))
-
       if (isZeroResultsError) {
-        setUsuarios([])
-        setExcelLink(null)
         Swal.fire({
           icon: 'info',
-          title: 'Sin renovaciones',
-          text: 'No se encontraron renovaciones registradas en la fecha seleccionada.',
+          title: 'Sin renovaciones encontradas',
+          text: `No se encontraron renovaciones de usuarios registradas en la fecha seleccionada.`,
           confirmButtonColor: '#044c8c',
-          confirmButtonText: 'Entendido',
-        })
-      } else if (isBackendSchemaError) {
-        setUsuarios([])
-        setExcelLink(null)
-        Swal.fire({
-          icon: 'warning',
-          title: 'Servicio en revisión',
-          text: 'El reporte de renovaciones está en mantenimiento en el servidor. Por favor, comuníquese con el administrador.',
-          confirmButtonColor: '#dc3545',
           confirmButtonText: 'Entendido',
         })
       } else {
         Swal.fire({
           icon: 'error',
           title: 'Error al consultar',
-          text: 'Hubo un problema al obtener las renovaciones.',
+          text: error?.response?.data?.message || 'Hubo un problema al obtener las renovaciones de usuarios.',
           confirmButtonColor: '#dc3545',
           confirmButtonText: 'Entendido',
         })
@@ -205,7 +204,7 @@ export const useReporteRenovaciones = () => {
     } finally {
       setIsLoading(false)
     }
-  }, [canGenerarRenovacionesUsuario, diaRegistro, mesRegistro, anoRegistro])
+  }, [diaRegistro, mesRegistro, anoRegistro, canGenerarRenovacionesUsuario, verificarAccionEnServidor, dispatch])
 
   const handleDescargarExcel = useCallback(async () => {
     if (!canDescargarRenovacionesUsuario) {
@@ -231,10 +230,11 @@ export const useReporteRenovaciones = () => {
       return
     }
 
-    if (excelLink) {
-      await descargarArchivo(`${STORAGE_BASE_URL}/personas/${excelLink}`)
+    const downloadLink = excelLink || reporteState.archivoDescarga
+    if (downloadLink) {
+      await descargarArchivo(`${STORAGE_BASE_URL}/personas/${downloadLink}`)
     }
-  }, [canDescargarRenovacionesUsuario, excelLink, verificarAccionEnServidor])
+  }, [canDescargarRenovacionesUsuario, excelLink, reporteState.archivoDescarga, verificarAccionEnServidor])
 
   const handleReset = useCallback(() => {
     setDiaRegistro('')
@@ -243,7 +243,8 @@ export const useReporteRenovaciones = () => {
     setUsuarios([])
     setExcelLink(null)
     setHaBuscado(false)
-  }, [])
+    dispatch(limpiarReporte())
+  }, [dispatch])
 
   return {
     diaRegistro,

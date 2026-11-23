@@ -1,10 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
 import Swal from 'sweetalert2'
-import { SancionItem } from '@/models/rco/sancion.model'
-import { buscarSancionados, QuitarSancion, SancionarDePorVida } from '@/Service/rco/Sanciones'
+import { RootState, AppDispatch } from '@/store'
+import {
+  setSancionados as setSancionadosSlice,
+  setPaginacionSanciones,
+  setSancionadoSeleccionado as setSancionadoSeleccionadoSlice,
+  removerSancionDeLista,
+  SancionItem,
+} from '@/slices/sancionSlice'
+import { QuitarSancion } from '@/Service/rco/Sanciones'
+import { listarPersonas } from '@/Service/tab/Persona'
 import { formatFecha } from '@/utils/dateUtils'
-import { usePermissions } from '@/context/PermissionsContext'
-import { deduplicarPersonas } from '../tab-persona/usePersonas'
+import { usePermissions } from '@/hooks/auth/usePermissions'
+import { deduplicarPersonas, extraerInscripcion } from '../tab-persona/usePersonas'
 import { sanitizarHistorialSanciones } from '@/utils/sancionUtils'
 
 export const getBadgeColorSancion = (status: string | number): string => {
@@ -21,39 +30,58 @@ export const getBadgeColorSancion = (status: string | number): string => {
   return 'warning'
 }
 
+export const getBadgeColorUsuario = (estado: string) => {
+  switch (estado) {
+    case 'Activo':
+      return 'success'
+    case 'Inactivo':
+      return 'danger'
+    default:
+      return 'secondary'
+  }
+}
+
 export const esPersonaSancionada = (item: any): boolean => {
   if (!item) return false
   return Boolean(
     Number(item.TIENE_VETO_PERMANENTE) === 1 ||
-    Number(item.ESTADO_VETO) === 2 ||
-    (Array.isArray(item.vetos) && item.vetos.some((v: any) => Number(v.ESTADO_VETO) === 2)) ||
-    Number(item.TIENE_SANCION) === 1 ||
-    Number(item.ESTADO_SANCION) === 1 ||
-    (Array.isArray(item.sanciones) && item.sanciones.some((s: any) => Number(s.ESTADO_SANCION) === 1))
+      Number(item.ESTADO_VETO) === 2 ||
+      (Array.isArray(item.vetos) && item.vetos.some((v: any) => Number(v.ESTADO_VETO) === 2)) ||
+      Number(item.TIENE_SANCION) === 1 ||
+      Number(item.ESTADO_SANCION) === 1 ||
+      (Array.isArray(item.sanciones) && item.sanciones.some((s: any) => Number(s.ESTADO_SANCION) === 1))
   )
 }
 
 export const useSanciones = (autoFetch: boolean = true) => {
+  const dispatch = useDispatch<AppDispatch>()
   const { canDoAction, verificarAccionEnServidor } = usePermissions()
 
+  // Permisos
   const canQuitarSancion = canDoAction('btn_quitar_sancion')
   const canSancionPermanente = canDoAction('btn_sancion_permanente')
   const canGuardarSancionPermanente = canDoAction('btn_guardar_sancion_permanente')
   const canVerInfoSancion = canDoAction('btn_ver_info_sancion')
 
-  const [sancionados, setSancionados] = useState<SancionItem[]>([])
+  // Estado Redux
+  const sancionados = useSelector((state: RootState) => state.sanciones.sancionados)
+  const sancionadoSeleccionado = useSelector(
+    (state: RootState) => state.sanciones.sancionadoSeleccionado,
+  )
+  const paginacionSanciones = useSelector(
+    (state: RootState) => state.sanciones.paginacionSanciones,
+  )
+
+  // Estado efímero de UI
   const [loading, setLoading] = useState(false)
   const [procesandoId, setProcesandoId] = useState<number | string | null>(null)
-  const [paginaActual, setPaginaActual] = useState(1)
-  const [totalPaginas, setTotalPaginas] = useState(1)
-  const [totalRegistros, setTotalRegistros] = useState(0)
   const [details, setDetails] = useState<(string | number)[]>([])
   const [tableKey, setTableKey] = useState(0)
   const [filtroVeto, setFiltroVeto] = useState<number | string | null>(null)
   const [filtroEstado, setFiltroEstado] = useState<string | null>(null)
 
-  const paginaActualRef = useRef<number>(1)
-  paginaActualRef.current = paginaActual
+  const paginaActualRef = useRef<number>(paginacionSanciones.current_page || 1)
+  paginaActualRef.current = paginacionSanciones.current_page || 1
 
   const currentSearchRef = useRef<string>('')
   const filtroVetoRef = useRef<number | string | null>(null)
@@ -74,6 +102,100 @@ export const useSanciones = (autoFetch: boolean = true) => {
     setDetails((prev) => (prev.includes(id) ? [] : [id]))
   }
 
+  // Parseo canónico sin parches
+  const parseSancionado = (item: any): SancionItem => {
+    const rawListSanciones: any[] = []
+    if (Array.isArray(item.vetos)) rawListSanciones.push(...item.vetos)
+    if (Array.isArray(item.sanciones)) rawListSanciones.push(...item.sanciones)
+    if (rawListSanciones.length === 0 && Array.isArray(item.historial_sanciones)) {
+      rawListSanciones.push(...item.historial_sanciones)
+    }
+
+    const historialSanciones = sanitizarHistorialSanciones(rawListSanciones)
+    const vetoObj = Array.isArray(item.vetos)
+      ? item.vetos.find((v: any) => Number(v.ESTADO_VETO) === 2) || item.vetos[0]
+      : null
+
+    const esVetado = Boolean(
+      Number(item.TIENE_VETO_PERMANENTE) === 1 ||
+        Number(item.ESTADO_VETO) === 2 ||
+        (Array.isArray(item.vetos) && item.vetos.some((v: any) => Number(v.ESTADO_VETO) === 2)),
+    )
+
+    const sancionActiva = Array.isArray(item.sanciones)
+      ? item.sanciones.find((s: any) => Number(s.ESTADO_SANCION) === 1) || item.sanciones[0]
+      : null
+
+    const tieneSancion = !esVetado && Boolean(
+      Number(item.TIENE_SANCION) === 1 ||
+        Number(item.ESTADO_SANCION) === 1 ||
+        (Array.isArray(item.sanciones) && item.sanciones.some((s: any) => Number(s.ESTADO_SANCION) === 1)),
+    )
+
+    const principal = historialSanciones[0] || (esVetado ? {
+      id: vetoObj?.ID_VETO ?? item.ID_VETO,
+      inicio: formatFecha(vetoObj?.FECHA_VETO || item.FECHA_VETO),
+      fin: 'Indefinido',
+      detalle: vetoObj?.MOTIVO_VETO || item.MOTIVO_VETO || 'Veto permanente registrado en el sistema',
+      estado: 2,
+    } : {
+      id: sancionActiva?.ID_SANCION ?? item.ID_SANCION,
+      inicio: formatFecha(sancionActiva?.FECHAINICIO_SANCION || item.FECHAINICIO_SANCION),
+      fin: formatFecha(sancionActiva?.FECHAFIN_SANCION || item.FECHAFIN_SANCION),
+      detalle: sancionActiva?.DETALLE_SANCION || item.DETALLE_SANCION || 'Sanción registrada en el sistema',
+      estado: 1,
+    })
+
+    const idSancionReal = esVetado
+      ? (vetoObj?.ID_VETO ?? item.ID_VETO ?? principal?.id)
+      : (sancionActiva?.ID_SANCION ?? principal?.id ?? item.ID_SANCION)
+
+    const idPersona = item.ID_PERSONA
+    const insc = extraerInscripcion(item)
+    const idInscripcion = insc?.ID_INSCRIPCION ?? item.ID_INSCRIPCION
+
+    const statusTexto = esVetado ? 'Vetado' : 'Sancionado'
+    const estadoUsuarioTexto: 'Activo' | 'Inactivo' =
+      Number(item.ESTADO_PERSONA ?? 1) === 1 ? 'Activo' : 'Inactivo'
+
+    const fechaInicioSancion = esVetado
+      ? (formatFecha(vetoObj?.FECHA_VETO) || principal?.inicio || formatFecha(item.FECHA_VETO) || '')
+      : (formatFecha(sancionActiva?.FECHAINICIO_SANCION) || principal?.inicio || formatFecha(item.FECHAINICIO_SANCION) || '')
+
+    const fechaFinSancion = esVetado
+      ? 'Indefinido (De por vida)'
+      : (formatFecha(sancionActiva?.FECHAFIN_SANCION) || principal?.fin || formatFecha(item.FECHAFIN_SANCION) || 'Indefinido')
+
+    const motivoSancion = esVetado
+      ? (vetoObj?.MOTIVO_VETO || item.MOTIVO_VETO || principal?.detalle || 'Veto permanente registrado en el sistema')
+      : (sancionActiva?.DETALLE_SANCION || principal?.detalle || item.DETALLE_SANCION || 'Sanción registrada en el sistema')
+
+    return {
+      ID_PERSONA: idPersona,
+      ID_SANCION: idSancionReal,
+      ID_INSCRIPCION: idInscripcion,
+      ID_PRESTAMO: item.ID_PRESTAMO ?? null,
+      IDENTIFICACION_PERSONA: item.IDENTIFICACION_PERSONA || '-',
+      NOMBRE_PERSONA: item.NOMBRE_PERSONA || '',
+      APELLIDO_PERSONA: item.APELLIDO_PERSONA || '',
+      CELULAR_PERSONA: item.CELULAR_PERSONA || '-',
+      TELEFONO_PERSONA: item.TELEFONO_PERSONA || '-',
+      ESTADO_PERSONA: Number(item.ESTADO_PERSONA ?? 1),
+      ESTADO_TEXTO: estadoUsuarioTexto,
+      STATUS_SANCION_TEXTO: statusTexto,
+      FECHA_INICIO_SANCION: fechaInicioSancion,
+      FECHA_FIN_SANCION: fechaFinSancion,
+      MOTIVO_SANCION: motivoSancion,
+      ES_VETADO: esVetado,
+      TIENE_VETO_PERMANENTE: esVetado ? 1 : 0,
+      TIENE_SANCION: (esVetado || tieneSancion) ? 1 : 0,
+      TITULO_LIBROS: item.TITULO_LIBROS || '',
+      ISBN_LIBROS: item.ISBN_LIBROS || '',
+      HISTORIAL_SANCIONES: historialSanciones,
+      OTRAS_SANCIONES: historialSanciones.slice(1),
+    }
+  }
+
   const fetchSancionados = useCallback(
     async (
       pageToFetch?: number,
@@ -82,10 +204,16 @@ export const useSanciones = (autoFetch: boolean = true) => {
       estadoToFilter?: string | null,
     ) => {
       setLoading(true)
-      const targetPage = typeof pageToFetch === 'number' && pageToFetch > 0 ? pageToFetch : paginaActualRef.current
-      const query = typeof queryToSearch === 'string' ? queryToSearch : currentSearchRef.current
-      const targetVeto = vetoToFilter !== undefined ? vetoToFilter : filtroVetoRef.current
-      const targetEstado = estadoToFilter !== undefined ? estadoToFilter : filtroEstadoRef.current
+      const targetPage =
+        typeof pageToFetch === 'number' && pageToFetch > 0
+          ? pageToFetch
+          : paginaActualRef.current
+      const query =
+        typeof queryToSearch === 'string' ? queryToSearch : currentSearchRef.current
+      const targetVeto =
+        vetoToFilter !== undefined ? vetoToFilter : filtroVetoRef.current
+      const targetEstado =
+        estadoToFilter !== undefined ? estadoToFilter : filtroEstadoRef.current
 
       let estadoParam: number | null = null
       if (targetEstado === 'Activo' || targetEstado === '1') {
@@ -102,8 +230,23 @@ export const useSanciones = (autoFetch: boolean = true) => {
       }
 
       try {
-        const response = await buscarSancionados(query, targetPage, vetoParam, estadoParam)
-        
+        const payloadSancionados = {
+          nombre: query,
+          estado: estadoParam ?? null,
+          sancion: 1,
+          estado_veto: vetoParam ?? null,
+          per_page: 10,
+          page: targetPage,
+          filtros: {
+            nombre: query,
+            estado: estadoParam ?? null,
+            sancion: 1,
+            estado_veto: vetoParam ?? null,
+            per_page: 10,
+          },
+        }
+        const response = await listarPersonas(payloadSancionados, { page: targetPage })
+
         let rawItems: any[] = []
         if (Array.isArray(response)) {
           rawItems = response
@@ -117,154 +260,49 @@ export const useSanciones = (autoFetch: boolean = true) => {
           rawItems = response.personas
         }
 
-        // Extraer metadatos de paginación
+        // Paginación
         let total = rawItems.length
         let lastPage = 1
         let currentPage = targetPage
         const meta = response?.meta || response?.data || response?.personas || response
         if (meta && typeof meta === 'object' && !Array.isArray(meta)) {
           if (meta.total !== undefined && meta.total !== null) total = Number(meta.total) || 0
-          if (meta.last_page !== undefined && meta.last_page !== null) lastPage = Number(meta.last_page) || 1
-          if (meta.current_page !== undefined && meta.current_page !== null) currentPage = Number(meta.current_page) || targetPage
+          if (meta.last_page !== undefined && meta.last_page !== null)
+            lastPage = Number(meta.last_page) || 1
+          if (meta.current_page !== undefined && meta.current_page !== null)
+            currentPage = Number(meta.current_page) || targetPage
         }
 
-        // 1. Deduplicamos primero las filas recibidas
+        // Deduplicar y filtrar solo sancionados
         const dedupedItems = deduplicarPersonas(rawItems)
-
-        // 2. Filtramos para asegurar que SÓLO se muestren usuarios con sanción activa real o veto
         const listaAProcesar = dedupedItems.filter(esPersonaSancionada)
+        const parsedList: SancionItem[] = listaAProcesar.map(parseSancionado)
 
-        const parsedList: SancionItem[] = listaAProcesar.map((item: any, index: number) => {
-          const id = item.ID_PERSONA ?? item.id ?? item.ID_PRESTAMO ?? item.ID_SANCION ?? index + 1
-          
-          const rawListSanciones: any[] = []
-          if (Array.isArray(item.vetos)) {
-            rawListSanciones.push(...item.vetos)
-          }
-          if (Array.isArray(item.sanciones)) {
-            rawListSanciones.push(...item.sanciones)
-          }
-          if (rawListSanciones.length === 0 && Array.isArray(item.historial_sanciones)) {
-            rawListSanciones.push(...item.historial_sanciones)
-          }
-
-          const historialSanciones = sanitizarHistorialSanciones(rawListSanciones)
-
-          // TIENE_VETO_PERMANENTE
-          const vetoObj = Array.isArray(item.vetos)
-            ? item.vetos.find((v: any) => Number(v.ESTADO_VETO) === 2) || item.vetos[0]
-            : null
-
-          const esVetado = Boolean(
-            Number(item.TIENE_VETO_PERMANENTE) === 1 ||
-            Number(item.ESTADO_VETO) === 2 ||
-            (Array.isArray(item.vetos) && item.vetos.some((v: any) => Number(v.ESTADO_VETO) === 2))
-          )
-
-          // TIENE_SANCION
-          const sancionActiva = Array.isArray(item.sanciones)
-            ? item.sanciones.find((s: any) => Number(s.ESTADO_SANCION) === 1) || item.sanciones[0]
-            : null
-
-          const tieneSancion = !esVetado && Boolean(
-            Number(item.TIENE_SANCION) === 1 ||
-            Number(item.ESTADO_SANCION) === 1 ||
-            (Array.isArray(item.sanciones) && item.sanciones.some((s: any) => Number(s.ESTADO_SANCION) === 1))
-          )
-
-          const principal = historialSanciones[0] || (esVetado ? {
-            id: vetoObj?.ID_VETO ?? item.ID_VETO,
-            inicio: formatFecha(vetoObj?.FECHA_VETO || item.FECHA_VETO),
-            fin: 'Indefinido',
-            detalle: vetoObj?.MOTIVO_VETO || item.MOTIVO_VETO || 'Veto permanente registrado en el sistema',
-            estado: 2,
-          } : {
-            id: sancionActiva?.ID_SANCION ?? item.ID_SANCION,
-            inicio: formatFecha(sancionActiva?.FECHAINICIO_SANCION || item.FECHAINICIO_SANCION),
-            fin: formatFecha(sancionActiva?.FECHAFIN_SANCION || item.FECHAFIN_SANCION),
-            detalle: sancionActiva?.DETALLE_SANCION || item.DETALLE_SANCION || 'Sanción registrada en el sistema',
-            estado: 1,
-          })
-
-          const otrasSanciones = historialSanciones.slice(1)
-
-          // Extracción prioritaria del ID real de la sanción o veto
-          const idSancionReal = esVetado
-            ? (vetoObj?.ID_VETO ?? item.ID_VETO ?? principal?.id)
-            : (sancionActiva?.ID_SANCION ?? principal?.id ?? item.ID_SANCION)
-
-          const idPersona = item.ID_PERSONA ?? item.id_persona ?? item.id
-          const idPrestamo = item.ID_PRESTAMO ?? item.id_prestamo
-
-          const status = esVetado ? 'Vetado' : 'Sancionado'
-          const estadoUsuario: 'Activo' | 'Inactivo' = Number(item.ESTADO_PERSONA) === 1 ? 'Activo' : 'Inactivo'
-
-          const libroTitulo = item.TITULO_LIBROS || item.Libro || item.libro || ''
-          const libroIsbn = item.ISBN_LIBROS || item.ISBN || item.isbn || ''
-
-          const Fecha_inicio_sancion = esVetado
-            ? (formatFecha(vetoObj?.FECHA_VETO) || principal?.inicio || formatFecha(item.FECHA_VETO) || '')
-            : (formatFecha(sancionActiva?.FECHAINICIO_SANCION) || principal?.inicio || formatFecha(item.FECHAINICIO_SANCION) || '')
-
-          const Fecha_fin_sancion = esVetado
-            ? 'Indefinido (De por vida)'
-            : (formatFecha(sancionActiva?.FECHAFIN_SANCION) || principal?.fin || formatFecha(item.FECHAFIN_SANCION) || 'Indefinido')
-
-          const Motivo_sancion = esVetado
-            ? (vetoObj?.MOTIVO_VETO || item.MOTIVO_VETO || principal?.detalle || 'Veto permanente registrado en el sistema')
-            : (sancionActiva?.DETALLE_SANCION || principal?.detalle || item.DETALLE_SANCION || item.ESTADO || 'Sanción registrada en el sistema')
-
-          return {
-            id,
-            id_sancion: idSancionReal,
-            ID_SANCION: idSancionReal,
-            ID_INSCRIPCION: item.ID_INSCRIPCION ?? item.id_inscripcion ?? item.inscripciones?.[0]?.ID_INSCRIPCION,
-            id_prestamo: idPrestamo,
-            ID_PRESTAMO: idPrestamo,
-            id_persona: idPersona,
-            ID_PERSONA: idPersona,
-            Cedula: item.IDENTIFICACION_PERSONA || item.identificacion || item.Cedula || '-',
-            Nombres: item.NOMBRE_PERSONA || item.nombres || item.Nombres || '',
-            Apellidos: item.APELLIDO_PERSONA || item.apellidos || item.Apellidos || '',
-            Celular: item.CELULAR_PERSONA || item.celular || item.Celular || '-',
-            Telefono: item.TELEFONO_PERSONA || item.telefono || item.Telefono || '-',
-            Libro: libroTitulo,
-            ISBN: libroIsbn,
-            Fecha_prestamo: formatFecha(item.FECHAINICIO_PRESTAMO || item.Fecha_prestamo),
-            Fecha_entrega: formatFecha(item.FECHAFIN_PRESTAMO || item.Fecha_entrega),
-            Fecha_inicio_sancion,
-            Fecha_fin_sancion,
-            Motivo_sancion,
-            historial_sanciones: historialSanciones,
-            otras_sanciones: otrasSanciones,
-            total_sanciones: Math.max(historialSanciones.length, 1),
-            status,
-            estado: estadoUsuario,
-            estado_usuario: estadoUsuario,
-            ESTADO_PERSONA: item.ESTADO_PERSONA,
-            vetado: esVetado ? 'Sí' : 'No',
-            estado_veto: esVetado ? 2 : 0,
-            estado_sancion: tieneSancion ? 1 : 0,
-            TIENE_VETO_PERMANENTE: esVetado ? 1 : 0,
-            TIENE_SANCION: (esVetado || tieneSancion) ? 1 : 0,
-            esVetado,
-            esDePorVida: esVetado,
-            raw: item,
-          }
-        })
-
-        setSancionados(parsedList)
-        setPaginaActual(currentPage)
-        setTotalPaginas(Math.max(1, lastPage))
-        setTotalRegistros(total > 0 ? total : parsedList.length)
+        dispatch(
+          setSancionadosSlice({
+            data: parsedList,
+            current_page: currentPage,
+            total: total > 0 ? total : parsedList.length,
+            per_page: 10,
+            last_page: Math.max(1, lastPage),
+          }),
+        )
       } catch (err) {
         console.error('Error al obtener lista de sancionados reales:', err)
-        setSancionados([])
+        dispatch(
+          setSancionadosSlice({
+            data: [],
+            current_page: 1,
+            total: 0,
+            per_page: 10,
+            last_page: 1,
+          }),
+        )
       } finally {
         setLoading(false)
       }
     },
-    []
+    [dispatch],
   )
 
   useEffect(() => {
@@ -274,42 +312,62 @@ export const useSanciones = (autoFetch: boolean = true) => {
   }, [autoFetch, fetchSancionados])
 
   const handlePageChange = (nuevaPagina: number) => {
-    if (nuevaPagina === paginaActual || loading) return
-    setPaginaActual(nuevaPagina)
-    fetchSancionados(nuevaPagina, currentSearchRef.current, filtroVetoRef.current, filtroEstadoRef.current)
+    if (nuevaPagina === paginacionSanciones.current_page || loading) return
+    dispatch(setPaginacionSanciones({ current_page: nuevaPagina }))
+    fetchSancionados(
+      nuevaPagina,
+      currentSearchRef.current,
+      filtroVetoRef.current,
+      filtroEstadoRef.current,
+    )
   }
 
   const handleBuscarGlobal = (valor: string) => {
     currentSearchRef.current = valor
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current)
     searchDebounceRef.current = setTimeout(() => {
-      setPaginaActual(1)
+      dispatch(setPaginacionSanciones({ current_page: 1 }))
       fetchSancionados(1, valor, filtroVetoRef.current, filtroEstadoRef.current)
     }, 450)
   }
 
-  const handleColumnFilterChange = useCallback((filters: any) => {
-    let nuevoVeto: number | string | null = null
-    const val = filters?.vetado !== undefined ? filters.vetado : filters?.estado_veto
+  const handleColumnFilterChange = useCallback(
+    (filters: any) => {
+      let nuevoVeto: number | string | null = null
+      const val = filters?.ES_VETADO
 
-    if (val === '2' || val === 2 || String(val).toLowerCase() === 'si' || String(val).toLowerCase() === 'sí') {
-      nuevoVeto = 2
-    } else if (val === '0' || val === 0 || String(val).toLowerCase() === 'no') {
-      nuevoVeto = 0
-    } else {
-      nuevoVeto = null
-    }
+      if (
+        val === '2' ||
+        val === 2 ||
+        String(val).toLowerCase() === 'si' ||
+        String(val).toLowerCase() === 'sí' ||
+        val === true
+      ) {
+        nuevoVeto = 2
+      } else if (
+        val === '0' ||
+        val === 0 ||
+        String(val).toLowerCase() === 'no' ||
+        val === false
+      ) {
+        nuevoVeto = 0
+      } else {
+        nuevoVeto = null
+      }
 
-    const valEstado = filters?.estado !== undefined ? filters.estado : filters?.estado_usuario
-    const nuevoEstado = valEstado && String(valEstado).trim() !== '' ? String(valEstado).trim() : null
+      const valEstado = filters?.ESTADO_TEXTO
+      const nuevoEstado =
+        valEstado && String(valEstado).trim() !== '' ? String(valEstado).trim() : null
 
-    filtroVetoRef.current = nuevoVeto
-    filtroEstadoRef.current = nuevoEstado
-    setFiltroVeto(nuevoVeto)
-    setFiltroEstado(nuevoEstado)
-    setPaginaActual(1)
-    fetchSancionados(1, currentSearchRef.current, nuevoVeto, nuevoEstado)
-  }, [fetchSancionados])
+      filtroVetoRef.current = nuevoVeto
+      filtroEstadoRef.current = nuevoEstado
+      setFiltroVeto(nuevoVeto)
+      setFiltroEstado(nuevoEstado)
+      dispatch(setPaginacionSanciones({ current_page: 1 }))
+      fetchSancionados(1, currentSearchRef.current, nuevoVeto, nuevoEstado)
+    },
+    [dispatch, fetchSancionados],
+  )
 
   const handleRecargar = () => {
     currentSearchRef.current = ''
@@ -317,8 +375,8 @@ export const useSanciones = (autoFetch: boolean = true) => {
     filtroEstadoRef.current = null
     setFiltroVeto(null)
     setFiltroEstado(null)
-    setPaginaActual(1)
     setTableKey((prev) => prev + 1)
+    dispatch(setPaginacionSanciones({ current_page: 1 }))
     fetchSancionados(1, '', null, null)
   }
 
@@ -335,8 +393,7 @@ export const useSanciones = (autoFetch: boolean = true) => {
       return
     }
 
-    console.log('[DEBUG] Intentando quitar sanción para item:', item)
-    const idSancion = item.id_sancion ?? item.ID_SANCION ?? item.id_persona ?? item.id
+    const idSancion = item.ID_SANCION ?? item.ID_PERSONA
     if (!idSancion) {
       Swal.fire({
         icon: 'error',
@@ -348,9 +405,11 @@ export const useSanciones = (autoFetch: boolean = true) => {
       return
     }
 
+    dispatch(setSancionadoSeleccionadoSlice(item))
+
     const result = await Swal.fire({
       title: '¿Quitar Sanción?',
-      text: `¿Desea retirar la sanción al usuario ${item.Nombres} ${item.Apellidos}?`,
+      text: `¿Desea retirar la sanción al usuario ${item.NOMBRE_PERSONA} ${item.APELLIDO_PERSONA}?`,
       icon: 'question',
       showCancelButton: true,
       confirmButtonColor: '#198754',
@@ -359,10 +418,14 @@ export const useSanciones = (autoFetch: boolean = true) => {
       cancelButtonText: 'Cancelar',
     })
 
-    if (!result.isConfirmed) return
+    if (!result.isConfirmed) {
+      dispatch(setSancionadoSeleccionadoSlice(null))
+      return
+    }
 
     const tienePermiso = await verificarAccionEnServidor('btn_quitar_sancion')
     if (!tienePermiso) {
+      dispatch(setSancionadoSeleccionadoSlice(null))
       Swal.fire({
         icon: 'error',
         title: 'Acceso Denegado',
@@ -373,14 +436,15 @@ export const useSanciones = (autoFetch: boolean = true) => {
       return
     }
 
-    setProcesandoId(item.id)
+    const idProceso = item.ID_PERSONA ?? idSancion
+    setProcesandoId(idProceso)
     try {
       await QuitarSancion(idSancion, {
-        id_persona: item.id_persona ?? item.ID_PERSONA,
-        ID_PERSONA: item.id_persona ?? item.ID_PERSONA,
-        id_sancion: idSancion,
+        ID_PERSONA: item.ID_PERSONA,
         ID_SANCION: idSancion,
       })
+
+      dispatch(removerSancionDeLista(idProceso))
 
       Swal.fire({
         icon: 'success',
@@ -403,127 +467,20 @@ export const useSanciones = (autoFetch: boolean = true) => {
       })
     } finally {
       setProcesandoId(null)
-    }
-  }
-
-  // Sancionar de por vida
-  const handleSancionarDePorVida = async (item: SancionItem) => {
-    if (!canSancionPermanente) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Acceso Denegado',
-        text: 'No tienes permisos para sancionar permanentemente.',
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
-      return
-    }
-
-    const idPersona = item.id_persona ?? item.ID_PERSONA ?? item.raw?.ID_PERSONA
-
-    const result = await Swal.fire({
-      title: '¿Sancionar de por vida?',
-      text: `Esta acción inhabilitará permanentemente a ${item.Nombres} ${item.Apellidos}. Ingrese el motivo de la sanción:`,
-      input: 'textarea',
-      inputValue: 'Sanción de por vida por falta grave',
-      inputPlaceholder: 'Escriba aquí el motivo o justificación...',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#dc3545',
-      cancelButtonColor: '#6c757d',
-      confirmButtonText: 'Sí, sancionar de por vida',
-      cancelButtonText: 'Cancelar',
-      inputValidator: (value) => {
-        if (!value || !value.trim()) {
-          return 'Debe ingresar un motivo para registrar la sanción de por vida.'
-        }
-        return null
-      },
-    })
-
-    if (!result.isConfirmed) return
-
-    if (!canGuardarSancionPermanente) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Acceso Denegado',
-        text: 'No tienes permisos para guardar la sanción de forma permanente.',
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
-      return
-    }
-
-    const tienePermiso = await verificarAccionEnServidor('btn_guardar_sancion_permanente')
-    if (!tienePermiso) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Acceso Denegado',
-        text: 'No tienes permisos para guardar la sanción de forma permanente.',
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
-      return
-    }
-
-    setProcesandoId(item.id)
-    try {
-      await SancionarDePorVida({
-        ID_INSCRIPCION: item.ID_INSCRIPCION ?? item.raw?.ID_INSCRIPCION,
-        MOTIVO_VETO: result.value,
-        id_persona: idPersona,
-        ID_PERSONA: idPersona,
-        motivo: result.value,
-        detalle: result.value,
-      })
-
-      Swal.fire({
-        icon: 'success',
-        title: '¡Sanción permanente!',
-        text: 'El usuario fue sancionado de por vida con éxito.',
-        timer: 1800,
-        showConfirmButton: false,
-      })
-
-      fetchSancionados(paginaActualRef.current, currentSearchRef.current)
-    } catch (error: any) {
-      console.error('Error al sancionar de por vida:', error)
-      const data = error?.response?.data
-      if (
-        data?.message &&
-        (data.message.toLowerCase().includes('veto permanente') ||
-          data.message.toLowerCase().includes('ya tiene un veto'))
-      ) {
-        Swal.fire({
-          icon: 'info',
-          title: 'Usuario Ya Vetado',
-          text: data.message,
-          confirmButtonColor: '#0d6efd',
-          confirmButtonText: 'Entendido',
-        })
-        fetchSancionados(paginaActualRef.current, currentSearchRef.current)
-        return
-      }
-      const msg = data?.message || error?.message || 'Ocurrió un error al registrar la sanción de por vida.'
-      Swal.fire({
-        icon: 'error',
-        title: 'Error al sancionar',
-        text: msg,
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
-    } finally {
-      setProcesandoId(null)
+      dispatch(setSancionadoSeleccionadoSlice(null))
     }
   }
 
   return {
     sancionados,
+    sancionadoSeleccionado,
+    setSancionadoSeleccionado: (s: SancionItem | null) =>
+      dispatch(setSancionadoSeleccionadoSlice(s)),
     loading,
     procesandoId,
-    paginaActual,
-    totalPaginas,
-    totalRegistros,
+    paginaActual: paginacionSanciones.current_page,
+    totalPaginas: paginacionSanciones.last_page,
+    totalRegistros: paginacionSanciones.total,
     details,
     tableKey,
     canQuitarSancion,
@@ -541,21 +498,9 @@ export const useSanciones = (autoFetch: boolean = true) => {
     filtroEstado,
     handleColumnFilterChange,
     handleQuitarSancion,
-    handleSancionarDePorVida,
     getBadgeColorSancion,
     getBadgeColorUsuario,
     verificarAccionEnServidor,
-  }
-}
-
-export const getBadgeColorUsuario = (estado: string) => {
-  switch (estado) {
-    case 'Activo':
-      return 'success'
-    case 'Inactivo':
-      return 'danger'
-    default:
-      return 'secondary'
   }
 }
 

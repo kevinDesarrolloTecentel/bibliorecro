@@ -2,7 +2,6 @@ import { useRef, useEffect } from 'react'
 import Swal from 'sweetalert2'
 import { motion } from 'framer-motion'
 import {
-  CBadge,
   CButton,
   CCard,
   CCardBody,
@@ -17,14 +16,13 @@ import {
   cilShieldAlt,
   cilSync,
   cilOptions,
-
-
 } from '@coreui/icons'
 import ModalCreate from '@/components/roles/ModalCreate'
 import ModalRolActu from '@/components/roles/ModalRol'
 import ModalAccionesPantalla from '@/components/roles/ModalAccionesPantalla'
 import useRoles from '@/hooks/admin-roles/useRoles'
 import usePermisosMatriz from '@/hooks/admin-roles/usePermisosMatriz'
+import { AdminRol } from '@/models/adm/rol.model'
 
 const getClusterStyle = (nombreModulo: string) => {
   const norm = (nombreModulo || '').toLowerCase()
@@ -336,11 +334,10 @@ export const Roles = () => {
                 </thead>
 
                 <tbody>
-                  {userState.roles.map((rol: any) => {
-                    const rolId = Number(rol.ID_ROL ?? rol.id)
-                    const nombreRol = String(rol.NOMBRE_ROL ?? rol.nombre ?? `Rol ${rolId}`)
-                    const nivelRol = Number(rol.NIVEL_ROL ?? rol.nivel ?? 1)
-                    const isModified = permisos.modifiedRoleIds.has(rolId)
+                  {userState.roles.map((rol: AdminRol) => {
+                    const rolId = Number(rol.ID_ROL)
+                    const nombreRol = rol.NOMBRE_ROL || ''
+                    const nivelRol = Number(rol.NIVEL_ROL)
 
                     return (
                       <tr key={rolId}>
@@ -356,6 +353,7 @@ export const Roles = () => {
                             userSelect: 'none',
                           }}
                           onClick={() => {
+                            permisos.seleccionarRol(rol)
                             if (userState.canEditarRol) {
                               userState.handleAbrirEditar(rol)
                             }
@@ -370,11 +368,6 @@ export const Roles = () => {
                             <div>
                               <div className="d-flex align-items-center gap-2">
                                 <span className="fw-bold text-body fs-6">{nombreRol}</span>
-                                {isModified && (
-                                  <CBadge color="warning" className="text-dark py-1 px-2" style={{ fontSize: '0.68rem' }}>
-                                    Modificado
-                                  </CBadge>
-                                )}
                               </div>
                               <div className="d-flex align-items-center gap-2 mt-1">
                                 <span className="text-secondary small">
@@ -389,7 +382,7 @@ export const Roles = () => {
                           modulo.PANTALLAS.map((pantalla, pIdx) => {
                             const isChecked = permisos.isPermisoAsignado(rolId, pantalla.ID_PERMISO)
                             const isLastInModulo = pIdx === modulo.PANTALLAS.length - 1
-                            const isNivel1 = nivelRol === 1 || Boolean(rol.ES_ADMINISTRADOR)
+                            const isNivel1 = nivelRol === 1
                             const isProtegido = isChecked && isNivel1
 
                             return (

@@ -1,8 +1,8 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useMemo } from 'react'
 import 'chart.js/auto'
 import { getStyle } from '@coreui/utils'
 import { CChart } from '@coreui/react-chartjs'
-import { DashboardPrestamosTotals } from '@/models/dashboard/dashboard.model'
+import { DashboardPrestamosTotals } from '@/slices/dashboardSlice'
 
 export interface ChartLineExampleProps {
   data?: DashboardPrestamosTotals
@@ -26,10 +26,7 @@ export const ChartLineExample: React.FC<ChartLineExampleProps> = ({
 
   useEffect(() => {
     const handleColorSchemeChange = () => {
-      const chartInstance = chartRef.current
-      if (chartInstance) {
-        chartInstance.update()
-      }
+      chartRef.current?.update()
     }
 
     document.documentElement.addEventListener('ColorSchemeChange', handleColorSchemeChange)
@@ -38,45 +35,25 @@ export const ChartLineExample: React.FC<ChartLineExampleProps> = ({
     }
   }, [])
 
-  const defaultArray = Array(12).fill(0)
-  const activosData = propData?.activos?.length === 12 ? propData.activos : defaultArray
-  const entregadosData = propData?.entregados?.length === 12 ? propData.entregados : defaultArray
+  const totalActivosVal = Number(propData?.totalPrestamos ?? 0)
+  const totalEntregadosVal = Number(propData?.totalEntregados ?? 0)
+  const totalRegistrados = Number(propData?.totalGeneral ?? (totalActivosVal + totalEntregadosVal))
+  const isAllZero = totalRegistrados === 0
 
   const isSingleMonth = selectedMonth !== 'todos' && selectedMonth !== ''
   const monthIndex = isSingleMonth ? parseInt(selectedMonth, 10) - 1 : -1
 
-  const totalActivosVal = propData?.totalPrestamos !== undefined ? propData.totalPrestamos : activosData.reduce((a, b) => a + b, 0)
-  const totalEntregadosVal = propData?.totalEntregados !== undefined ? propData.totalEntregados : entregadosData.reduce((a, b) => a + b, 0)
-  const totalRegistrados = totalActivosVal + totalEntregadosVal
+  const displayLabels = useMemo(() => {
+    if (isSingleMonth && monthIndex >= 0 && monthIndex < 12) {
+      return [MESES_LABELS[monthIndex]]
+    }
+    return [selectedYear ? `Total Anual ${selectedYear}` : 'Total Anual']
+  }, [isSingleMonth, monthIndex, selectedYear])
 
-  const isAllZero = totalRegistrados === 0
+  const currentBodyColor = typeof window !== 'undefined' ? (getStyle('--cui-body-color') || '#4f5d73') : '#4f5d73'
+  const currentGridColor = typeof window !== 'undefined' ? (getStyle('--cui-border-color-translucent') || 'rgba(0,0,0,0.06)') : 'rgba(0,0,0,0.06)'
 
-  const hasYearlyBreakdown =
-    !isSingleMonth &&
-    activosData.filter((v) => v > 0).length > 1
-
-  let displayLabels: string[]
-  let displayActivos: number[]
-  let displayEntregados: number[]
-
-  if (isSingleMonth && monthIndex >= 0) {
-    displayLabels = [MESES_LABELS[monthIndex]]
-    displayActivos = [activosData[monthIndex] || totalActivosVal]
-    displayEntregados = [entregadosData[monthIndex] || totalEntregadosVal]
-  } else if (hasYearlyBreakdown) {
-    displayLabels = MESES_LABELS
-    displayActivos = activosData
-    displayEntregados = entregadosData
-  } else {
-    // Vista general de Totales del Año
-    displayLabels = [selectedYear ? `Total Anual ${selectedYear}` : 'Total Anual']
-    displayActivos = [totalActivosVal]
-    displayEntregados = [totalEntregadosVal]
-  }
-
-  const isGroupedYear = hasYearlyBreakdown
-
-  const chartData: any = {
+  const chartData: any = useMemo(() => ({
     labels: displayLabels,
     datasets: [
       {
@@ -85,10 +62,11 @@ export const ChartLineExample: React.FC<ChartLineExampleProps> = ({
         borderColor: 'rgba(14, 165, 233, 1)',
         borderWidth: 1.5,
         hoverBackgroundColor: 'rgba(66, 211, 242, 0.95)',
-        data: displayActivos,
-        borderRadius: 6,
-        barPercentage: isGroupedYear ? 0.65 : 0.45,
-        categoryPercentage: isGroupedYear ? 0.75 : 0.5,
+        data: [totalActivosVal],
+        borderRadius: 4,
+        maxBarThickness: 50,
+        barPercentage: 0.5,
+        categoryPercentage: 0.35,
       },
       {
         label: 'Préstamos Entregados',
@@ -96,22 +74,23 @@ export const ChartLineExample: React.FC<ChartLineExampleProps> = ({
         borderColor: 'rgba(34, 197, 94, 1)',
         borderWidth: 1.5,
         hoverBackgroundColor: 'rgba(118, 226, 176, 0.95)',
-        data: displayEntregados,
-        borderRadius: 6,
-        barPercentage: isGroupedYear ? 0.65 : 0.45,
-        categoryPercentage: isGroupedYear ? 0.75 : 0.5,
+        data: [totalEntregadosVal],
+        borderRadius: 4,
+        maxBarThickness: 50,
+        barPercentage: 0.5,
+        categoryPercentage: 0.35,
       },
     ],
-  }
+  }), [displayLabels, totalActivosVal, totalEntregadosVal])
 
-  const options: any = {
+  const options: any = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
       legend: {
         position: 'top',
         labels: {
-          color: getStyle('--cui-body-color') || '#4f5d73',
+          color: currentBodyColor,
           font: { size: 12, weight: 500 },
           padding: 15,
         },
@@ -128,25 +107,25 @@ export const ChartLineExample: React.FC<ChartLineExampleProps> = ({
     scales: {
       x: {
         grid: {
-          color: getStyle('--cui-border-color-translucent') || 'rgba(0,0,0,0.06)',
+          color: currentGridColor,
         },
         ticks: {
-          color: getStyle('--cui-body-color') || '#4f5d73',
+          color: currentBodyColor,
           font: { size: 13, weight: 600 },
         },
       },
       y: {
         grid: {
-          color: getStyle('--cui-border-color-translucent') || 'rgba(0,0,0,0.06)',
+          color: currentGridColor,
         },
         ticks: {
-          color: getStyle('--cui-body-color') || '#4f5d73',
+          color: currentBodyColor,
           precision: 0,
         },
         beginAtZero: true,
       },
     },
-  }
+  }), [currentBodyColor, currentGridColor])
 
   return (
     <div style={{ width: '100%', height: '340px', position: 'relative' }}>
@@ -188,7 +167,6 @@ export const ChartLineExample: React.FC<ChartLineExampleProps> = ({
         )}
 
         <CChart
-          key={`bar-${displayLabels.join(',')}-${displayActivos.join(',')}-${displayEntregados.join(',')}-${selectedMonth}-${selectedYear}`}
           type="bar"
           data={chartData}
           options={options}
@@ -199,3 +177,5 @@ export const ChartLineExample: React.FC<ChartLineExampleProps> = ({
     </div>
   )
 }
+
+export default ChartLineExample

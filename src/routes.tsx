@@ -1,5 +1,6 @@
 import React, { LazyExoticComponent, FC, ReactNode, ComponentType } from 'react'
 import { Translation } from 'react-i18next'
+import { normalizePath } from '@/hooks/auth/usePermissions'
 
 export type Route = {
   element?: LazyExoticComponent<FC> | ComponentType<any>
@@ -7,6 +8,8 @@ export type Route = {
   name?: ReactNode
   path?: string
   auth?: boolean
+  permission?: string
+  roles?: string[]
   routes?: Route[]
 }
 
@@ -152,23 +155,30 @@ const routes: Route[] = [
     element: RP_tej,
   },
 
-  { path: '/perfil', element: Profile },
-  { path: '/usuarios', element: User },
-  { path: '/permisosyroles', element: PermisosRoles },
-  { path: '/clientes', element: Cliente },
-  { path: '/renovacion-usuarios', element: Renovate },
-  { path: '/inventariado', element: Inventary },
-  { path: '/prestamos', element: Loands },
-  { path: '/devoluciones', element: BooksRT },
-  { path: '/categorias', element: Category },
-  { path: '/editorial', element: Editorial },
-  { path: '/proveedor', element: Supplier },
-  { path: '/autor', element: Author },
-  { path: '/generos', element: Genre },
-  { path: '/reporte-usuarios', element: RP_usu },
-  { path: '/reporte-prestamos', element: RP_prest },
-  { path: '/reporte-inventario', element: RP_in },
-  { path: '/reporte-tejuelo', element: RP_tej },
+  // Aliases / Rutas cortas (redirigen al permiso canónico de la BD)
+  { path: '/perfil', element: Profile, permission: '/perfil' },
+  { path: '/usuarios', element: User, permission: '/administracion/usuarios' },
+  { path: '/permisosyroles', element: PermisosRoles, permission: '/administracion/permisosyroles' },
+  { path: '/clientes', element: Cliente, permission: '/usuarios/registrados' },
+  { path: '/renovacion-usuarios', element: Renovate, permission: '/usuarios/renovaciones' },
+  { path: '/inventariado', element: Inventary, permission: '/biblioteca/inventario' },
+  { path: '/prestamos', element: Loands, permission: '/biblioteca/prestamos' },
+  { path: '/devoluciones', element: BooksRT, permission: '/biblioteca/sancionados' },
+  { path: '/categorias', element: Category, permission: '/libro/categorias' },
+  { path: '/editorial', element: Editorial, permission: '/libro/editoriales' },
+  { path: '/proveedor', element: Supplier, permission: '/libro/proveedores' },
+  { path: '/autor', element: Author, permission: '/libro/autores' },
+  { path: '/generos', element: Genre, permission: '/libro/generos' },
+  { path: '/reporte-usuarios', element: RP_usu, permission: '/reportes/usuarios' },
+  { path: '/reporte-prestamos', element: RP_prest, permission: '/reportes/prestamos' },
+  { path: '/reporte-inventario', element: RP_in, permission: '/reportes/inventario' },
+  { path: '/reporte-tejuelo', element: RP_tej, permission: '/reportes/tejuelos' },
 ]
+
+export const existingPaths: Set<string> = new Set(
+  routes
+    .map((r) => (r.path ? normalizePath(r.path) : ''))
+    .filter(Boolean),
+)
 
 export default routes

@@ -1,28 +1,36 @@
 import { useState, useCallback, useEffect } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
 import Swal from 'sweetalert2'
+import { RootState, AppDispatch } from '@/store'
 import { librosPorCategoria } from '@/Service/rco/Libros'
 import { CatLibros } from '@/Service/rco/CatLib'
 import { STORAGE_BASE_URL, descargarArchivo } from '@/utils/imageUtils'
-import { usePermissions } from '@/context/PermissionsContext'
+import { usePermissions } from '@/hooks/auth/usePermissions'
+import {
+  setReporteActivo,
+  limpiarReporte,
+  LibroInventarioItem,
+  CategoriaOption,
+} from '@/slices/reporteSlice'
 
 export { STORAGE_BASE_URL, descargarArchivo }
-
-import { LibroInventarioItem, CategoriaOption } from '@/models/reportes/inventario'
-
 export type { LibroInventarioItem, CategoriaOption }
 
 export const useReporteLibrosCategoria = () => {
-  const { canDoAction, verificarAccionEnServidor } = usePermissions()
-  const canGenerarLibrosCategoria = canDoAction('btn_generar_libros_categoria')
-  const canDescargarLibrosCategoria = canDoAction('btn_descargar_libros_categoria')
+  const dispatch = useDispatch<AppDispatch>()
+  const reporteState = useSelector((state: RootState) => state.reportes)
 
   const [categorias, setCategorias] = useState<CategoriaOption[]>([])
   const [selectedValue, setSelectedValue] = useState<CategoriaOption | null>(null)
   const [searchTerm, setSearchTerm] = useState<string>('')
   const [libros, setLibros] = useState<LibroInventarioItem[]>([])
-  const [isLoading, setIsLoading] = useState<boolean>(false)
   const [excelLink, setExcelLink] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState<boolean>(false)
   const [haBuscado, setHaBuscado] = useState<boolean>(false)
+
+  const { canDoAction, verificarAccionEnServidor } = usePermissions()
+  const canGenerarLibrosCategoria = canDoAction('btn_generar_libros_categoria')
+  const canDescargarLibrosCategoria = canDoAction('btn_descargar_libros_categoria')
 
   useEffect(() => {
     const fetchCategorias = async () => {
@@ -31,14 +39,14 @@ export const useReporteLibrosCategoria = () => {
         const raw: any[] = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : []
 
         const optionsData: CategoriaOption[] = raw
-          .filter((cat: any) => cat.ID_CATEGORIA || cat.id)
+          .filter((cat: any) => cat.ID_CATEGORIA)
           .map((cat: any) => ({
-            label: cat.NOMBRE_CATEGORIA || cat.nombre || cat.name,
-            value: cat.ID_CATEGORIA || cat.id,
+            label: cat.NOMBRE_CATEGORIA,
+            value: cat.ID_CATEGORIA,
           }))
         setCategorias(optionsData)
       } catch (error) {
-        console.error('Error al cargar categorías:', error)
+        console.error('Error al cargar categorías en reporte:', error)
       }
     }
 
@@ -85,6 +93,7 @@ export const useReporteLibrosCategoria = () => {
 
     setLibros([])
     setExcelLink(null)
+    dispatch(limpiarReporte())
 
     try {
       const params = {
@@ -98,13 +107,36 @@ export const useReporteLibrosCategoria = () => {
           : Array.isArray(data)
             ? data
             : []
-      const ordenados = rawData.sort(
-        (a, b) => Number(a.ID_LIBROS || 0) - Number(b.ID_LIBROS || 0),
-      )
-      setLibros(ordenados)
+      const ordenados = rawData
+        .map((item: any) => ({
+          ...item,
+          ID_LIBROS: item.ID_LIBROS,
+          ISBN_LIBROS: item.ISBN_LIBROS,
+          TITULO_LIBROS: item.TITULO_LIBROS,
+          CODIGODEBARRAS_LIBROS: item.CODIGODEBARRAS_LIBROS,
+          TITULOTEJUELO_LIBROS: item.TITULOTEJUELO_LIBROS,
+          AUTORTEJUELO_LIBROS: item.AUTORTEJUELO_LIBROS,
+          NOMBRE_AUTOR: item.NOMBRE_AUTOR,
+          NOMBRE_CATEGORIA: item.NOMBRE_CATEGORIA,
+          NOMBRE_EDITORIAL: item.NOMBRE_EDITORIAL,
+          PRECIO_LIBROS: item.PRECIO_LIBROS,
+        }))
+        .sort((a, b) => Number(a.ID_LIBROS || 0) - Number(b.ID_LIBROS || 0))
+
       const rutaExcel: string | null = data?.excel?.nombre || data?.excel_path || null
-      setExcelLink(rutaExcel)      
+
+      setLibros(ordenados)
+      setExcelLink(rutaExcel)
       setHaBuscado(true)
+
+      dispatch(
+        setReporteActivo({
+          tipoReporte: 'libros_categoria',
+          archivoDescarga: rutaExcel,
+          total: ordenados.length,
+          filtros: { categoriaId: selectedValue.value, categoriaNombre: selectedValue.label },
+        }),
+      )
 
       if (ordenados.length === 0) {
         Swal.fire({
@@ -120,6 +152,7 @@ export const useReporteLibrosCategoria = () => {
       console.error('Error al obtener libros por categoría:', error)
       setLibros([])
       setExcelLink(null)
+      dispatch(limpiarReporte())
       const respData = error?.response?.data
       const errStr = typeof respData === 'string' ? respData : JSON.stringify(respData || '')
       const errorMsg = error?.response?.data?.message || error?.message || ''
@@ -152,7 +185,7 @@ export const useReporteLibrosCategoria = () => {
     } finally {
       setIsLoading(false)
     }
-  }, [canGenerarLibrosCategoria, selectedValue, verificarAccionEnServidor])
+  }, [canGenerarLibrosCategoria, selectedValue, verificarAccionEnServidor, dispatch])
 
   const handleDescargarExcel = useCallback(async () => {
     if (!canDescargarLibrosCategoria) {
@@ -178,11 +211,11 @@ export const useReporteLibrosCategoria = () => {
       return
     }
 
-    if (excelLink) {
-      await descargarArchivo(`${STORAGE_BASE_URL}/libros/${excelLink}`)
-
+    const downloadLink = excelLink || reporteState.archivoDescarga
+    if (downloadLink) {
+      await descargarArchivo(`${STORAGE_BASE_URL}/libros/${downloadLink}`)
     }
-  }, [canDescargarLibrosCategoria, excelLink, verificarAccionEnServidor])
+  }, [canDescargarLibrosCategoria, excelLink, reporteState.archivoDescarga, verificarAccionEnServidor])
 
   const handleReset = useCallback(() => {
     setSelectedValue(null)
@@ -190,7 +223,8 @@ export const useReporteLibrosCategoria = () => {
     setLibros([])
     setExcelLink(null)
     setHaBuscado(false)
-  }, [])
+    dispatch(limpiarReporte())
+  }, [dispatch])
 
   return {
     categorias,

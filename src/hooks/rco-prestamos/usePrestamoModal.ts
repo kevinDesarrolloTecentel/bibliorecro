@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import Swal from 'sweetalert2'
 
-import { LibroOption, UsuarioOption } from '@/models/rco/prestamos'
+import { LibroOption, UsuarioOption } from '@/models/rco/prestamos.model'
 import { NuevoPrestamo } from '@/Service/rco/Prestamos'
 import { BuscarLibros } from '@/Service/rco/Libros'
 import { Personas } from '@/Service/tab/Persona'
 import { formatFecha } from '@/utils/dateUtils'
-import { deduplicarPersonas, isUserSancionado, isUserVetado } from '../tab-persona/usePersonas'
+import { deduplicarPersonas, isUserSancionado, isUserVetado, extraerInscripcion } from '../tab-persona/usePersonas'
 import { sanitizarHistorialSanciones } from '@/utils/sancionUtils'
-import { usePermissions } from '@/context/PermissionsContext'
+import { usePermissions } from '@/hooks/auth/usePermissions'
 
 const toArray = (val: any): any[] => {
   if (!val) return []
@@ -27,42 +27,54 @@ const toArray = (val: any): any[] => {
 }
 
 export const isUserActivoYDisponible = (u: any): boolean => {
-  const estRaw = String(u.ESTADO_PERSONA ?? u.estado ?? '1').toLowerCase().trim()
-  const isActivo = estRaw === '1' || estRaw === 'activo' || (!estRaw.includes('inactiv') && estRaw !== '0')
+  if (!u) return false
 
-  const estInscRaw = String(u.ESTADO_INSCRIPCION ?? '').toLowerCase().trim()
-  const hasInscripcionActiva =
-    estInscRaw === '1' ||
-    estInscRaw === 'activo' ||
-    (!estInscRaw.includes('inactiv') && estInscRaw !== '0' && Boolean(u.ID_INSCRIPCION))
-  const isInscrito = hasInscripcionActiva || Boolean(u.ID_INSCRIPCION)
+  // 1. Debe estar activo
+  const estRaw = String(u.ESTADO_PERSONA ?? '1').toLowerCase().trim()
+  const isActivo = estRaw === '1' || estRaw === 'activo'
+  if (!isActivo) return false
 
-  const esVetado = isUserVetado(u)
-  const esSancionado = isUserSancionado(u)
+  // 2. NO debe tener veto permanente (inhabilitado de por vida)
+  if (isUserVetado(u)) return false
 
-  return isActivo && isInscrito && !esVetado && !esSancionado
+  // 3. Debe contar con inscripción o registro de persona
+  const insc = extraerInscripcion(u)
+  const hasInscripcion = Boolean(
+    insc?.ID_INSCRIPCION ||
+    u.ID_INSCRIPCION ||
+    Number(u.ESTADOINSCRIPCION_PERSONA) === 1 ||
+    u.ID_PERSONA
+  )
+
+  return hasInscripcion
 }
 
 export const isLibroDisponible = (l: any): boolean => {
-  const activo =
-    Number(l.ESTADO_LIBROS ?? l.ESTADO_LIBRO ?? 1) === 1 &&
-    String(l.ESTADO_LIBRO ?? 'Activo').toLowerCase() !== 'inactivo'
-  const prestado =
-    Number(l.EN_PRESTAMO ?? 0) === 1 ||
-    Number(l.DISPONIBILIDAD_LIBRO ?? 1) === 0 ||
-    String(l.ESTADO_PRESTAMO || '').toLowerCase().includes('préstamo') ||
-    String(l.DISPONIBILIDAD || '').toLowerCase().includes('préstamo')
+  const activo = Number(l.ESTADO_LIBROS ?? 1) === 1
+  const prestado = Number(l.EN_PRESTAMO ?? 0) === 1
   return activo && !prestado
 }
 
 const fetchInscripcionesData = async (busqueda: string = ''): Promise<any[]> => {
   try {
     const q = busqueda.trim()
-    const res = await Personas(1, 50, q || undefined, 1, 0, 0)
+    const payload: any = {
+      nombre: q,
+      estado: 1, // solo usuarios activos
+      per_page: 50,
+      page: 1,
+      filtros: { nombre: q, estado: 1, per_page: 50 },
+    }
+    const res = await Personas(payload, { page: 1 })
     let list = toArray(res)
 
     if (list.length === 0) {
-      const fallbackRes = await Personas(1, 50, q || undefined)
+      const fallbackRes = await Personas({
+        nombre: q,
+        per_page: 50,
+        page: 1,
+        filtros: { nombre: q, per_page: 50 },
+      }, { page: 1 })
       list = toArray(fallbackRes)
     }
 
@@ -107,47 +119,26 @@ export const usePrestamoModal = ({
 
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null)
   const searchLibroDebounceRef = useRef<NodeJS.Timeout | null>(null)
+  const cachedUsuariosRef = useRef<Map<string, UsuarioOption[]>>(new Map())
 
   const fetchUsuarios = useCallback(async (query: string = '') => {
+    const cacheKey = query.trim().toLowerCase()
+    if (cachedUsuariosRef.current.has(cacheKey)) {
+      setUsuarios(cachedUsuariosRef.current.get(cacheKey) || [])
+      return
+    }
+
     try {
       setLoadingUsuarios(true)
       const rawData = await fetchInscripcionesData(query)
       const mapped: UsuarioOption[] = rawData
         .map((p: any) => {
-          const idInscripcion =
-            p.ID_INSCRIPCION ??
-            p.id_inscripcion ??
-            p.idInscripcion ??
-            p.inscripcion?.ID_INSCRIPCION ??
-            p.inscripcion?.id ??
-            p.ID_PERSONA ??
-            p.id_persona ??
-            p.id
+          const insc = extraerInscripcion(p)
+          const idInscripcion = insc?.ID_INSCRIPCION ?? p.ID_INSCRIPCION ?? p.ID_PERSONA
 
-          const cedula = String(
-            p.IDENTIFICACION_PERSONA ??
-            p.identificacion ??
-            p.identificacion_persona ??
-            p.cedula ??
-            p.CEDULA ??
-            '',
-          ).trim()
-
-          const nombre = String(
-            p.NOMBRE_PERSONA ??
-            p.nombre ??
-            p.nombres ??
-            p.NOMBRES_PERSONA ??
-            '',
-          ).trim()
-
-          const apellido = String(
-            p.APELLIDO_PERSONA ??
-            p.apellido ??
-            p.apellidos ??
-            p.APELLIDOS_PERSONA ??
-            '',
-          ).trim()
+          const cedula = String(p.IDENTIFICACION_PERSONA || '').trim()
+          const nombre = String(p.NOMBRE_PERSONA || '').trim()
+          const apellido = String(p.APELLIDO_PERSONA || '').trim()
 
           const fullName = `${nombre} ${apellido}`.trim()
           const labelParts: string[] = []
@@ -156,15 +147,13 @@ export const usePrestamoModal = ({
 
           const rawListSanciones = [
             ...(Array.isArray(p.vetos) ? p.vetos : []),
-            ...(Array.isArray(p.raw?.vetos) ? p.raw.vetos : []),
             ...(Array.isArray(p.historial_sanciones) ? p.historial_sanciones : []),
             ...(Array.isArray(p.sanciones) ? p.sanciones : []),
-            ...(Array.isArray(p.raw?.sanciones) ? p.raw.sanciones : []),
             ...(p.FECHAINICIO_SANCION || p.FECHAFIN_SANCION || p.DETALLE_SANCION || p.MOTIVO_VETO || p.FECHA_VETO ? [{
-              id: p.ID_SANCION ?? p.id_sancion ?? p.id,
+              id: p.ID_SANCION,
               inicio: p.FECHAINICIO_SANCION ?? p.FECHA_VETO,
               fin: p.FECHAFIN_SANCION ?? (isUserVetado(p) ? 'Indefinido' : ''),
-              detalle: p.DETALLE_SANCION ?? p.MOTIVO_VETO ?? p.detalle_sancion,
+              detalle: p.DETALLE_SANCION ?? p.MOTIVO_VETO,
               estado: p.ESTADO_VETO ?? p.ESTADO_SANCION,
             }] : [])
           ]
@@ -178,21 +167,20 @@ export const usePrestamoModal = ({
             null
 
           const tieneSancion = Boolean(
-            rawSancion &&
-            (
+            isUserSancionado(p) ||
+            historialSanitizado.length > 0 ||
+            Number(p.TIENE_SANCION) === 1 ||
+            Number(p.ESTADO_SANCION) === 1 ||
+            (rawSancion && (
               rawSancion.inicio ||
               rawSancion.fin ||
-              (rawSancion.detalle && !String(rawSancion.detalle).toLowerCase().includes('sin sancion')) ||
-              rawSancion.id ||
-              isUserSancionado(p) ||
-              historialSanitizado.length > 0
-            )
+              (rawSancion.detalle && !String(rawSancion.detalle).toLowerCase().includes('sin sancion'))
+            ))
           )
 
           const detalleFinal = String(
             sancionMasActual?.detalle ||
             p.DETALLE_SANCION ||
-            p.detalle_sancion ||
             p.MOTIVO_SANCION ||
             p.MOTIVO_VETO ||
             rawSancion?.detalle ||
@@ -244,6 +232,7 @@ export const usePrestamoModal = ({
         }
       }
 
+      cachedUsuariosRef.current.set(cacheKey, deduplicadosPorValor)
       setUsuarios(deduplicadosPorValor)
     } catch (err) {
       console.error('Error al cargar inscripciones de usuarios:', err)
@@ -256,23 +245,22 @@ export const usePrestamoModal = ({
   const fetchLibros = useCallback(async (query: string = '') => {
     try {
       setLoadingCatalogos(true)
-      const res = await BuscarLibros(query.trim(), 1, 30)
+      const res = await BuscarLibros({ busqueda: query.trim(), per_page: 30 }, { page: 1, per_page: 30 })
       const list = toArray(res)
       const disponibles = list.filter(isLibroDisponible)
 
       const mapped: LibroOption[] = disponibles.map((l: any) => {
-        const idLibro = l.ID_LIBROS ?? l.id
-        const isbn = String(l.ISBN_LIBROS ?? l.isbn ?? '').trim()
-        const titulo = String(l.TITULO_LIBROS ?? l.titulo ?? 'Sin título').trim()
-        const autor = String(l.NOMBRE_AUTOR ?? l.AUTORTEJUELO_LIBROS ?? l.autor ?? '').trim()
-        const tejuelo = String(l.TITULOTEJUELO_LIBROS ?? l.AUTORTEJUELO_LIBROS ?? '').trim()
+        const idLibro = l.ID_LIBROS
+        const isbn = String(l.ISBN_LIBROS || 'S/N').trim()
+        const titulo = String(l.TITULO_LIBROS || 'Sin título').trim()
+        const autor = String(l.NOMBRE_AUTOR || l.AUTORTEJUELO_LIBROS || '-').trim()
 
         return {
           value: idLibro,
-          label: `ISBN: ${isbn || 'S/N'} - Título: ${titulo} - Autor: ${autor || '-'}`,
+          label: `ISBN: ${isbn} - Título: ${titulo} - Autor: ${autor}`,
           isbn,
           titulo,
-          autor: autor || tejuelo,
+          autor,
         }
       })
       setLibros(mapped)
@@ -444,7 +432,6 @@ export const usePrestamoModal = ({
       formData.append('ESTADO_PRESTAMO', '1')
       if (detallePrestamo.trim()) {
         formData.append('DETALLE_PRESTAMO', detallePrestamo.trim())
-        formData.append('detalle_prestamo', detallePrestamo.trim())
       }
 
       await NuevoPrestamo(formData)

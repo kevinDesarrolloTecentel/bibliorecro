@@ -18,9 +18,8 @@ import { Input } from "@/components/ui/input";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 
 const formSchema = z.object({
-  email: z.string().min(1, { message: "Por favor ingrese su usuario o correo." }),
-  password: z.string().min(1, { message: "Por favor ingrese su contraseña." }),
-  rememberMe: z.boolean().default(false).optional(),
+  NICK_USUARIO: z.string().min(1, { message: "Por favor ingrese su usuario." }),
+  PASSWORD_USUARIO: z.string().min(1, { message: "Por favor ingrese su contraseña." }),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -128,9 +127,8 @@ export function AuthFormSplitScreen({
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: "",
-      password: "",
-      rememberMe: false,
+      NICK_USUARIO: "",
+      PASSWORD_USUARIO: "",
     },
   });
 
@@ -195,7 +193,7 @@ export function AuthFormSplitScreen({
               >
                 <FormField
                   control={form.control}
-                  name="email"
+                  name="NICK_USUARIO"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-sm font-medium text-slate-700">
@@ -216,7 +214,7 @@ export function AuthFormSplitScreen({
 
                 <FormField
                   control={form.control}
-                  name="password"
+                  name="PASSWORD_USUARIO"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-sm font-medium text-slate-700">

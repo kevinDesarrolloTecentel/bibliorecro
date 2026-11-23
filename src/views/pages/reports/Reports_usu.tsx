@@ -21,7 +21,7 @@ import MDAModal from "@/components/reportesModals/Usuarios/RenoDMA"
 import MejoresUModal from "@/components/reportesModals/Usuarios/MejoresUsu"
 import UsuNuevoModal from "@/components/reportesModals/Usuarios/UsuNuevos"
 import LibroUModal from "@/components/reportesModals/Usuarios/LibrosUsu"
-import { usePermissions } from "@/context/PermissionsContext"
+import { usePermissions } from "@/hooks/auth/usePermissions"
 
 const Report_usu = () => {
   const { canDoAction } = usePermissions()

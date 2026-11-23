@@ -1,4 +1,3 @@
-import { Rol } from "@/models/adm/rol.model"
 import apiClient, { BACKEND_API_BASE } from "@/Service/ApiClient"
 
 const API_BASE_URL_ROLES = `${BACKEND_API_BASE}/admin-seguridad`
@@ -13,12 +12,12 @@ export const verRol = async (id: string | number) => {
   return data
 }
 
-export const crearRol = async (rolData?: Rol | any) => {
+export const crearRol = async (rolData?: any) => {
   const { data } = await apiClient.post(`${API_BASE_URL_ROLES}/roles`, rolData)
   return data
 }
 
-export const actualizarRol = async (id: string | number, rolData?: Rol | any) => {
+export const actualizarRol = async (id: string | number, rolData?: any) => {
   const { data } = await apiClient.put(`${API_BASE_URL_ROLES}/roles/${id}`, rolData)
   return data
 }

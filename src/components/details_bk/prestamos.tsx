@@ -206,6 +206,11 @@ const Modal_prestamo: React.FC<ModalPrestamoProps> = (props) => {
                               <div className="text-muted small font-monospace">
                                 {usuario.cedula || 'Sin cédula'}
                               </div>
+                              {usuario.tieneSancion && usuario.sancion && (
+                                <div className="text-warning-emphasis small mt-1 font-monospace" style={{ fontSize: '0.75rem' }}>
+                                  Última sanción: {usuario.sancion.inicio ? `${usuario.sancion.inicio} - ` : ''}{usuario.sancion.detalle || 'Sanción registrada'}
+                                </div>
+                              )}
                             </div>
                             {isSelected && (
                               <div>

@@ -1,30 +1,28 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useDispatch } from 'react-redux'
+import { useDispatch, useSelector } from 'react-redux'
 import Swal from 'sweetalert2'
-import { useAuth } from '../auth/useAuth'
-import { loginSuccess } from '@/authSlice'
-import { getStoredUser } from '@/utils/auth'
-import { UserData } from '@/models/auth'
-import { ProfileFormData, ProfileTableItem } from '@/models/adm/user.model'
+import { RootState } from '@/store'
+import { updateUserProfile, AuthUser, PerfilResponse } from '@/slices/authSlice'
+import { AdminUsuario } from '@/models/adm/user.model'
 import { actualizar, perfil } from '@/Service/adm/AdminUser'
-import { isBcryptHash, parseApiErrors } from '@/hooks/adm-user/useUsers'
-import { usePermissions } from '@/context/PermissionsContext'
+import { isBcryptHash, parseApiErrors } from '@/utils/errors'
+import { usePermissions } from '@/hooks/auth/usePermissions'
 
-
-//Valida los datos del fomulario de editar perfil 
+// Valida los datos del formulario de editar perfil
 export const validateProfileData = (
-  formData: ProfileFormData
+  data: AdminUsuario,
 ): { isValid: boolean; errors: string[] } => {
   const errors: string[] = []
 
-  if (!formData.nombres || !formData.nombres.trim()) {
+  const nombres = (data.NOMBRES_USUARIO || '').trim()
+  if (!nombres) {
     errors.push('El nombre completo es obligatorio.')
-  } else if (formData.nombres.trim().length > 25) {
+  } else if (nombres.length > 25) {
     errors.push('El nombre completo no puede superar los 25 caracteres.')
   }
 
-  if (formData.password && formData.password.trim() !== '') {
-    const pass = formData.password.trim()
+  const pass = (data.PASSWORD_USUARIO || '').trim()
+  if (pass !== '') {
     if (pass !== '••••••••' && !isBcryptHash(pass)) {
       if (pass.length < 6) {
         errors.push('La contraseña debe tener al menos 6 caracteres.')
@@ -42,44 +40,51 @@ export const validateProfileData = (
 
 export const useProfile = () => {
   const dispatch = useDispatch()
-  const { user } = useAuth()
-  const { canDoAction, verificarAccionEnServidor } = usePermissions()
-  const activeUser = user || getStoredUser()
+  const user = useSelector((state: RootState) => state.auth.user)
+  const { canDoAction } = usePermissions()
 
+  // Permisos de acciones del perfil
   const canMostrarBotonEditar = canDoAction('btn_mostrar_boton_editar')
   const canEditarPerfil = canDoAction('btn_editar_perfil')
   const canGuardarPerfil = canDoAction('btn_guardar_perfil')
   const canVermisPermisos = canDoAction('btn_ver_permisos')
   const canVermisRoles = canDoAction('btn_ver_roles')
+
+  // Estados locales
   const [loading, setLoading] = useState(false)
   const [guardando, setGuardando] = useState(false)
-  const [profileData, setProfileData] = useState<any>(null)
   const [modalVisible, setModalVisible] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
-  const [formData, setFormData] = useState<ProfileFormData>({
-    usuario: '',
-    nombres: '',
-    password: '',
+  const [formData, setFormData] = useState<AdminUsuario>({
+    NICK_USUARIO: '',
+    NOMBRES_USUARIO: '',
+    PASSWORD_USUARIO: '',
   })
 
-  const currentUser = profileData || activeUser
-
+  // Obtener información del perfil desde el backend y sincronizar el authSlice
   const fetchProfile = useCallback(async () => {
     setLoading(true)
     try {
-      const response = await perfil()
-      const data = response?.data || response?.usuario || response?.user || response
-      if (data) {
-        setProfileData(data)
+      const response: PerfilResponse = await perfil()
+      if (response?.data) {
+        const cleanPerfil: Partial<AuthUser> = {
+          ID_USUARIO: response.data.ID_USUARIO,
+          NICK_USUARIO: response.data.NICK_USUARIO,
+          NOMBRES_USUARIO: response.data.NOMBRES_USUARIO,
+          ESTADO_USUARIO: response.data.ESTADO_USUARIO,
+          FECHA_REGISTRO: response.data.FECHA_REGISTRO,
+        }
+        dispatch(updateUserProfile(cleanPerfil))
       }
     } catch (error) {
       console.error('Error al consultar perfil:', error)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [dispatch])
 
-  const handleOpenEditModal = async () => {
+  // Abrir modal de edición con los datos del usuario actual
+  const handleOpenEditModal = () => {
     if (!canEditarPerfil) {
       Swal.fire({
         icon: 'error',
@@ -91,16 +96,16 @@ export const useProfile = () => {
       return
     }
 
-    const current = profileData || activeUser
     setFormData({
-      usuario: current?.NICK_USUARIO || '',
-      nombres: current?.NOMBRES_USUARIO || '',
-      password: '',
+      NICK_USUARIO: user?.NICK_USUARIO || '',
+      NOMBRES_USUARIO: user?.NOMBRES_USUARIO || '',
+      PASSWORD_USUARIO: '',
     })
     setShowPassword(false)
     setModalVisible(true)
   }
 
+  // Guardar cambios del perfil
   const handleGuardar = async () => {
     if (!canGuardarPerfil) {
       Swal.fire({
@@ -113,17 +118,6 @@ export const useProfile = () => {
       return
     }
 
-    const tienePermiso = await verificarAccionEnServidor('btn_guardar_perfil')
-    if (!tienePermiso) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Acceso Denegado',
-        text: 'No tienes permisos para guardar cambios en el perfil.',
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
-      return
-    }
     const { isValid, errors } = validateProfileData(formData)
     if (!isValid) {
       Swal.fire({
@@ -136,9 +130,7 @@ export const useProfile = () => {
       return
     }
 
-    const current = profileData || activeUser
-    const userId = current?.ID_USUARIO
-
+    const userId = user?.ID_USUARIO
     if (!userId) {
       Swal.fire({
         icon: 'error',
@@ -152,33 +144,23 @@ export const useProfile = () => {
 
     setGuardando(true)
     try {
-      const payload: any = {
-        NOMBRES_USUARIO: formData.nombres.trim(),
+      const payload: Partial<AdminUsuario> = {
+        NOMBRES_USUARIO: (formData.NOMBRES_USUARIO || '').trim(),
       }
 
-      let passToSave = current?.PASSWORD_USUARIO
+      const pass = (formData.PASSWORD_USUARIO || '').trim()
       if (
-        formData.password &&
-        formData.password.trim() !== '' &&
-        formData.password !== '••••••••' &&
-        !isBcryptHash(formData.password)
+        pass !== '' &&
+        pass !== '••••••••' &&
+        !isBcryptHash(pass)
       ) {
-        payload.PASSWORD_USUARIO = formData.password.trim()
-        passToSave = formData.password.trim()
+        payload.PASSWORD_USUARIO = pass
       }
 
       await actualizar(userId, payload)
 
-      const updatedUser: UserData = {
-        ...current,
-        NOMBRES_USUARIO: formData.nombres.trim(),
-        PASSWORD_USUARIO: passToSave,
-        token: current?.token,
-      }
-
-      dispatch(loginSuccess(updatedUser))
-
-      await fetchProfile()
+      // Actualizar el estado global en authSlice
+      dispatch(updateUserProfile({ NOMBRES_USUARIO: payload.NOMBRES_USUARIO }))
 
       Swal.fire({
         icon: 'success',
@@ -204,35 +186,15 @@ export const useProfile = () => {
     }
   }
 
-  // Normalización del estado para la tabla
-  const rawEstado = currentUser?.ESTADO_USUARIO ?? currentUser?.estado
-  const estadoNormalizado: 'Activo' | 'Inactivo' =
-    String(rawEstado).toLowerCase() === '1' || String(rawEstado).toLowerCase() === 'activo'
-      ? 'Activo'
-      : 'Inactivo'
-
-  // Items para la CSmartTable
-  const items: ProfileTableItem[] = currentUser
-    ? [
-      {
-        id: currentUser.ID_USUARIO,
-        Usuario: currentUser.NICK_USUARIO,
-        Nombres: currentUser.NOMBRES_USUARIO,
-        fecha_registro: currentUser.FECHA_REGISTRO,
-        Estado: estadoNormalizado,
-        raw: currentUser,
-      },
-    ]
-    : []
+  // Fila para la tabla de perfil (directamente el usuario autenticado)
+  const items: AuthUser[] = user ? [user] : []
 
   useEffect(() => {
     fetchProfile()
   }, [fetchProfile])
 
   return {
-    user: activeUser,
-    currentUser,
-    profileData,
+    user,
     loading,
     guardando,
     modalVisible,
@@ -249,7 +211,7 @@ export const useProfile = () => {
     canEditarPerfil,
     canGuardarPerfil,
     canVermisPermisos,
-    canVermisRoles
+    canVermisRoles,
   }
 }
 

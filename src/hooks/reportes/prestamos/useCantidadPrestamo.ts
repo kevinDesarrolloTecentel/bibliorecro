@@ -1,25 +1,32 @@
 import { useState, useCallback } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
 import Swal from 'sweetalert2'
+import { RootState, AppDispatch } from '@/store'
 import { Hoy } from '@/Service/rco/Prestamos'
 import { STORAGE_BASE_URL, descargarArchivo } from '@/utils/imageUtils'
-import { usePermissions } from '@/context/PermissionsContext'
+import { usePermissions } from '@/hooks/auth/usePermissions'
+import {
+  setReporteActivo,
+  limpiarReporte,
+  PrestamoReporteItem,
+} from '@/slices/reporteSlice'
 
 export { STORAGE_BASE_URL, descargarArchivo }
-
-import { PrestamoReporteItem } from '@/models/reportes/prestamos'
-
 export type { PrestamoReporteItem }
 
 export const useReporteCantidadPrestamosHoy = () => {
-  const { canDoAction, verificarAccionEnServidor } = usePermissions()
-  const canGenerarCantidadPrestamos = canDoAction('btn_generar_cantidad_prestamos')
-  const canDescargarCantidadPrestamos = canDoAction('btn_descargar_cantidad_prestamos')
+  const dispatch = useDispatch<AppDispatch>()
+  const reporteState = useSelector((state: RootState) => state.reportes)
 
   const [fechaHoy, setFechaHoy] = useState<string>('')
   const [prestamos, setPrestamos] = useState<PrestamoReporteItem[]>([])
-  const [isLoading, setIsLoading] = useState<boolean>(false)
   const [excelLink, setExcelLink] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState<boolean>(false)
   const [haBuscado, setHaBuscado] = useState<boolean>(false)
+
+  const { canDoAction, verificarAccionEnServidor } = usePermissions()
+  const canGenerarCantidadPrestamos = canDoAction('btn_generar_cantidad_prestamos')
+  const canDescargarCantidadPrestamos = canDoAction('btn_descargar_cantidad_prestamos')
 
   const handleGetHoy = useCallback(async () => {
     if (!canGenerarCantidadPrestamos) {
@@ -61,6 +68,7 @@ export const useReporteCantidadPrestamosHoy = () => {
 
     setPrestamos([])
     setExcelLink(null)
+    dispatch(limpiarReporte())
 
     try {
       const params = {
@@ -78,11 +86,20 @@ export const useReporteCantidadPrestamosHoy = () => {
         (p: PrestamoReporteItem) => p.ESTADOINSCRIPCION_PERSONA !== 1,
       )
 
-      setPrestamos(filtrados)
       const rutaExcel: string | null = data?.excel?.nombre || data?.excel_path || null
+
+      setPrestamos(filtrados)
       setExcelLink(rutaExcel)
       setHaBuscado(true)
 
+      dispatch(
+        setReporteActivo({
+          tipoReporte: 'prestamos_hoy',
+          archivoDescarga: rutaExcel,
+          total: filtrados.length,
+          filtros: { fechaHoy },
+        }),
+      )
 
       if (filtrados.length === 0) {
         Swal.fire({
@@ -95,10 +112,10 @@ export const useReporteCantidadPrestamosHoy = () => {
       }
     } catch (error: any) {
       setHaBuscado(true)
-
       console.error('Error al obtener cantidad de préstamos', error)
       setPrestamos([])
       setExcelLink(null)
+      dispatch(limpiarReporte())
       const respData = error?.response?.data
       const errStr = typeof respData === 'string' ? respData : JSON.stringify(respData || '')
       const errorMsg = error?.response?.data?.message || error?.message || ''
@@ -119,19 +136,20 @@ export const useReporteCantidadPrestamosHoy = () => {
           confirmButtonColor: '#044c8c',
           confirmButtonText: 'Entendido',
         })
-      } else {
-        Swal.fire({
-          icon: 'error',
-          title: 'Error al consultar',
-          text: 'Error al obtener los préstamos de la fecha. Por favor, inténtelo de nuevo más tarde.',
-          confirmButtonColor: '#dc3545',
-          confirmButtonText: 'Entendido',
-        })
+        return
       }
+
+      Swal.fire({
+        icon: 'error',
+        title: 'Error al consultar',
+        text: 'Hubo un problema al obtener los préstamos. Por favor, inténtelo de nuevo más tarde.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
     } finally {
       setIsLoading(false)
     }
-  }, [canGenerarCantidadPrestamos, fechaHoy])
+  }, [canGenerarCantidadPrestamos, fechaHoy, verificarAccionEnServidor, dispatch])
 
   const handleDescargarExcel = useCallback(async () => {
     if (!canDescargarCantidadPrestamos) {
@@ -157,17 +175,19 @@ export const useReporteCantidadPrestamosHoy = () => {
       return
     }
 
-    if (excelLink) {
-      await descargarArchivo(`${STORAGE_BASE_URL}/prestamos/${excelLink}`)
+    const downloadLink = excelLink || reporteState.archivoDescarga
+    if (downloadLink) {
+      await descargarArchivo(`${STORAGE_BASE_URL}/prestamos/${downloadLink}`)
     }
-  }, [canDescargarCantidadPrestamos, excelLink, verificarAccionEnServidor])
+  }, [canDescargarCantidadPrestamos, excelLink, reporteState.archivoDescarga, verificarAccionEnServidor])
 
   const handleReset = useCallback(() => {
     setFechaHoy('')
     setPrestamos([])
     setExcelLink(null)
     setHaBuscado(false)
-  }, [])
+    dispatch(limpiarReporte())
+  }, [dispatch])
 
   return {
     fechaHoy,

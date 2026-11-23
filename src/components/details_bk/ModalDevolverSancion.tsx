@@ -20,7 +20,7 @@ import { cilReportSlash } from '@coreui/icons'
 import Swal from 'sweetalert2'
 import { CambioEstadoSancion } from '@/Service/rco/Prestamos'
 import { aFechaLocal, parseDatePickerValue, formatFecha } from '@/utils/dateUtils'
-import { usePermissions } from '@/context/PermissionsContext'
+import { usePermissions } from '@/hooks/auth/usePermissions'
 
 interface ModalDevolverSancionProps {
   visible: boolean
@@ -112,7 +112,7 @@ export const ModalDevolverSancion: React.FC<ModalDevolverSancionProps> = ({
 
     if (!item) return
 
-    const id = item.id ?? item.ID_PRESTAMO
+    const id = item.ID_PRESTAMO
     if (!id) {
       setErrorMsg('No se pudo identificar el préstamo.')
       return
@@ -141,20 +141,13 @@ export const ModalDevolverSancion: React.FC<ModalDevolverSancionProps> = ({
       const payload = {
         nuevo_estado: 0,
         ID_PRESTAMO: id,
-        ID_LIBROS: item.ID_LIBROS ?? item.raw?.ID_LIBROS,
-        ID_INSCRIPCION: item.ID_INSCRIPCION ?? item.id_inscripcion ?? item.raw?.ID_INSCRIPCION,
-        id_inscripcion: item.ID_INSCRIPCION ?? item.id_inscripcion ?? item.raw?.ID_INSCRIPCION,
-        ID_PERSONA: item.ID_PERSONA ?? item.id_persona ?? item.raw?.ID_PERSONA,
-        id_persona: item.ID_PERSONA ?? item.id_persona ?? item.raw?.ID_PERSONA,
+        ID_LIBROS: item.ID_LIBROS,
+        ID_INSCRIPCION: item.ID_INSCRIPCION,
+        ID_PERSONA: item.ID_PERSONA,
         FECHAINICIO_SANCION: hoyActual,
         FECHAFIN_SANCION: fechaFin,
         DETALLE_SANCION: detalle.trim(),
-        fecha_inicio: hoyActual,
-        fecha_fin: fechaFin,
-        detalle: detalle.trim(),
-        motivo: detalle.trim(),
         DETALLE_PRESTAMO: `Devuelto con sanción: ${detalle.trim()}`,
-        detalle_prestamo: `Devuelto con sanción: ${detalle.trim()}`,
         ESTADO_SANCION: '1',
       }
 

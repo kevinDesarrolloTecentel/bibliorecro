@@ -1,9 +1,17 @@
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
 import Swal from 'sweetalert2'
-import { Categoria } from '@/models/rco/categoria'
+import { Categoria } from '@/models/rco/categoria.model'
 import { ActualizarCatLib, CatLibros, EliminarCatLib, NuevaCatLib } from '@/Service/rco/CatLib'
-import { usePermissions } from '@/context/PermissionsContext'
-
+import { usePermissions } from '@/hooks/auth/usePermissions'
+import { RootState, AppDispatch } from '@/store'
+import {
+  setCategorias,
+  setCategoriaSeleccionada,
+  addCategoria,
+  updateCategoria,
+  removeCategoria,
+} from '@/slices/detallesLibroSlice'
 
 export type CategoriaItem = Categoria
 
@@ -24,6 +32,16 @@ export const useCategoria = ({
   onCategoriaActualizada,
   onCategoriaEliminada,
 }: UseCategoriaProps = {}) => {
+  const dispatch = useDispatch<AppDispatch>()
+  const { categorias: listaCategorias, categoriaSeleccionada } = useSelector(
+    (state: RootState) => state.detallesLibro,
+  )
+
+  const categoriaSeleccionadaRef = useRef(categoriaSeleccionada)
+  useEffect(() => {
+    categoriaSeleccionadaRef.current = categoriaSeleccionada
+  }, [categoriaSeleccionada])
+
   const { canDoAction, verificarAccionEnServidor } = usePermissions()
 
   const canCrearCategoria = canDoAction('btn_crear_categoria')
@@ -31,79 +49,146 @@ export const useCategoria = ({
   const canEditarCategoria = canDoAction('btn_editar_categoria')
   const canActualizarCategoria = canDoAction('btn_actualizar_categoria')
   const canEliminarCategoria = canDoAction('btn_eliminar_categoria')
-  const canVerInfoCategoria =canDoAction('btn_ver_info_categoria')
+  const canVerInfoCategoria = canDoAction('btn_ver_info_categoria')
 
   const [internalVisible, setInternalVisible] = useState(false)
   const isControlled = typeof visibleProp === 'boolean'
   const isVisible = isControlled ? visibleProp : internalVisible
 
-  const [listaCategorias, setListaCategorias] = useState<Categoria[]>([])
   const [loadingCategorias, setLoadingCategorias] = useState(false)
   const [busquedaCategoria, setBusquedaCategoria] = useState('')
-  const [categoriaSeleccionada, setCategoriaSeleccionada] = useState<Categoria | null>(null)
   const [categoriaEnEdicion, setCategoriaEnEdicion] = useState<Categoria | null>(null)
 
   const [codigoCategoria, setCodigoCategoria] = useState('')
   const [nombreCategoria, setNombreCategoria] = useState('')
   const [guardando, setGuardando] = useState(false)
-  
 
+  // Paginación 100% de servidor
+  const [paginaActual, setPaginaActual] = useState(1)
+  const [totalPaginas, setTotalPaginas] = useState(1)
+  const [totalCategorias, setTotalCategorias] = useState(0)
 
-  const fetchCategorias = useCallback(async (preserveSelection = true) => {
-    setLoadingCategorias(true)
-    try {
-      const response = await CatLibros()
-      let rawList: any[] = []
-      if (Array.isArray(response)) {
-        rawList = response
-      } else if (Array.isArray(response?.data)) {
-        rawList = response.data
-      } else if (Array.isArray(response?.data?.data)) {
-        rawList = response.data.data
-      } else if (Array.isArray(response?.categorias)) {
-        rawList = response.categorias
+  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null)
+  const isFirstRender = useRef(true)
+
+  const handleSetCategoriaSeleccionada = useCallback(
+    (cat: Categoria | null | ((prev: Categoria | null) => Categoria | null)) => {
+      if (typeof cat === 'function') {
+        dispatch(setCategoriaSeleccionada(cat(categoriaSeleccionadaRef.current)))
+      } else {
+        dispatch(setCategoriaSeleccionada(cat))
       }
+    },
+    [dispatch],
+  )
 
-      const parsedList: Categoria[] = rawList.map((item: any, index: number) => ({
-        id: item.ID_CATEGORIA ?? item.id ?? index + 1,
-        ID_CATEGORIA: item.ID_CATEGORIA ?? item.id ?? index + 1,
-        CODIGO_CATEGORIA: String(item.CODIGO_CATEGORIA ?? item.codigo ?? '').trim(),
-        NOMBRE_CATEGORIA: String(item.NOMBRE_CATEGORIA ?? item.nombre ?? '').trim(),
-        FECHAINGRESO_CATEGORIA: item.FECHAINGRESO_CATEGORIA ?? item.fecha_ingreso ?? null,
-      }))
+  const handleSetListaCategorias = useCallback(
+    (list: Categoria[] | ((prev: Categoria[]) => Categoria[])) => {
+      if (typeof list === 'function') {
+        dispatch(setCategorias(list(listaCategorias)))
+      } else {
+        dispatch(setCategorias(list))
+      }
+    },
+    [dispatch, listaCategorias],
+  )
 
-      setListaCategorias(parsedList)
-      if (preserveSelection) {
-        setCategoriaSeleccionada((prev) => {
-          if (!prev) return null
-          const prevId = String(prev.ID_CATEGORIA ?? prev.id)
+  const fetchCategorias = useCallback(
+    async (page: number = 1, searchQuery: string = '', preserveSelection: boolean = true) => {
+      setLoadingCategorias(true)
+      try {
+        const q = searchQuery.trim()
+        const response = await CatLibros({ page, search: q, per_page: 10 })
+        let rawList: any[] = []
+        let total = 0
+        let lastPage = 1
+
+        if (response && response.data) {
+          rawList = Array.isArray(response.data) ? response.data : []
+          total = Number(response.total ?? rawList.length)
+          lastPage = Number(response.last_page ?? 1)
+        } else if (Array.isArray(response)) {
+          rawList = response
+          total = response.length
+          lastPage = 1
+        }
+
+        const parsedList: Categoria[] = rawList.map((item: any) => ({
+          id: item.ID_CATEGORIA,
+          ID_CATEGORIA: item.ID_CATEGORIA,
+          CODIGO_CATEGORIA: String(item.CODIGO_CATEGORIA ?? '').trim(),
+          NOMBRE_CATEGORIA: String(item.NOMBRE_CATEGORIA ?? '').trim(),
+          FECHAINGRESO_CATEGORIA: item.FECHAINGRESO_CATEGORIA ?? null,
+        }))
+
+        dispatch(setCategorias(parsedList))
+        setTotalCategorias(total)
+        setTotalPaginas(Math.max(1, lastPage))
+        setPaginaActual(page)
+
+        if (preserveSelection && categoriaSeleccionadaRef.current) {
+          const prevId = String(
+            categoriaSeleccionadaRef.current.ID_CATEGORIA ??
+            categoriaSeleccionadaRef.current.id,
+          )
           const matched = parsedList.find(
             (c) => String(c.ID_CATEGORIA ?? c.id) === prevId,
           )
-          return matched || null
-        })
-      } else {
-        setCategoriaSeleccionada(null)
+          dispatch(setCategoriaSeleccionada(matched || null))
+        } else if (!preserveSelection) {
+          dispatch(setCategoriaSeleccionada(null))
+        }
+      } catch (error: any) {
+        console.error('Error al cargar categorías desde la API:', error)
+      } finally {
+        setLoadingCategorias(false)
       }
-    } catch (error: any) {
-      console.error('Error al cargar categorías desde la API:', error)
-    } finally {
-      setLoadingCategorias(false)
-    }
-  }, [])
+    },
+    [dispatch],
+  )
 
+  // Carga inicial
   useEffect(() => {
     if (autoFetch) {
-      fetchCategorias()
+      fetchCategorias(1, '')
     }
   }, [autoFetch, fetchCategorias])
 
+  // Búsqueda con debounce en servidor
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      return
+    }
+
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current)
+    }
+    searchDebounceRef.current = setTimeout(() => {
+      fetchCategorias(1, busquedaCategoria, true)
+    }, 400)
+
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current)
+      }
+    }
+  }, [busquedaCategoria, fetchCategorias])
+
+  const handlePageChange = useCallback(
+    (page: number) => {
+      if (page >= 1 && page <= totalPaginas && page !== paginaActual) {
+        fetchCategorias(page, busquedaCategoria, true)
+      }
+    },
+    [fetchCategorias, busquedaCategoria, totalPaginas, paginaActual],
+  )
+
   const handleRecargar = useCallback(async () => {
     setBusquedaCategoria('')
-    setPaginaActual(1)
-    setCategoriaSeleccionada(null)
-    await fetchCategorias(false)
-  }, [fetchCategorias])
+    dispatch(setCategoriaSeleccionada(null))
+    await fetchCategorias(1, '', false)
+  }, [fetchCategorias, dispatch])
 
   const handleOpen = useCallback(
     (categoria?: Categoria) => {
@@ -156,52 +241,6 @@ export const useCategoria = ({
     setCodigoCategoria('')
     setNombreCategoria('')
   }, [setVisibleProp])
-
-  const categoriasFiltradas = useMemo(() => {
-    const sorted = [...listaCategorias].sort((a, b) => {
-      const numA = Number(a.ID_CATEGORIA ?? a.id)
-      const numB = Number(b.ID_CATEGORIA ?? b.id)
-      if (!isNaN(numA) && !isNaN(numB)) {
-        return numA - numB
-      }
-      return String(a.NOMBRE_CATEGORIA).localeCompare(String(b.NOMBRE_CATEGORIA), undefined, {
-        numeric: true,
-      })
-    })
-
-    if (!busquedaCategoria.trim()) return sorted
-    const q = busquedaCategoria.toLowerCase().trim()
-    return sorted.filter((cat) => {
-      const nombre = (cat.NOMBRE_CATEGORIA || '').toLowerCase()
-      const codigo = String(cat.CODIGO_CATEGORIA || '').toLowerCase()
-      const id = String(cat.ID_CATEGORIA ?? cat.id ?? '').toLowerCase()
-      return nombre.includes(q) || codigo.includes(q) || id.includes(q)
-    })
-  }, [busquedaCategoria, listaCategorias])
-
-  const [paginaActual, setPaginaActual] = useState(1)
-  const itemsPorPagina = 10
-
-  useEffect(() => {
-    setPaginaActual(1)
-  }, [busquedaCategoria])
-
-  const totalPaginas = Math.max(1, Math.ceil(categoriasFiltradas.length / itemsPorPagina))
-
-  useEffect(() => {
-    if (paginaActual > totalPaginas) {
-      setPaginaActual(totalPaginas)
-    }
-  }, [totalPaginas, paginaActual])
-
-  const categoriasPaginadas = useMemo(() => {
-    const start = (paginaActual - 1) * itemsPorPagina
-    return categoriasFiltradas.slice(start, start + itemsPorPagina)
-  }, [categoriasFiltradas, paginaActual, itemsPorPagina])
-
-  const handlePageChange = useCallback((page: number) => {
-    setPaginaActual(page)
-  }, [])
 
   const handleGuardarCategoria = useCallback(
     async (e?: React.FormEvent) => {
@@ -283,12 +322,14 @@ export const useCategoria = ({
             showConfirmButton: false,
           })
 
-          await fetchCategorias()
+          const categoriaActualizada: Categoria = {
+            ...categoriaEnEdicion,
+            ...payload,
+          }
+          dispatch(updateCategoria(categoriaActualizada))
+          await fetchCategorias(paginaActual, busquedaCategoria)
           if (onCategoriaActualizada) {
-            onCategoriaActualizada({
-              ...categoriaEnEdicion,
-              ...payload,
-            })
+            onCategoriaActualizada(categoriaActualizada)
           }
         } else {
           const res = await NuevaCatLib(payload)
@@ -301,16 +342,16 @@ export const useCategoria = ({
             showConfirmButton: false,
           })
 
-          await fetchCategorias()
+          const categoriaNueva: Categoria = res?.data ||
+            res || {
+              id: Date.now(),
+              ID_CATEGORIA: Date.now(),
+              ...payload,
+            }
+          dispatch(addCategoria(categoriaNueva))
+          await fetchCategorias(1, '')
           if (onCategoriaCreada) {
-            onCategoriaCreada(
-              res?.data ||
-                res || {
-                  id: Date.now(),
-                  ID_CATEGORIA: Date.now(),
-                  ...payload,
-                },
-            )
+            onCategoriaCreada(categoriaNueva)
           }
         }
 
@@ -338,10 +379,14 @@ export const useCategoria = ({
       categoriaEnEdicion,
       canActualizarCategoria,
       canGuardarCategoria,
+      dispatch,
       fetchCategorias,
       handleClose,
       onCategoriaActualizada,
       onCategoriaCreada,
+      paginaActual,
+      busquedaCategoria,
+      verificarAccionEnServidor,
     ],
   )
 
@@ -358,7 +403,7 @@ export const useCategoria = ({
         return
       }
 
-      const cat = catParam || categoriaSeleccionada
+      const cat = catParam || categoriaSeleccionadaRef.current
       if (!cat) return
 
       const id = cat.ID_CATEGORIA ?? cat.id
@@ -397,13 +442,17 @@ export const useCategoria = ({
             timer: 1800,
             showConfirmButton: false,
           })
+          dispatch(removeCategoria(id))
           if (
-            categoriaSeleccionada &&
-            String(categoriaSeleccionada.ID_CATEGORIA ?? categoriaSeleccionada.id) === String(id)
+            categoriaSeleccionadaRef.current &&
+            String(
+              categoriaSeleccionadaRef.current.ID_CATEGORIA ??
+              categoriaSeleccionadaRef.current.id,
+            ) === String(id)
           ) {
-            setCategoriaSeleccionada(null)
+            dispatch(setCategoriaSeleccionada(null))
           }
-          await fetchCategorias()
+          await fetchCategorias(paginaActual, busquedaCategoria)
           if (onCategoriaEliminada) {
             onCategoriaEliminada(id)
           }
@@ -423,7 +472,15 @@ export const useCategoria = ({
         }
       }
     },
-    [canEliminarCategoria, categoriaSeleccionada, fetchCategorias, onCategoriaEliminada],
+    [
+      canEliminarCategoria,
+      dispatch,
+      fetchCategorias,
+      paginaActual,
+      busquedaCategoria,
+      onCategoriaEliminada,
+      verificarAccionEnServidor,
+    ],
   )
 
   return {
@@ -432,15 +489,15 @@ export const useCategoria = ({
     handleOpen,
     handleClose,
     listaCategorias,
-    setListaCategorias,
-    categoriasFiltradas,
-    categoriasPaginadas,
+    setListaCategorias: handleSetListaCategorias,
+    categoriasFiltradas: listaCategorias,
+    categoriasPaginadas: listaCategorias,
     loadingCategorias,
     setLoadingCategorias,
     busquedaCategoria,
     setBusquedaCategoria,
     categoriaSeleccionada,
-    setCategoriaSeleccionada,
+    setCategoriaSeleccionada: handleSetCategoriaSeleccionada,
     categoriaEnEdicion,
     codigoCategoria,
     setCodigoCategoria,
@@ -453,8 +510,8 @@ export const useCategoria = ({
     handleRecargar,
     paginaActual,
     totalPaginas,
-    totalCategorias: listaCategorias.length,
-    totalFiltradas: categoriasFiltradas.length,
+    totalCategorias,
+    totalFiltradas: totalCategorias,
     handlePageChange,
     canCrearCategoria,
     canGuardarCategoria,

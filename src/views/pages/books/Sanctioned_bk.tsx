@@ -27,10 +27,13 @@ import {
 } from '@coreui/react-pro'
 import useSanciones from '@/hooks/rco-sanciones/useSanciones'
 import ModalSancionarDePorVida from '@/components/details_bk/ModalSancionarDePorVida'
+import { SancionItem } from '@/slices/sancionSlice'
 
 const Sanctioned_bk: React.FC = () => {
   const {
     sancionados,
+    sancionadoSeleccionado,
+    setSancionadoSeleccionado,
     loading,
     procesandoId,
     paginaActual,
@@ -55,22 +58,21 @@ const Sanctioned_bk: React.FC = () => {
   } = useSanciones()
 
   const [modalSancionVisible, setModalSancionVisible] = useState(false)
-  const [usuarioASancionar, setUsuarioASancionar] = useState<any | null>(null)
 
-  const handleAbrirModalSancionPermanente = (item: any) => {
-    setUsuarioASancionar(item)
+  const handleAbrirModalSancionPermanente = (item: SancionItem) => {
+    setSancionadoSeleccionado(item)
     setModalSancionVisible(true)
   }
 
   const columns = useMemo(
     () => [
-      { key: 'Cedula', label: 'Cédula', _style: { width: '14%' }, filter: false },
-      { key: 'Nombres', label: 'Nombres', _style: { width: '18%' }, filter: false },
-      { key: 'Apellidos', label: 'Apellidos', _style: { width: '18%' }, filter: false },
-      { key: 'Celular', label: 'Celular', _style: { width: '12%' }, filter: false },
-      { key: 'status', label: 'Sanción', _style: { width: '13%' }, filter: false },
+      { key: 'IDENTIFICACION_PERSONA', label: 'Cédula', _style: { width: '14%' }, filter: false },
+      { key: 'NOMBRE_PERSONA', label: 'Nombres', _style: { width: '18%' }, filter: false },
+      { key: 'APELLIDO_PERSONA', label: 'Apellidos', _style: { width: '18%' }, filter: false },
+      { key: 'CELULAR_PERSONA', label: 'Celular', _style: { width: '12%' }, filter: false },
+      { key: 'STATUS_SANCION_TEXTO', label: 'Sanción', _style: { width: '13%' }, filter: false },
       {
-        key: 'estado',
+        key: 'ESTADO_TEXTO',
         label: 'Estado',
         _style: { width: '8%' },
         filter: (_values: unknown[], onChange: (val: string | number) => void, filterValue?: string | number) => (
@@ -87,7 +89,7 @@ const Sanctioned_bk: React.FC = () => {
         ),
       },
       {
-        key: 'vetado',
+        key: 'ES_VETADO',
         label: 'Vetado',
         _style: { width: '8%' },
         filter: (_values: unknown[], onChange: (val: string | number) => void, filterValue?: string | number) => (
@@ -104,7 +106,7 @@ const Sanctioned_bk: React.FC = () => {
         ),
       },
     ],
-    [filtroVeto, filtroEstado]
+    [filtroVeto, filtroEstado],
   )
 
   return (
@@ -157,9 +159,9 @@ const Sanctioned_bk: React.FC = () => {
             tableFilter={{ external: true }}
             tableFilterPlaceholder="Buscar por cédula, nombres o apellidos..."
             onTableFilterChange={(busqueda) => handleBuscarGlobal(busqueda || '')}
-            onRowClick={(item: any) => {
+            onRowClick={(item: SancionItem) => {
               if (!canVerInfoSancion) return
-              const id = item?.id ?? item?.ID_PERSONA ?? item?.ID_SANCION
+              const id = item?.ID_PERSONA
               if (id) toggleDetails(id)
             }}
             noItemsLabel={
@@ -179,44 +181,44 @@ const Sanctioned_bk: React.FC = () => {
               className: 'align-middle',
             }}
             scopedColumns={{
-              Cedula: (item: any) => (
+              IDENTIFICACION_PERSONA: (item: SancionItem) => (
                 <td>
                   <span className="badge bg-body text-body border font-monospace px-2 py-1">
-                    {item.Cedula || '-'}
+                    {item.IDENTIFICACION_PERSONA || '-'}
                   </span>
                 </td>
               ),
-              Nombres: (item: any) => (
+              NOMBRE_PERSONA: (item: SancionItem) => (
                 <td>
-                  <span className="text-body fw-medium">{item.Nombres || '-'}</span>
+                  <span className="text-body fw-medium">{item.NOMBRE_PERSONA || '-'}</span>
                 </td>
               ),
-              Apellidos: (item: any) => (
+              APELLIDO_PERSONA: (item: SancionItem) => (
                 <td>
-                  <span className="text-body fw-medium">{item.Apellidos || '-'}</span>
+                  <span className="text-body fw-medium">{item.APELLIDO_PERSONA || '-'}</span>
                 </td>
               ),
-              Celular: (item: any) => (
+              CELULAR_PERSONA: (item: SancionItem) => (
                 <td>
-                  <span className="font-monospace fw-semibold text-secondary">{item.Celular || '-'}</span>
+                  <span className="font-monospace fw-semibold text-secondary">{item.CELULAR_PERSONA || '-'}</span>
                 </td>
               ),
-              estado: (item: any) => (
+              ESTADO_TEXTO: (item: SancionItem) => (
                 <td>
-                  <CBadge color={getBadgeColorUsuario(item.estado)} shape="rounded-pill" className="px-3 py-1">
-                    {item.estado}
+                  <CBadge color={getBadgeColorUsuario(item.ESTADO_TEXTO || 'Activo')} shape="rounded-pill" className="px-3 py-1">
+                    {item.ESTADO_TEXTO || 'Activo'}
                   </CBadge>
                 </td>
               ),
-              status: (item: any) => (
+              STATUS_SANCION_TEXTO: (item: SancionItem) => (
                 <td>
-                  <CBadge color={getBadgeColorSancion(item.status)} shape="rounded-pill" className="px-3 py-1">
-                    {item.status || 'Sancionado'}
+                  <CBadge color={getBadgeColorSancion(item.STATUS_SANCION_TEXTO || 'Sancionado')} shape="rounded-pill" className="px-3 py-1">
+                    {item.STATUS_SANCION_TEXTO || 'Sancionado'}
                   </CBadge>
                 </td>
               ),
-              vetado: (item: any) => {
-                const esVet = Boolean(item.esVetado || Number(item.TIENE_VETO_PERMANENTE) === 1 || Number(item.ESTADO_VETO) === 2)
+              ES_VETADO: (item: SancionItem) => {
+                const esVet = Boolean(item.ES_VETADO || Number(item.TIENE_VETO_PERMANENTE) === 1)
                 return (
                   <td>
                     <CBadge
@@ -229,13 +231,14 @@ const Sanctioned_bk: React.FC = () => {
                   </td>
                 )
               },
-              details: (item: any) => {
+              details: (item: SancionItem) => {
                 if (!canVerInfoSancion) return null
-                const rowId = item.id ?? item.ID_PERSONA ?? item.ID_SANCION
+                const rowId = item.ID_PERSONA
+                if (!rowId) return null
                 const isVisible = details.includes(rowId)
-                const procesando = procesandoId === item.id
-                const esDePorVida = Boolean(item.esVetado || Number(item.TIENE_VETO_PERMANENTE) === 1 || Number(item.ESTADO_VETO) === 2)
-                const tieneLibro = Boolean(item.Libro && item.Libro.trim() && item.Libro !== 'Sin libro')
+                const procesando = procesandoId === item.ID_PERSONA
+                const esDePorVida = Boolean(item.ES_VETADO || Number(item.TIENE_VETO_PERMANENTE) === 1)
+                const tieneLibro = Boolean(item.TITULO_LIBROS && item.TITULO_LIBROS.trim() && item.TITULO_LIBROS !== 'Sin libro')
 
                 return (
                   <CCollapse visible={isVisible} className="user-details-collapse">
@@ -254,16 +257,16 @@ const Sanctioned_bk: React.FC = () => {
                           >
                             <CIcon icon={cilReportSlash} size="3xl" />
                           </div>
-                          <h6 className="fw-bold mb-1 text-body">{item.Nombres} {item.Apellidos}</h6>
+                          <h6 className="fw-bold mb-1 text-body">{item.NOMBRE_PERSONA} {item.APELLIDO_PERSONA}</h6>
                           <span className="text-body-secondary small mb-2 font-monospace">
-                            Cédula: {item.Cedula || 'S/N'}
+                            Cédula: {item.IDENTIFICACION_PERSONA || 'S/N'}
                           </span>
                           <div className="d-flex flex-wrap gap-1 justify-content-center">
-                            <CBadge color={getBadgeColorUsuario(item.estado)} shape="rounded-pill" className="px-3 py-1">
-                              {item.estado}
+                            <CBadge color={getBadgeColorUsuario(item.ESTADO_TEXTO || 'Activo')} shape="rounded-pill" className="px-3 py-1">
+                              {item.ESTADO_TEXTO || 'Activo'}
                             </CBadge>
-                            <CBadge color={getBadgeColorSancion(item.status)} shape="rounded-pill" className="px-3 py-1">
-                              {item.status || 'Sancionado'}
+                            <CBadge color={getBadgeColorSancion(item.STATUS_SANCION_TEXTO || 'Sancionado')} shape="rounded-pill" className="px-3 py-1">
+                              {item.STATUS_SANCION_TEXTO || 'Sancionado'}
                             </CBadge>
                           </div>
                         </CCol>
@@ -279,8 +282,8 @@ const Sanctioned_bk: React.FC = () => {
                                       <CIcon icon={cilBook} className="me-1 text-primary" />
                                       Libro Asociado
                                     </span>
-                                    <div className="fw-semibold text-body">{item.Libro}</div>
-                                    <span className="text-muted small font-monospace">ISBN: {item.ISBN || 'S/N'}</span>
+                                    <div className="fw-semibold text-body">{item.TITULO_LIBROS}</div>
+                                    <span className="text-muted small font-monospace">ISBN: {item.ISBN_LIBROS || 'S/N'}</span>
                                   </CCardBody>
                                 </CCard>
                               </CCol>
@@ -294,7 +297,7 @@ const Sanctioned_bk: React.FC = () => {
                                     Cédula
                                   </span>
                                   <span className="badge bg-body rounded border text-body font-monospace">
-                                    {item.Cedula || 'No registrada'}
+                                    {item.IDENTIFICACION_PERSONA || 'No registrada'}
                                   </span>
                                 </CCardBody>
                               </CCard>
@@ -308,11 +311,11 @@ const Sanctioned_bk: React.FC = () => {
                                     Teléfono / Celular
                                   </span>
                                   <span className="badge bg-body rounded border text-primary font-monospace me-1">
-                                    Cel: {item.Celular || '-'}
+                                    Cel: {item.CELULAR_PERSONA || '-'}
                                   </span>
-                                  {item.Telefono && item.Telefono !== '-' && (
+                                  {item.TELEFONO_PERSONA && item.TELEFONO_PERSONA !== '-' && (
                                     <span className="badge bg-body rounded border text-secondary font-monospace">
-                                      Tel: {item.Telefono}
+                                      Tel: {item.TELEFONO_PERSONA}
                                     </span>
                                   )}
                                 </CCardBody>
@@ -328,21 +331,21 @@ const Sanctioned_bk: React.FC = () => {
                                   </span>
                                   <div className="d-flex flex-wrap gap-1 align-items-center mb-2">
                                     <span className="badge bg-body rounded-pill border text-danger font-monospace">
-                                      Desde: {item.Fecha_inicio_sancion || '-'}
+                                      Desde: {item.FECHA_INICIO_SANCION || '-'}
                                     </span>
                                     <span className="badge bg-body rounded-pill border text-danger font-monospace">
-                                      Hasta: {esDePorVida ? 'Indefinido' : (item.Fecha_fin_sancion || 'Activa')}
+                                      Hasta: {esDePorVida ? 'Indefinido' : (item.FECHA_FIN_SANCION || 'Activa')}
                                     </span>
                                   </div>
                                   <div className="small text-body pt-1 border-top">
                                     <span className="text-muted fw-semibold me-1">Motivo:</span>
-                                    <span>{item.Motivo_sancion || 'Sanción registrada en el sistema'}</span>
+                                    <span>{item.MOTIVO_SANCION || 'Sanción registrada en el sistema'}</span>
                                   </div>
                                 </CCardBody>
                               </CCard>
                             </CCol>
 
-                            {Array.isArray(item.otras_sanciones) && item.otras_sanciones.length > 0 && (
+                            {Array.isArray(item.OTRAS_SANCIONES) && item.OTRAS_SANCIONES.length > 0 && (
                               <CCol xs={12}>
                                 <CCard className="h-100 shadow-sm border-0 bg-body">
                                   <CCardBody className="p-3">
@@ -352,12 +355,12 @@ const Sanctioned_bk: React.FC = () => {
                                         Otras Sanciones
                                       </span>
                                       <CBadge color="warning" shape="rounded-pill" className="px-2 py-1 text-dark">
-                                        {item.otras_sanciones.length} {item.otras_sanciones.length === 1 ? 'otra sanción' : 'otras sanciones'}
+                                        {item.OTRAS_SANCIONES.length} {item.OTRAS_SANCIONES.length === 1 ? 'otra sanción' : 'otras sanciones'}
                                       </CBadge>
                                     </div>
 
                                     <div className="d-flex flex-column gap-2 mt-2">
-                                      {item.otras_sanciones.map((sanc: any, sIdx: number) => (
+                                      {item.OTRAS_SANCIONES.map((sanc: any, sIdx: number) => (
                                         <div
                                           key={sIdx}
                                           className="p-2 border rounded bg-body-tertiary small d-flex flex-column gap-1"
@@ -392,50 +395,50 @@ const Sanctioned_bk: React.FC = () => {
                                 <CIcon icon={cilBan} size="sm" />
                                 <span>Usuario inhabilitado permanentemente</span>
                               </div>
-                            ) :  canQuitarSancion || canSancionarDePorVida ? (
-                                <>
-                                  {canQuitarSancion && (
-                                    <CButton
-                                      color="success"
-                                      variant="outline"
-                                      size="sm"
-                                      className="d-flex align-items-center gap-1 shadow-sm px-3"
-                                      disabled={procesando}
-                                      onClick={() => handleQuitarSancion(item)}
-                                    >
-                                      {procesando ? (
-                                        <CSpinner size="sm" />
-                                      ) : (
-                                        <CIcon icon={cilCheck} size="sm" />
-                                      )}
-                                      <span>Quitar Sanción</span>
-                                    </CButton>
-                                  )}
+                            ) : canQuitarSancion || canSancionarDePorVida ? (
+                              <>
+                                {canQuitarSancion && (
+                                  <CButton
+                                    color="success"
+                                    variant="outline"
+                                    size="sm"
+                                    className="d-flex align-items-center gap-1 shadow-sm px-3"
+                                    disabled={procesando}
+                                    onClick={() => handleQuitarSancion(item)}
+                                  >
+                                    {procesando ? (
+                                      <CSpinner size="sm" />
+                                    ) : (
+                                      <CIcon icon={cilCheck} size="sm" />
+                                    )}
+                                    <span>Quitar Sanción</span>
+                                  </CButton>
+                                )}
 
-                                  {canSancionarDePorVida && (
-                                    <CButton
-                                      color="danger"
-                                      variant="outline"
-                                      size="sm"
-                                      className="d-flex align-items-center gap-1 shadow-sm px-3"
-                                      disabled={procesando}
-                                      onClick={() => handleAbrirModalSancionPermanente(item)}
-                                    >
-                                      {procesando ? (
-                                        <CSpinner size="sm" />
-                                      ) : (
-                                        <CIcon icon={cilBan} size="sm" />
-                                      )}
-                                      <span>Sancionar de por vida</span>
-                                    </CButton>
-                                  )}
-                                </>
-                                ) : (
-                                <span className="text-danger small fw-semibold py-1">
+                                {canSancionarDePorVida && (
+                                  <CButton
+                                    color="danger"
+                                    variant="outline"
+                                    size="sm"
+                                    className="d-flex align-items-center gap-1 shadow-sm px-3"
+                                    disabled={procesando}
+                                    onClick={() => handleAbrirModalSancionPermanente(item)}
+                                  >
+                                    {procesando ? (
+                                      <CSpinner size="sm" />
+                                    ) : (
+                                      <CIcon icon={cilBan} size="sm" />
+                                    )}
+                                    <span>Sancionar de por vida</span>
+                                  </CButton>
+                                )}
+                              </>
+                            ) : (
+                              <span className="text-danger small fw-semibold py-1">
                                 No tienes acceso a las acciones de sancionados.
-                                </span>
+                              </span>
                             )}
-                              </div>
+                          </div>
                         </CCol>
                       </CRow>
                     </div>
@@ -462,10 +465,16 @@ const Sanctioned_bk: React.FC = () => {
 
       <ModalSancionarDePorVida
         visible={modalSancionVisible}
-        setVisible={setModalSancionVisible}
-        item={usuarioASancionar}
+        setVisible={(v) => {
+          setModalSancionVisible(v)
+          if (!v) setSancionadoSeleccionado(null)
+        }}
+        item={sancionadoSeleccionado}
         canGuardarSancionPermanente={canGuardarSancionPermanente}
-        onSuccess={() => handleRecargar()}
+        onSuccess={() => {
+          setSancionadoSeleccionado(null)
+          handleRecargar()
+        }}
       />
     </div>
   )

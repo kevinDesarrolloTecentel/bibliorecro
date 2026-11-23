@@ -158,7 +158,11 @@ const Editorial = () => {
                   </div>
                 ) : editorialFiltrados.length === 0 ? (
                   <div className="text-center text-muted py-5 small">
-                    No se encontraron coincidencias con &quot;{busquedaEditorial}&quot;.
+                    {busquedaEditorial ? (
+                      <>No se encontraron coincidencias con &quot;{busquedaEditorial}&quot;.</>
+                    ) : (
+                      <>No hay editoriales registradas en el catálogo.</>
+                    )}
                   </div>
                 ) : (
                   <div className="d-flex flex-column gap-2">

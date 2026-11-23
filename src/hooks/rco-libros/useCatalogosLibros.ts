@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { CatalogoOption } from '@/models/rco/libros'
+import { CatalogoOption } from '@/slices/libroSlice'
 import { Autores, ListarAutorLib } from '@/Service/rco/AutorLib'
 import { CatLibros } from '@/Service/rco/CatLib'
 import { ListarGeneroLib } from '@/Service/rco/GenLib'
@@ -8,17 +8,35 @@ import { ListarProveedorLib } from '@/Service/rco/ProveedorLib'
 import { listarFormatLib } from '@/Service/rco/FormatLib'
 import { ListarTipoLib } from '@/Service/rco/TipLib'
 
+export interface CatalogosLibrosData {
+  categorias: CatalogoOption[]
+  generos: CatalogoOption[]
+  editoriales: CatalogoOption[]
+  proveedores: CatalogoOption[]
+  formatos: CatalogoOption[]
+  tipos: CatalogoOption[]
+  autores: CatalogoOption[]
+}
+
+export const emptyCatalogos: CatalogosLibrosData = {
+  categorias: [],
+  generos: [],
+  editoriales: [],
+  proveedores: [],
+  formatos: [],
+  tipos: [],
+  autores: [],
+}
+
 const toArray = (val: any): any[] => {
   if (!val) return []
   if (Array.isArray(val)) return val
   if (Array.isArray(val.data)) return val.data
   if (Array.isArray(val.data?.data)) return val.data.data
   if (Array.isArray(val.autores)) return val.autores
-  if (Array.isArray(val.autors)) return val.autors
   if (Array.isArray(val.categorias)) return val.categorias
   if (Array.isArray(val.generos)) return val.generos
   if (Array.isArray(val.editoriales)) return val.editoriales
-  if (Array.isArray(val.editorials)) return val.editorials
   if (Array.isArray(val.proveedores)) return val.proveedores
   if (Array.isArray(val.formatos)) return val.formatos
   if (Array.isArray(val.tipos)) return val.tipos
@@ -43,44 +61,14 @@ const fetchAutoresList = async (): Promise<any[]> => {
   }
 }
 
-export interface CatalogosLibrosData {
-  categorias: CatalogoOption[]
-  generos: CatalogoOption[]
-  editoriales: CatalogoOption[]
-  proveedores: CatalogoOption[]
-  formatos: CatalogoOption[]
-  tipos: CatalogoOption[]
-  autores: CatalogoOption[]
-}
-
-const emptyCatalogos: CatalogosLibrosData = {
-  categorias: [],
-  generos: [],
-  editoriales: [],
-  proveedores: [],
-  formatos: [],
-  tipos: [],
-  autores: [],
-}
-
+// Caché en memoria compartido (evita saturar el estado global de Redux y previene lag en DevTools)
 let cachedCatalogos: CatalogosLibrosData | null = null
-let pendingCatalogosPromise: Promise<CatalogosLibrosData> | null = null
-const listeners = new Set<() => void>()
-
-const notifyListeners = () => {
-  listeners.forEach((listener) => {
-    try {
-      listener()
-    } catch (e) {
-      console.error('Error notifying catalog listener:', e)
-    }
-  })
-}
+let pendingPromise: Promise<CatalogosLibrosData> | null = null
+const listeners = new Set<(data: CatalogosLibrosData) => void>()
 
 export const clearCatalogosCache = () => {
   cachedCatalogos = null
-  pendingCatalogosPromise = null
-  notifyListeners()
+  pendingPromise = null
 }
 
 export const fetchCatalogosData = async (
@@ -89,11 +77,11 @@ export const fetchCatalogosData = async (
   if (!forceRefresh && cachedCatalogos) {
     return cachedCatalogos
   }
-  if (!forceRefresh && pendingCatalogosPromise) {
-    return pendingCatalogosPromise
+  if (!forceRefresh && pendingPromise) {
+    return pendingPromise
   }
 
-  pendingCatalogosPromise = (async () => {
+  pendingPromise = (async () => {
     try {
       const [
         resCat,
@@ -127,119 +115,144 @@ export const fetchCatalogosData = async (
         const list = toArray(resCat.value)
         data.categorias = list
           .map((c: any) => ({
-            value: c.ID_CATEGORIA ?? c.id ?? '',
-            label: String(c.NOMBRE_CATEGORIA ?? c.nombre ?? c.name ?? '').trim(),
+            value: c.ID_CATEGORIA,
+            label: String(c.NOMBRE_CATEGORIA || '').trim(),
           }))
-          .filter((c) => c.value !== '' && c.label !== '')
+          .filter((c) => c.value !== undefined && c.value !== null && c.value !== '' && c.label !== '')
       }
 
       if (resGen.status === 'fulfilled') {
         const list = toArray(resGen.value)
         data.generos = list
           .map((g: any) => ({
-            value: g.ID_RCOGENERO ?? g.id ?? '',
-            label: String(g.NOMBRE_RCOGENERO ?? g.nombre ?? g.name ?? '').trim(),
+            value: g.ID_RCOGENERO,
+            label: String(g.NOMBRE_RCOGENERO || '').trim(),
           }))
-          .filter((g) => g.value !== '' && g.label !== '')
+          .filter((g) => g.value !== undefined && g.value !== null && g.value !== '' && g.label !== '')
       }
 
       if (resEdit.status === 'fulfilled') {
         const list = toArray(resEdit.value)
         data.editoriales = list
           .map((e: any) => ({
-            value: e.ID_EDITORIAL ?? e.id ?? '',
-            label: String(e.NOMBRE_EDITORIAL ?? e.nombre ?? e.name ?? '').trim(),
+            value: e.ID_EDITORIAL,
+            label: String(e.NOMBRE_EDITORIAL || '').trim(),
           }))
-          .filter((e) => e.value !== '' && e.label !== '')
+          .filter((e) => e.value !== undefined && e.value !== null && e.value !== '' && e.label !== '')
       }
 
       if (resProv.status === 'fulfilled') {
         const list = toArray(resProv.value)
         data.proveedores = list
           .map((p: any) => ({
-            value: p.ID_PROVEEDOR ?? p.id ?? '',
-            label: String(p.NOMBRE_PROVEEDOR ?? p.nombre ?? p.name ?? '').trim(),
+            value: p.ID_PROVEEDOR,
+            label: String(p.NOMBRE_PROVEEDOR || '').trim(),
           }))
-          .filter((p) => p.value !== '' && p.label !== '')
+          .filter((p) => p.value !== undefined && p.value !== null && p.value !== '' && p.label !== '')
       }
 
       if (resForm.status === 'fulfilled') {
         const list = toArray(resForm.value)
         data.formatos = list
           .map((f: any) => ({
-            value: f.ID_FORMATOS ?? f.id ?? '',
-            label: String(f.NOMBRE_FORMATOS ?? f.nombre ?? f.name ?? '').trim(),
+            value: f.ID_FORMATOS,
+            label: String(f.NOMBRE_FORMATOS || '').trim(),
           }))
-          .filter((f) => f.value !== '' && f.label !== '')
+          .filter((f) => f.value !== undefined && f.value !== null && f.value !== '' && f.label !== '')
       }
 
       if (resTipo.status === 'fulfilled') {
         const list = toArray(resTipo.value)
         data.tipos = list
           .map((t: any) => ({
-            value: t.ID_TIPO ?? t.id ?? '',
-            label: String(t.NOMBRE_TIPO ?? t.nombre ?? t.name ?? '').trim(),
+            value: t.ID_TIPO,
+            label: String(t.NOMBRE_TIPO || '').trim(),
           }))
-          .filter((t) => t.value !== '' && t.label !== '')
+          .filter((t) => t.value !== undefined && t.value !== null && t.value !== '' && t.label !== '')
       }
 
       if (resAut.status === 'fulfilled') {
         const list = toArray(resAut.value)
         data.autores = list
           .map((a: any) => ({
-            value: a.ID_AUTOR ?? a.id ?? '',
-            label: String(a.NOMBRE_AUTOR ?? a.nombre ?? a.nombres ?? a.name ?? '').trim(),
+            value: a.ID_AUTOR,
+            label: String(a.NOMBRE_AUTOR || '').trim(),
           }))
-          .filter((a) => a.value !== '' && a.label !== '')
+          .filter((a) => a.value !== undefined && a.value !== null && a.value !== '' && a.label !== '')
       }
 
       cachedCatalogos = data
-      notifyListeners()
+      listeners.forEach((listener) => {
+        try {
+          listener(data)
+        } catch (e) {
+          console.error('Error notifying catalog listener:', e)
+        }
+      })
       return data
     } catch (err) {
       console.error('Error al cargar catálogos de libros:', err)
       return cachedCatalogos || emptyCatalogos
     } finally {
-      pendingCatalogosPromise = null
+      pendingPromise = null
     }
   })()
 
-  return pendingCatalogosPromise
+  return pendingPromise
 }
 
 export const useCatalogosLibros = (autoFetch: boolean = true) => {
-  const [, setTick] = useState(0)
+  const [catalogos, setCatalogos] = useState<CatalogosLibrosData>(
+    cachedCatalogos || emptyCatalogos,
+  )
+  const [loading, setLoading] = useState<boolean>(!cachedCatalogos)
 
   useEffect(() => {
-    const update = () => setTick((t) => t + 1)
-    listeners.add(update)
-    return () => {
-      listeners.delete(update)
+    const listener = (data: CatalogosLibrosData) => {
+      setCatalogos(data)
+      setLoading(false)
     }
-  }, [])
+    listeners.add(listener)
+
+    if (cachedCatalogos) {
+      setCatalogos(cachedCatalogos)
+      setLoading(false)
+    } else if (autoFetch) {
+      setLoading(true)
+      fetchCatalogosData().catch((err) => {
+        console.error('Error fetching catalogos:', err)
+        setLoading(false)
+      })
+    }
+
+    return () => {
+      listeners.delete(listener)
+    }
+  }, [autoFetch])
 
   const fetchCatalogos = useCallback(async (forceRefresh: boolean = false) => {
     if (!forceRefresh && cachedCatalogos) {
       return cachedCatalogos
     }
-    return fetchCatalogosData(forceRefresh)
+    setLoading(true)
+    try {
+      const data = await fetchCatalogosData(forceRefresh)
+      setCatalogos(data)
+      return data
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
-  useEffect(() => {
-    if (autoFetch && !cachedCatalogos && !pendingCatalogosPromise) {
-      fetchCatalogosData()
-    }
-  }, [autoFetch])
-
   return {
-    loading: !cachedCatalogos,
-    categorias: cachedCatalogos?.categorias || emptyCatalogos.categorias,
-    generos: cachedCatalogos?.generos || emptyCatalogos.generos,
-    editoriales: cachedCatalogos?.editoriales || emptyCatalogos.editoriales,
-    proveedores: cachedCatalogos?.proveedores || emptyCatalogos.proveedores,
-    formatos: cachedCatalogos?.formatos || emptyCatalogos.formatos,
-    tipos: cachedCatalogos?.tipos || emptyCatalogos.tipos,
-    autores: cachedCatalogos?.autores || emptyCatalogos.autores,
+    loading,
+    categorias: catalogos.categorias,
+    generos: catalogos.generos,
+    editoriales: catalogos.editoriales,
+    proveedores: catalogos.proveedores,
+    formatos: catalogos.formatos,
+    tipos: catalogos.tipos,
+    autores: catalogos.autores,
     fetchCatalogos,
   }
 }

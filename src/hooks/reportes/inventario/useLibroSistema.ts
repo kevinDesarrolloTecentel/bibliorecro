@@ -1,24 +1,31 @@
 import { useState, useCallback } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
 import Swal from 'sweetalert2'
+import { RootState, AppDispatch } from '@/store'
 import { listarLibros } from '@/Service/rco/Libros'
 import { STORAGE_BASE_URL, descargarArchivo } from '@/utils/imageUtils'
-import { usePermissions } from '@/context/PermissionsContext'
+import { usePermissions } from '@/hooks/auth/usePermissions'
+import {
+  setReporteActivo,
+  limpiarReporte,
+  LibroInventarioItem,
+} from '@/slices/reporteSlice'
 
 export { STORAGE_BASE_URL, descargarArchivo }
-
-import { LibroInventarioItem } from '@/models/reportes/inventario'
-
 export type { LibroInventarioItem }
 
 export const useReporteLibrosSistema = () => {
+  const dispatch = useDispatch<AppDispatch>()
+  const reporteState = useSelector((state: RootState) => state.reportes)
+
+  const [libros, setLibros] = useState<LibroInventarioItem[]>([])
+  const [excelLink, setExcelLink] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState<boolean>(false)
+  const [haBuscado, setHaBuscado] = useState<boolean>(false)
+
   const { canDoAction, verificarAccionEnServidor } = usePermissions()
   const canGenerarLibrosSistema = canDoAction('btn_generar_libros_sistema')
   const canDescargarLibrosSistema = canDoAction('btn_descargar_libros_sistema')
-
-  const [libros, setLibros] = useState<LibroInventarioItem[]>([])
-  const [isLoading, setIsLoading] = useState<boolean>(false)
-  const [excelLink, setExcelLink] = useState<string | null>(null)
-  const [haBuscado, setHaBuscado] = useState<boolean>(false)
 
   const handleGetLibrosSistema = useCallback(async () => {
     if (!canGenerarLibrosSistema) {
@@ -49,6 +56,7 @@ export const useReporteLibrosSistema = () => {
 
     setLibros([])
     setExcelLink(null)
+    dispatch(limpiarReporte())
 
     try {
       const data = await listarLibros()
@@ -61,24 +69,23 @@ export const useReporteLibrosSistema = () => {
         : []
 
       const ordenados: LibroInventarioItem[] = rawItems
-        .map((item: any, idx: number) => ({
+        .map((item: any) => ({
           ...item,
-          id: item.ID_LIBROS ?? item.id ?? idx + 1,
-          ID_LIBROS: item.ID_LIBROS ?? item.id ?? idx + 1,
-          ISBN_LIBROS: item.ISBN_LIBROS || item.isbn || 'S/N',
-          TITULO_LIBROS: item.TITULO_LIBROS || item.titulo || item.Titulo || 'Sin título',
-          CODIGODEBARRAS_LIBROS:
-            item.CODIGODEBARRAS_LIBROS || item.codigo || item.CodigoBarras || item.CODIGO_LIBRO || 'S/C',
-          TITULOTEJUELO_LIBROS: item.TITULOTEJUELO_LIBROS || item.titulo_tejuelo || '-',
-          AUTORTEJUELO_LIBROS: item.AUTORTEJUELO_LIBROS || item.autor_tejuelo || '-',
-          NOMBRE_AUTOR: item.NOMBRE_AUTOR || item.autor || item.Autor || 'Sin autor',
-          NOMBRE_CATEGORIA: item.NOMBRE_CATEGORIA || item.categoria || item.Categoria || 'Sin categoría',
-          NOMBRE_EDITORIAL: item.NOMBRE_EDITORIAL || item.editorial || item.Editorial || 'Sin editorial',
-          PRECIO_LIBROS: item.PRECIO_LIBROS ?? item.precio ?? '-',
+          ID_LIBROS: item.ID_LIBROS,
+          ISBN_LIBROS: item.ISBN_LIBROS,
+          TITULO_LIBROS: item.TITULO_LIBROS,
+          CODIGODEBARRAS_LIBROS: item.CODIGODEBARRAS_LIBROS,
+          TITULOTEJUELO_LIBROS: item.TITULOTEJUELO_LIBROS,
+          AUTORTEJUELO_LIBROS: item.AUTORTEJUELO_LIBROS,
+          NOMBRE_AUTOR: item.NOMBRE_AUTOR,
+          NOMBRE_CATEGORIA: item.NOMBRE_CATEGORIA,
+          NOMBRE_EDITORIAL: item.NOMBRE_EDITORIAL,
+          PRECIO_LIBROS: item.PRECIO_LIBROS,
+          FECHAINGRESO_LIBROS: item.FECHAINGRESO_LIBROS,
         }))
         .sort((a, b) => {
-          const fechaA = a.FECHAINGRESO_LIBROS || a.fechaIngreso || a.created_at || ''
-          const fechaB = b.FECHAINGRESO_LIBROS || b.fechaIngreso || b.created_at || ''
+          const fechaA = a.FECHAINGRESO_LIBROS || ''
+          const fechaB = b.FECHAINGRESO_LIBROS || ''
           if (fechaA && fechaB && fechaA !== fechaB) {
             const timeA = new Date(fechaA).getTime()
             const timeB = new Date(fechaB).getTime()
@@ -86,15 +93,28 @@ export const useReporteLibrosSistema = () => {
               return timeB - timeA
             }
           }
-          const idA = Number(a.ID_LIBROS ?? a.id ?? 0)
-          const idB = Number(b.ID_LIBROS ?? b.id ?? 0)
+          const idA = Number(a.ID_LIBROS || 0)
+          const idB = Number(b.ID_LIBROS || 0)
           return idB - idA
         })
 
-      setLibros(ordenados)
       const rutaExcel: string | null = data?.excel?.nombre || data?.excel_path || null
+
+      setLibros(ordenados)
       setExcelLink(rutaExcel)
       setHaBuscado(true)
+
+      setLibros(ordenados)
+      setExcelLink(rutaExcel)
+      setHaBuscado(true)
+
+      dispatch(
+        setReporteActivo({
+          tipoReporte: 'libros_sistema',
+          archivoDescarga: rutaExcel,
+          total: ordenados.length,
+        }),
+      )
 
       if (ordenados.length === 0) {
         Swal.fire({
@@ -110,6 +130,7 @@ export const useReporteLibrosSistema = () => {
       console.error('Error al obtener libros del sistema:', error)
       setLibros([])
       setExcelLink(null)
+      dispatch(limpiarReporte())
       const respData = error?.response?.data
       const errStr = typeof respData === 'string' ? respData : JSON.stringify(respData || '')
       const errorMsg = error?.response?.data?.message || error?.message || ''
@@ -126,7 +147,7 @@ export const useReporteLibrosSistema = () => {
         Swal.fire({
           icon: 'info',
           title: 'Sin libros encontrados',
-          text:  'No se encontraron libros registrados en el sistema.',
+          text: 'No se encontraron libros registrados en el sistema.',
           confirmButtonColor: '#044c8c',
           confirmButtonText: 'Entendido',
         })
@@ -142,7 +163,7 @@ export const useReporteLibrosSistema = () => {
     } finally {
       setIsLoading(false)
     }
-  }, [canGenerarLibrosSistema, verificarAccionEnServidor])
+  }, [canGenerarLibrosSistema, verificarAccionEnServidor, dispatch])
 
   const handleDescargarExcel = useCallback(async () => {
     if (!canDescargarLibrosSistema) {
@@ -168,17 +189,18 @@ export const useReporteLibrosSistema = () => {
       return
     }
 
-    if (excelLink) {
-      await descargarArchivo(`${STORAGE_BASE_URL}/libros/${excelLink}`)
-
+    const downloadLink = excelLink || reporteState.archivoDescarga
+    if (downloadLink) {
+      await descargarArchivo(`${STORAGE_BASE_URL}/libros/${downloadLink}`)
     }
-  }, [canDescargarLibrosSistema, excelLink, verificarAccionEnServidor])
+  }, [canDescargarLibrosSistema, excelLink, reporteState.archivoDescarga, verificarAccionEnServidor])
 
   const handleReset = useCallback(() => {
     setLibros([])
     setExcelLink(null)
     setHaBuscado(false)
-  }, [])
+    dispatch(limpiarReporte())
+  }, [dispatch])
 
   return {
     libros,

@@ -47,8 +47,16 @@ export const isRecreoPlaceholder = (foto?: string | null): boolean => {
 }
 
 //Retorna la URL completa o base64 de la foto del usuario
-export const getUserPhotoOrNull = (fotoRaw?: string | null): string | null => {
-  if (!fotoRaw || typeof fotoRaw !== 'string') return null
+export const getUserPhotoOrNull = (fotoRaw?: string | File | null): string | null => {
+  if (!fotoRaw) return null
+  if (typeof window !== 'undefined' && typeof File !== 'undefined' && fotoRaw instanceof File) {
+    try {
+      return URL.createObjectURL(fotoRaw)
+    } catch {
+      return null
+    }
+  }
+  if (typeof fotoRaw !== 'string') return null
   const cleanFoto = fotoRaw.trim()
   if (!cleanFoto || cleanFoto === 'null' || cleanFoto === 'undefined') return null
 
@@ -85,7 +93,7 @@ export const getUserPhotoOrNull = (fotoRaw?: string | null): string | null => {
 
 
 //Retorna la URL de la foto del usuario o la imagen por defecto de El Recreo si no tiene.
-export const getUserImageUrl = (fotoRaw?: string | null): string => {
+export const getUserImageUrl = (fotoRaw?: string | File | null): string => {
   const customPhoto = getUserPhotoOrNull(fotoRaw)
   return customPhoto || DEFAULT_RECREO_IMAGE
 }

@@ -1,25 +1,32 @@
 import { useState, useCallback } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
 import Swal from 'sweetalert2'
+import { RootState, AppDispatch } from '@/store'
 import { PersonasActivasReport } from '@/Service/tab/Persona'
 import { STORAGE_BASE_URL, descargarArchivo } from '@/utils/imageUtils'
-import { usePermissions } from '@/context/PermissionsContext'
+import { usePermissions } from '@/hooks/auth/usePermissions'
+import {
+  setReporteActivo,
+  limpiarReporte,
+  PersonaReporteItem,
+} from '@/slices/reporteSlice'
 
 export { STORAGE_BASE_URL, descargarArchivo }
-
-import { PersonaReporteItem } from '@/models/reportes/usuarios'
-
 export type { PersonaReporteItem }
 
-const useReportActivas = () => {
+export const useReportActivas = () => {
+  const dispatch = useDispatch<AppDispatch>()
+  const reporteState = useSelector((state: RootState) => state.reportes)
+
+  const [usuarios, setUsuarios] = useState<PersonaReporteItem[]>([])
+  const [excelLink, setExcelLink] = useState<string | null>(null)
+  const [anoRegistro, setAnoRegistro] = useState<string>('')
+  const [isLoading, setIsLoading] = useState<boolean>(false)
+  const [haBuscado, setHaBuscado] = useState<boolean>(false)
+
   const { canDoAction, verificarAccionEnServidor } = usePermissions()
   const canGenerarUsuariosActivos = canDoAction('btn_generar_usuarios_activos')
   const canDescargarUsuariosActivos = canDoAction('btn_descargar_usuarios_activos')
-
-  const [anoRegistro, setAnoRegistro] = useState<string>('')
-  const [usuarios, setUsuarios] = useState<PersonaReporteItem[]>([])
-  const [isLoading, setIsLoading] = useState<boolean>(false)
-  const [excelLink, setExcelLink] = useState<string | null>(null)
-  const [haBuscado, setHaBuscado] = useState<boolean>(false)
 
   const handleGetActivas = useCallback(async () => {
     if (!canGenerarUsuariosActivos) {
@@ -62,6 +69,7 @@ const useReportActivas = () => {
 
     setUsuarios([])
     setExcelLink(null)
+    dispatch(limpiarReporte())
 
     try {
       const params = {
@@ -75,12 +83,20 @@ const useReportActivas = () => {
         .filter((item: PersonaReporteItem) => item.ESTADOINSCRIPCION_PERSONA !== 1)
         .sort((a: PersonaReporteItem, b: PersonaReporteItem) => (a.EDAD_PERSONA || 0) - (b.EDAD_PERSONA || 0))
 
-      setUsuarios(personasFiltradas)
       const rutaExcel: string | null = data?.excel?.nombre || data?.excel_path || null
-      setExcelLink(rutaExcel)
 
+      setUsuarios(personasFiltradas)
+      setExcelLink(rutaExcel)
       setHaBuscado(true)
 
+      dispatch(
+        setReporteActivo({
+          tipoReporte: 'usuarios_activos',
+          archivoDescarga: rutaExcel,
+          total: personasFiltradas.length,
+          filtros: { anoRegistro: anio },
+        }),
+      )
 
       if (personasFiltradas.length === 0) {
         Swal.fire({
@@ -93,25 +109,23 @@ const useReportActivas = () => {
       }
     } catch (error: any) {
       setHaBuscado(true)
-
-      console.error('Error al obtener las personas activas', error)
+      console.error('Error al obtener los usuarios activos:', error)
       setUsuarios([])
       setExcelLink(null)
+      dispatch(limpiarReporte())
       const respData = error?.response?.data
       const errStr = typeof respData === 'string' ? respData : JSON.stringify(respData || '')
       const errorMsg = error?.response?.data?.message || error?.message || ''
-      const isZeroResultsError =
+      const isNotFound =
         error?.response?.status === 404 ||
-        (error?.response?.status === 500 &&
-          ((typeof respData === 'string' && (respData.includes('PersonasExport') || respData.includes('toArray() on null'))) ||
-            (errorMsg && errorMsg.includes('toArray() on null')))) ||
+        (error?.response?.status === 500 && (errStr.includes('toArray() on null') || errStr.includes('PersonasExport'))) ||
         errorMsg.toLowerCase().includes('no existe') ||
         errorMsg.toLowerCase().includes('no se encontr') ||
         errorMsg.toLowerCase().includes('sin registros') ||
         errStr.toLowerCase().includes('no existe') ||
         errStr.toLowerCase().includes('no se encontr')
 
-      if (isZeroResultsError) {
+      if (isNotFound) {
         Swal.fire({
           icon: 'info',
           title: 'Sin usuarios activos',
@@ -123,7 +137,7 @@ const useReportActivas = () => {
         Swal.fire({
           icon: 'error',
           title: 'Error al consultar',
-          text: errorMsg || 'Hubo un problema al obtener los usuarios activos.',
+          text: 'Hubo un problema al consultar los usuarios activos. Por favor, inténtelo de nuevo más tarde.',
           confirmButtonColor: '#dc3545',
           confirmButtonText: 'Entendido',
         })
@@ -131,7 +145,7 @@ const useReportActivas = () => {
     } finally {
       setIsLoading(false)
     }
-  }, [anoRegistro, canGenerarUsuariosActivos])
+  }, [anoRegistro, canGenerarUsuariosActivos, verificarAccionEnServidor, dispatch])
 
   const handleDescargarExcel = useCallback(async () => {
     if (!canDescargarUsuariosActivos) {
@@ -157,37 +171,35 @@ const useReportActivas = () => {
       return
     }
 
-    if (excelLink) {
-       await descargarArchivo(`${STORAGE_BASE_URL}/personas/${excelLink}`)
-
+    const downloadLink = excelLink || reporteState.archivoDescarga
+    if (downloadLink) {
+      await descargarArchivo(`${STORAGE_BASE_URL}/personas/${downloadLink}`)
     }
-  }, [excelLink, canDescargarUsuariosActivos, verificarAccionEnServidor])
+  }, [canDescargarUsuariosActivos, excelLink, reporteState.archivoDescarga, verificarAccionEnServidor])
 
   const handleReset = useCallback(() => {
     setAnoRegistro('')
     setUsuarios([])
     setExcelLink(null)
     setHaBuscado(false)
-  }, [])
+    dispatch(limpiarReporte())
+  }, [dispatch])
 
   return {
     anoRegistro,
     setAnoRegistro,
-    anoMejor: anoRegistro,
-    setAnoMejor: setAnoRegistro,
     usuarios,
     isLoading,
     excelLink,
+    haBuscado,
     handleGetActivas,
-    handleObtenerActivos: handleGetActivas,
     handleDescargarExcel,
     handleReset,
-    haBuscado,
     canGenerarUsuariosActivos,
     canDescargarUsuariosActivos,
     verificarAccionEnServidor,
   }
 }
 
+export default useReportActivas
 export const useReporteUsuariosActivos = useReportActivas
-export default useReportActivas 

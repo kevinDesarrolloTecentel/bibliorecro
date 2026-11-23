@@ -10,9 +10,28 @@ import {
   FormErrors,
 } from '@/utils/validations'
 import usePersonas from './usePersonas'
-import { initialPersona, Persona } from '@/models/tab/persona.model'
+import { TabPersona, Persona } from '@/models/tab/persona.model'
 import { ActualizarPersonaNueva } from '@/Service/tab/Persona'
 import { parseDatePickerValue, formatFecha, calcularEdad } from '@/utils/dateUtils'
+import { parseApiErrors, showErrorAlert } from '@/utils/errors'
+
+export const initialPersona: TabPersona = {
+  IDENTIFICACION_PERSONA: '',
+  NOMBRE_PERSONA: '',
+  APELLIDO_PERSONA: '',
+  TELEFONO_PERSONA: '',
+  CELULAR_PERSONA: '',
+  CORREO_PERSONA: '',
+  DIRECCION_PERSONA: '',
+  DETALLE_PERSONA: '',
+  FECHA_PERSONA: '',
+  EDAD_PERSONA: '',
+  ID_GENERO: '',
+  ID_TIPOIDENTIFICACION: '',
+  ID_NACIONALIDAD: '',
+  ID_ESTADOCIVIL: '',
+  ESTADO_PERSONA: 1,
+}
 
 export const initialEditFormData: Persona = initialPersona
 
@@ -62,7 +81,7 @@ export const usePersonaEdit = ({
   const [fotoActual, setFotoActual] = useState<string>('')
   const [datePickerKey, setDatePickerKey] = useState<number>(0)
   const {
-    tiposId,
+    tiposIdentificacion,
     nacionalidades,
     generos,
     estadosCiviles,
@@ -84,23 +103,16 @@ export const usePersonaEdit = ({
     if (currentUser && isVisible) {
       setErrors({})
       setTouched({})
-      const raw = currentUser.raw || currentUser || {}
-      const fotoRaw =
-        raw.FOTO_PERSONA ||
-        currentUser.fotografia ||
-        ''
+      const fotoRaw = currentUser.FOTO_PERSONA || ''
       setFotoActual(getUserImageUrl(fotoRaw))
       setPreviewFoto(null)
 
-      const tipoId = raw.ID_TIPOIDENTIFICACION ?? currentUser.id_tipo_identificacion ?? ''
-      const nacId = raw.ID_NACIONALIDAD ?? currentUser.id_nacionalidad ?? ''
-      const genId = raw.ID_GENERO ?? currentUser.id_genero ?? ''
-      const estCivId = raw.ID_ESTADOCIVIL ?? currentUser.id_estado_civil ?? ''
+      const tipoId = currentUser.ID_TIPOIDENTIFICACION ?? ''
+      const nacId = currentUser.ID_NACIONALIDAD ?? ''
+      const genId = currentUser.ID_GENERO ?? ''
+      const estCivId = currentUser.ID_ESTADOCIVIL ?? ''
 
-      const fechaRaw =
-        raw.FECHA_PERSONA ??
-        currentUser.fecha_nacimiento ??
-        ''
+      const fechaRaw = currentUser.FECHA_PERSONA ?? ''
       const fechaNac =
         fechaRaw && fechaRaw !== 'No registrada'
           ? fechaRaw.includes('T')
@@ -108,50 +120,35 @@ export const usePersonaEdit = ({
             : fechaRaw
           : ''
 
-      const rawEstado = String(
-        raw.ESTADO_PERSONA ?? currentUser.estado ?? '1',
-      ).trim()
-      const initialEstado = (rawEstado === '0' || rawEstado.toLowerCase().includes('inactiv')) ? '0' : '1'
+      const rawEstado = String(currentUser.ESTADO_PERSONA ?? '1').trim()
+      const initialEstado =
+        rawEstado === '0' || rawEstado.toLowerCase().includes('inactiv') ? '0' : '1'
+
+      const inscripcionActual = currentUser.inscripciones?.[0]
 
       setFormData({
-        ID_PERSONA: String(raw.ID_PERSONA ?? currentUser.id ?? ''),
+        ID_PERSONA: String(currentUser.ID_PERSONA ?? ''),
         ID_TIPOIDENTIFICACION: String(tipoId || ''),
         ID_NACIONALIDAD: String(nacId || ''),
         ID_GENERO: String(genId || ''),
         ID_ESTADOCIVIL: String(estCivId || ''),
-        IDENTIFICACION_PERSONA: String(
-          raw.IDENTIFICACION_PERSONA ?? currentUser.identificacion ?? '',
-        ),
-        NOMBRE_PERSONA: String(
-          raw.NOMBRE_PERSONA ?? currentUser.nombre ?? '',
-        ).toUpperCase(),
-        APELLIDO_PERSONA: String(
-          raw.APELLIDO_PERSONA ?? currentUser.apellido ?? '',
-        ).toUpperCase(),
-        TELEFONO_PERSONA: String(
-          raw.TELEFONO_PERSONA ?? currentUser.telefono ?? '',
-        ),
-        CELULAR_PERSONA: String(
-          raw.CELULAR_PERSONA ?? currentUser.celular ?? '',
-        ),
-        CORREO_PERSONA: String(
-          raw.CORREO_PERSONA ?? currentUser.email ?? '',
-        ),
-        DIRECCION_PERSONA: String(
-          raw.DIRECCION_PERSONA ?? currentUser.direccion ?? '',
-        ),
-        DETALLE_PERSONA: String(
-          raw.DETALLE_PERSONA ?? currentUser.detalles ?? '',
-        ),
+        IDENTIFICACION_PERSONA: String(currentUser.IDENTIFICACION_PERSONA ?? ''),
+        NOMBRE_PERSONA: String(currentUser.NOMBRE_PERSONA ?? '').toUpperCase(),
+        APELLIDO_PERSONA: String(currentUser.APELLIDO_PERSONA ?? '').toUpperCase(),
+        TELEFONO_PERSONA: String(currentUser.TELEFONO_PERSONA ?? ''),
+        CELULAR_PERSONA: String(currentUser.CELULAR_PERSONA ?? ''),
+        CORREO_PERSONA: String(currentUser.CORREO_PERSONA ?? ''),
+        DIRECCION_PERSONA: String(currentUser.DIRECCION_PERSONA ?? ''),
+        DETALLE_PERSONA: String(currentUser.DETALLE_PERSONA ?? ''),
         DETALLE_INSCRIPCION: String(
-          raw.DETALLE_INSCRIPCION ?? raw.inscripcion?.DETALLE_INSCRIPCION ?? '',
+          currentUser.DETALLE_INSCRIPCION ?? inscripcionActual?.DETALLE_INSCRIPCION ?? '',
         ),
-        FECHAREGISTRO_PERSONA: raw.FECHAREGISTRO_PERSONA ?? '',
+        FECHAREGISTRO_PERSONA: currentUser.FECHAREGISTRO_PERSONA ?? '',
         FOTO_PERSONA: '',
         FECHA_PERSONA: String(fechaNac || ''),
         ESTADO_PERSONA: initialEstado,
-        ESTADOINSCRIPCION_PERSONA: String(raw.ESTADOINSCRIPCION_PERSONA ?? ''),
-        EDAD_PERSONA: String(raw.EDAD_PERSONA ?? currentUser.edad ?? ''),
+        ESTADOINSCRIPCION_PERSONA: String(currentUser.ESTADOINSCRIPCION_PERSONA ?? ''),
+        EDAD_PERSONA: String(currentUser.EDAD_PERSONA ?? ''),
       })
     }
   }, [currentUser, isVisible])
@@ -265,20 +262,14 @@ export const usePersonaEdit = ({
     e.preventDefault()
 
     if (!canActualizar) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Acceso Denegado',
-        text: 'No tienes permisos para actualizar usuarios.',
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
+      showErrorAlert('Acceso Denegado', ['No tienes permisos para actualizar usuarios.'])
       return
     }
 
     const { isValid, errors: validationErrors } = validateAllPersonaEdit(
       formData,
       formData.FOTO_PERSONA instanceof File ? formData.FOTO_PERSONA : null,
-      Boolean(fotoActual)
+      Boolean(fotoActual),
     )
 
     if (!isValid) {
@@ -289,36 +280,14 @@ export const usePersonaEdit = ({
       })
       setTouched((prev) => ({ ...prev, ...allTouched }))
 
-      const errorMessages = Object.values(validationErrors)
-        .map((msg) => `<li>${msg}</li>`)
-        .join('')
-
-      Swal.fire({
-        icon: 'warning',
-        title: 'Campos requeridos o inválidos',
-        html: `
-          <div style="text-align: left; font-size: 0.9rem;">
-            <p>Por favor revise los siguientes datos antes de actualizar:</p>
-            <ul style="color: #dc3545; padding-left: 1.2rem; line-height: 1.6;">
-              ${errorMessages}
-            </ul>
-          </div>
-        `,
-        confirmButtonColor: '#0d6efd',
-        confirmButtonText: 'Entendido',
-      })
+      const errorMessages = Object.values(validationErrors).filter((msg): msg is string => Boolean(msg))
+      showErrorAlert('Campos requeridos o inválidos', errorMessages)
       return
     }
 
-    const idPersona = formData.ID_PERSONA || currentUser?.id || currentUser?.raw?.ID_PERSONA
+    const idPersona = formData.ID_PERSONA || currentUser?.ID_PERSONA
     if (!idPersona) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Error de identificación',
-        text: 'No se encontró el ID del usuario a editar.',
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
+      showErrorAlert('Error de identificación', ['No se encontró el ID del usuario a editar.'])
       return
     }
 
@@ -326,13 +295,13 @@ export const usePersonaEdit = ({
     try {
       const fechaPersona =
         formData.FECHA_PERSONA &&
-          formData.FECHA_PERSONA.trim() &&
-          formData.FECHA_PERSONA !== 'No registrada'
+        formData.FECHA_PERSONA.trim() &&
+        formData.FECHA_PERSONA !== 'No registrada'
           ? formData.FECHA_PERSONA.trim().split('T')[0]
           : ''
 
-      // Preservar el estado del usuario existente)
-      const rawOriginalPersona = currentUser?.raw?.ESTADO_PERSONA ?? formData.ESTADO_PERSONA
+      // Preservar el estado del usuario existente
+      const rawOriginalPersona = currentUser?.ESTADO_PERSONA ?? formData.ESTADO_PERSONA
       let estadoPersona = '1'
       if (rawOriginalPersona !== undefined && rawOriginalPersona !== null) {
         estadoPersona = (Number(rawOriginalPersona) === 0 || String(rawOriginalPersona).toLowerCase().includes('inactiv')) ? '0' : '1'
@@ -343,7 +312,7 @@ export const usePersonaEdit = ({
 
       // Preservar el ESTADOINSCRIPCION_PERSONA original
       const rawOriginalInscrip =
-        currentUser?.raw?.ESTADOINSCRIPCION_PERSONA ?? formData.ESTADOINSCRIPCION_PERSONA
+        currentUser?.ESTADOINSCRIPCION_PERSONA ?? formData.ESTADOINSCRIPCION_PERSONA
       const estadoInscrip =
         rawOriginalInscrip !== undefined && rawOriginalInscrip !== null
           ? String(rawOriginalInscrip)
@@ -362,9 +331,9 @@ export const usePersonaEdit = ({
       formDataToSend.append('ID_TIPOIDENTIFICACION', String(formData.ID_TIPOIDENTIFICACION || ''))
       formDataToSend.append('ID_NACIONALIDAD', String(formData.ID_NACIONALIDAD || ''))
       formDataToSend.append('ID_ESTADOCIVIL', String(formData.ID_ESTADOCIVIL || ''))
-      formDataToSend.append('IDENTIFICACION_PERSONA', formData.IDENTIFICACION_PERSONA.trim())
-      formDataToSend.append('NOMBRE_PERSONA', formData.NOMBRE_PERSONA.trim().toUpperCase())
-      formDataToSend.append('APELLIDO_PERSONA', formData.APELLIDO_PERSONA.trim().toUpperCase())
+      formDataToSend.append('IDENTIFICACION_PERSONA', (formData.IDENTIFICACION_PERSONA || '').trim())
+      formDataToSend.append('NOMBRE_PERSONA', (formData.NOMBRE_PERSONA || '').trim().toUpperCase())
+      formDataToSend.append('APELLIDO_PERSONA', (formData.APELLIDO_PERSONA || '').trim().toUpperCase())
       formDataToSend.append('TELEFONO_PERSONA', formData.TELEFONO_PERSONA?.trim() || '')
       formDataToSend.append('CELULAR_PERSONA', formData.CELULAR_PERSONA?.trim() || '')
       formDataToSend.append('CORREO_PERSONA', formData.CORREO_PERSONA?.trim() || '')
@@ -379,17 +348,20 @@ export const usePersonaEdit = ({
       nextYear.setFullYear(today.getFullYear() + 1)
       const fechaFinDefault = nextYear.toISOString().split('T')[0]
 
+      const inscripcionActual = currentUser?.inscripciones?.[0]
       const fechaReg =
         formData.FECHAREGISTRO_PERSONA ||
-        currentUser?.raw?.FECHAREGISTRO_PERSONA ||
+        currentUser?.FECHAREGISTRO_PERSONA ||
         fechaHoy
 
       const fechaIniInsc =
-        currentUser?.raw?.FECHAINICIO_INSCRIPCION ||
+        inscripcionActual?.FECHAINICIO_INSCRIPCION ||
+        currentUser?.FECHAINICIO_INSCRIPCION ||
         fechaReg
 
       const fechaFinInsc =
-        currentUser?.raw?.FECHAFIN_INSCRIPCION ||
+        inscripcionActual?.FECHAFIN_INSCRIPCION ||
+        currentUser?.FECHAFIN_INSCRIPCION ||
         fechaFinDefault
 
       const cleanDate = (d: any) => {
@@ -404,7 +376,10 @@ export const usePersonaEdit = ({
       formDataToSend.append('FECHAFIN_INSCRIPCION', cleanDate(fechaFinInsc) || fechaFinDefault)
       formDataToSend.append('FECHA_INICIO_INSCRIPCION', cleanDate(fechaIniInsc) || fechaHoy)
       formDataToSend.append('FECHA_FIN_INSCRIPCION', cleanDate(fechaFinInsc) || fechaFinDefault)
-      formDataToSend.append('COSTO_INSCRIPCION', String(currentUser?.costo || currentUser?.raw?.COSTO_INSCRIPCION || '5'))
+      formDataToSend.append(
+        'COSTO_INSCRIPCION',
+        String(inscripcionActual?.COSTO_INSCRIPCION || currentUser?.COSTO_INSCRIPCION || '5'),
+      )
       formDataToSend.append('ESTADO_PERSONA', estadoPersona)
       formDataToSend.append('ESTADO_INSCRIPCION', estadoInscripcion)
       formDataToSend.append('ESTADOINSCRIPCION_PERSONA', estadoInscrip)
@@ -439,17 +414,9 @@ export const usePersonaEdit = ({
         }
       }
     } catch (error: any) {
-      console.error('Error al actualizar usuario:', error)
-      const errorMsg =
-        error?.response?.data?.message ||
-        'No se pudo actualizar los datos del usuario.'
-      Swal.fire({
-        icon: 'error',
-        title: 'Error al actualizar',
-        text: errorMsg,
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
+      console.error('[usePersonaEdit] Error al actualizar usuario:', error)
+      const { title, messages } = parseApiErrors(error, 'No se pudo actualizar los datos del usuario.')
+      showErrorAlert(title, messages)
     } finally {
       setLoading(false)
     }
@@ -502,7 +469,7 @@ export const usePersonaEdit = ({
     formData,
     errors,
     loading: loading || loadingCatalogos,
-    tiposId,
+    tiposIdentificacion,
     nacionalidades,
     generos,
     estadosCiviles,

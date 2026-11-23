@@ -1,7 +1,8 @@
 import { useState, useCallback, useMemo } from 'react'
 import Swal from 'sweetalert2'
-import { Accion, Pantalla } from '@/models/adm/permiso.model'
-import { usePermissions } from '@/context/PermissionsContext'
+import { AdminPermiso } from '@/models/adm/permiso.model'
+import { AdminPermisoAccion } from '@/models/adm/permisoAccion.model'
+import { usePermissions } from '@/hooks/auth/usePermissions'
 
 export const useDetalleAcciones = () => {
   const { canDoAction } = usePermissions()
@@ -70,12 +71,12 @@ export const useDetalleAcciones = () => {
   )
 
   // Estado del modal y la acción seleccionada
-  const [accionSeleccionada, setAccionSeleccionada] = useState<Accion | null>(null)
+  const [accionSeleccionada, setAccionSeleccionada] = useState<AdminPermisoAccion | null>(null)
   const [modalDetalleOpen, setModalDetalleOpen] = useState<boolean>(false)
 
   // Validar si tiene permiso según las acciones que la base de datos devuelve para la pantalla
   const puedeVerDescripcionPantalla = useCallback(
-    (pantalla?: Pantalla | null, accionesDeLaPantalla?: Accion[]): boolean => {
+    (pantalla?: AdminPermiso | null, accionesDeLaPantalla?: AdminPermisoAccion[]): boolean => {
       const lista = accionesDeLaPantalla || pantalla?.ACCIONES || []
       const accionEncontrada = lista.find(
         (a) => a.CODIGO_ACCION && a.CODIGO_ACCION in mapaPermisos,
@@ -92,19 +93,8 @@ export const useDetalleAcciones = () => {
 
   // Abrir el modal validando según la acción de descripción que tiene esta pantalla en BD
   const verDetalleAccion = useCallback(
-    (accion: Accion, pantalla?: Pantalla | null, accionesDeLaPantalla?: Accion[]) => {
-      let tienePermiso = true
-      const lista = accionesDeLaPantalla || pantalla?.ACCIONES || []
-
-      const accionEncontrada = lista.find(
-        (a) => a.CODIGO_ACCION && a.CODIGO_ACCION in mapaPermisos,
-      )
-
-      if (accionEncontrada && accionEncontrada.CODIGO_ACCION) {
-        tienePermiso = Boolean(mapaPermisos[accionEncontrada.CODIGO_ACCION])
-      }
-
-      if (!tienePermiso) {
+    (accion: AdminPermisoAccion, pantalla?: AdminPermiso | null, accionesDeLaPantalla?: AdminPermisoAccion[]) => {
+      if (!puedeVerDescripcionPantalla(pantalla, accionesDeLaPantalla)) {
         Swal.fire({
           icon: 'error',
           title: 'Acceso Denegado',
@@ -118,7 +108,7 @@ export const useDetalleAcciones = () => {
       setAccionSeleccionada(accion)
       setModalDetalleOpen(true)
     },
-    [mapaPermisos],
+    [puedeVerDescripcionPantalla],
   )
 
   // Cerrar el modal

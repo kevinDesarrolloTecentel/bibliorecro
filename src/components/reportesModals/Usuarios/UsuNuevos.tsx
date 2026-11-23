@@ -94,11 +94,7 @@ const UsuNuevoModal: React.FC<useNuevosProps> = ({ visible, setVisible }) => {
           ? String(item.EDAD_PERSONA)
           : ''
       const genero = item.NOMBRE_GENERO?.trim() || ''
-      const fechaNacimiento = formatFechaDisplay(
-        item.FECHA_PERSONA ||
-          (item as any).FECHA_NACIMIENTO_PERSONA ||
-          (item as any).fecha_nacimiento,
-      )
+      const fechaNacimiento = formatFechaDisplay(item.FECHA_PERSONA)
       const inicioInscripcion = formatFechaDisplay(item.FECHAINICIO_INSCRIPCION)
       const finInscripcion = formatFechaDisplay(item.FECHAFIN_INSCRIPCION)
 
@@ -371,28 +367,28 @@ const UsuNuevoModal: React.FC<useNuevosProps> = ({ visible, setVisible }) => {
                 nombres: (item: any) => (
                   <td>
                     <span className="font-monospace small">
-                      {item.nombres || item.NOMBRE_PERSONA || '-'}
+                      {item.nombres || '-'}
                     </span>
                   </td>
                 ),
                 apellidos: (item: any) => (
                   <td>
                     <span className="font-monospace small">
-                      {item.apellidos || item.APELLIDO_PERSONA || '-'}
+                      {item.apellidos || '-'}
                     </span>
                   </td>
                 ),
                 identificacion: (item: any) => (
                   <td>
                     <span className="font-monospace small text-muted badge bg-body border">
-                      {item.identificacion || item.IDENTIFICACION_PERSONA || '-'}
+                      {item.identificacion || '-'}
                     </span>
                   </td>
                 ),
                 correo: (item: any) => (
                   <td>
                     <span className="font-monospace small badge bg-body border text-muted">
-                      {item.correo || item.CORREO_PERSONA || '-'}
+                      {item.correo || '-'}
                     </span>
                   </td>
                 ),
@@ -406,28 +402,28 @@ const UsuNuevoModal: React.FC<useNuevosProps> = ({ visible, setVisible }) => {
                 genero: (item: any) => (
                   <td>
                     <span className="font-monospace small">
-                      {item.genero || item.NOMBRE_GENERO || '-'}
+                      {item.genero || '-'}
                     </span>
                   </td>
                 ),
                 fechaNacimiento: (item: any) => (
                   <td>
                     <span className="font-monospace small badge bg-body border text-primary">
-                      {item.fechaNacimiento || formatFechaDisplay(item.FECHA_PERSONA)}
+                      {item.fechaNacimiento || '-'}
                     </span>
                   </td>
                 ),
                 inicioInscripcion: (item: any) => (
                   <td>
                     <span className="font-monospace small badge bg-body border text-info">
-                      {item.inicioInscripcion || formatFechaDisplay(item.FECHAINICIO_INSCRIPCION)}
+                      {item.inicioInscripcion || '-'}
                     </span>
                   </td>
                 ),
                 finInscripcion: (item: any) => (
                   <td>
                     <span className="font-monospace small badge bg-body border text-info">
-                      {item.finInscripcion || formatFechaDisplay(item.FECHAFIN_INSCRIPCION)}
+                      {item.finInscripcion || '-'}
                     </span>
                   </td>
                 ),

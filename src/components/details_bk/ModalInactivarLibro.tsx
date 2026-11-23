@@ -18,7 +18,7 @@ import CIcon from '@coreui/icons-react'
 import { cilBan } from '@coreui/icons'
 import Swal from 'sweetalert2'
 import { ActualizarEstado } from '@/Service/rco/Libros'
-import { usePermissions } from '@/context/PermissionsContext'
+import { usePermissions } from '@/hooks/auth/usePermissions'
 
 interface ModalInactivarLibroProps {
   visible: boolean
@@ -52,7 +52,7 @@ export const ModalInactivarLibro: React.FC<ModalInactivarLibroProps> = ({
 
   if (!libro) return null
 
-  const idLibro = libro.ID_LIBROS ?? libro.id
+  const idLibro = libro.ID_LIBROS
 
   const trimmedMotivo = motivo.trim()
   const isLengthValid = trimmedMotivo.length >= 5 && trimmedMotivo.length <= 1000

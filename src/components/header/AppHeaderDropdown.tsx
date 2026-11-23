@@ -16,7 +16,7 @@ import CIcon from '@coreui/icons-react'
 import { useNavigate } from 'react-router-dom'
 import useAuth from '@/hooks/auth/useAuth'
 import userAvatar from '@/assets/images/user (2).png'
-import { usePermissions } from '@/context/PermissionsContext'
+import { usePermissions } from '@/hooks/auth/usePermissions'
 
 const AppHeaderDropdown = () => {
   const { t } = useTranslation()
@@ -27,11 +27,8 @@ const AppHeaderDropdown = () => {
   const canAccessProfile = canAccessPath('/perfil')
 
   const userName =
-    user?.NICK_USUARIO ||
-    user?.usuario ||
-    user?.NOMBRES_USUARIO ||
-    user?.nombre ||
-    user?.name ||
+    user?.NICK_USUARIO 
+    user?.NOMBRES_USUARIO
     t('Perfil')
 
   const handleLogout = async () => {

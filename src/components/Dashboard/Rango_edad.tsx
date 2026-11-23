@@ -1,62 +1,34 @@
-import { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState, useMemo } from 'react'
 import 'chart.js/auto'
 import { CChartPolarArea } from '@coreui/react-chartjs'
 import { CButton, CButtonGroup } from '@coreui/react-pro'
 import { getStyle } from '@coreui/utils'
-import { RangoEdadItem } from '@/models/dashboard/dashboard.model'
+import { RangoEdadItem } from '@/slices/dashboardSlice'
 
 export interface ChartPolarAreaExampleProps {
   data?: RangoEdadItem[]
   loading?: boolean
 }
 
+const DEFAULT_ITEMS: RangoEdadItem[] = [
+  { rango_edad: '0-17', hombres: 0, mujeres: 0 },
+  { rango_edad: '18-25', hombres: 0, mujeres: 0 },
+  { rango_edad: '26-35', hombres: 0, mujeres: 0 },
+  { rango_edad: '36-50', hombres: 0, mujeres: 0 },
+  { rango_edad: '51+', hombres: 0, mujeres: 0 },
+]
+
 export const ChartPolarAreaExample: React.FC<ChartPolarAreaExampleProps> = ({
   data: propData,
   loading = false,
 }) => {
   const chartRef = useRef<any>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
   const [filtro, setFiltro] = useState<'todos' | 'hombres' | 'mujeres'>('todos')
 
   useEffect(() => {
-    if (!containerRef.current) return
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        if (entry.contentRect.width > 0 && entry.contentRect.height > 0) {
-          chartRef.current?.resize()
-        }
-      }
-    })
-    observer.observe(containerRef.current)
-    return () => observer.disconnect()
-  }, [])
-
-  useEffect(() => {
     const handleColorSchemeChange = () => {
-      const chartInstance = chartRef.current
-      if (chartInstance) {
-        const { options } = chartInstance
-        const bodyColor = getStyle('--cui-body-color') || '#8a93a2'
-        const gridColor = getStyle('--cui-border-color-translucent') || 'rgba(255,255,255,0.08)'
-
-        if (options.plugins?.legend?.labels) {
-          options.plugins.legend.labels.color = bodyColor
-        }
-
-        if (options.scales?.r) {
-          if (options.scales.r.grid) {
-            options.scales.r.grid.color = gridColor
-          }
-          if (options.scales.r.ticks) {
-            options.scales.r.ticks.color = bodyColor
-            options.scales.r.ticks.backdropColor = 'transparent'
-          }
-        }
-
-        chartInstance.update()
-      }
+      chartRef.current?.update()
     }
-
     document.documentElement.addEventListener('ColorSchemeChange', handleColorSchemeChange)
     return () => {
       document.documentElement.removeEventListener('ColorSchemeChange', handleColorSchemeChange)
@@ -66,15 +38,8 @@ export const ChartPolarAreaExample: React.FC<ChartPolarAreaExampleProps> = ({
   const currentBodyColor = typeof window !== 'undefined' ? (getStyle('--cui-body-color') || '#4f5d73') : '#4f5d73'
   const currentGridColor = typeof window !== 'undefined' ? (getStyle('--cui-border-color-translucent') || 'rgba(0,0,0,0.08)') : 'rgba(0,0,0,0.08)'
 
-  const getPolarData = () => {
-    const defaultItems: any[] = [
-      { rango_edad: '0-17', hombres: 0, mujeres: 0 },
-      { rango_edad: '18-25', hombres: 0, mujeres: 0 },
-      { rango_edad: '26-35', hombres: 0, mujeres: 0 },
-      { rango_edad: '36-50', hombres: 0, mujeres: 0 },
-      { rango_edad: '51+', hombres: 0, mujeres: 0 },
-    ]
-    const items: any[] = propData && propData.length > 0 ? propData : defaultItems
+  const chartData = useMemo(() => {
+    const items: RangoEdadItem[] = propData && propData.length > 0 ? propData : DEFAULT_ITEMS
 
     if (filtro === 'hombres') {
       return {
@@ -146,7 +111,36 @@ export const ChartPolarAreaExample: React.FC<ChartPolarAreaExampleProps> = ({
         },
       ],
     }
-  }
+  }, [propData, filtro])
+
+  const chartOptions: any = useMemo(() => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'right',
+        labels: {
+          font: { size: 12 },
+          color: currentBodyColor,
+        },
+      },
+      tooltip: {
+        enabled: true,
+      },
+    },
+    scales: {
+      r: {
+        grid: {
+          color: currentGridColor,
+        },
+        ticks: {
+          color: currentBodyColor,
+          backdropColor: 'transparent',
+          precision: 0,
+        },
+      },
+    },
+  }), [currentBodyColor, currentGridColor])
 
   return (
     <div className="w-100 p-2">
@@ -179,7 +173,7 @@ export const ChartPolarAreaExample: React.FC<ChartPolarAreaExampleProps> = ({
         </div>
       </div>
 
-      <div ref={containerRef} style={{ width: '100%', height: '360px', position: 'relative' }}>
+      <div style={{ width: '100%', height: '360px', position: 'relative' }}>
         {loading && (
           <div
             className="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center bg-body bg-opacity-50"
@@ -191,37 +185,10 @@ export const ChartPolarAreaExample: React.FC<ChartPolarAreaExampleProps> = ({
           </div>
         )}
         <CChartPolarArea
-          key={filtro}
           ref={chartRef}
           style={{ height: '100%', width: '100%' }}
-          data={getPolarData()}
-          options={{
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: {
-                position: 'right',
-                labels: {
-                  font: { size: 12 },
-                  color: currentBodyColor,
-                },
-              },
-              tooltip: {
-                enabled: true,
-              },
-            },
-            scales: {
-              r: {
-                grid: {
-                  color: currentGridColor,
-                },
-                ticks: {
-                  color: currentBodyColor,
-                  backdropColor: 'transparent',
-                },
-              },
-            },
-          }}
+          data={chartData}
+          options={chartOptions}
         />
       </div>
     </div>

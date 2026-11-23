@@ -17,11 +17,12 @@ import {
 } from "@coreui/react-pro"
 import CIcon from "@coreui/icons-react"
 import { cilExitToApp, cilShieldAlt, cilUser } from "@coreui/icons"
+import { AdminRol } from "@/models/adm/rol.model"
 
 interface ModalVerRolesProps {
     visible: boolean
     setVisible: (v: boolean) => void
-    roles: any[]
+    roles: AdminRol[]
     loading?: boolean
     userName?: string
 }
@@ -76,10 +77,10 @@ const ModalVerRoles: React.FC<ModalVerRolesProps> = ({
                                 </CTableRow>
                             </CTableHead>
                             <CTableBody>
-                                {roles.map((rol: any, index: number) => {
-                                    const idRol = rol.ID_ROL ?? rol.id ?? (index + 1)
-                                    const nombreRol = rol.NOMBRE_ROL || rol.nombre || `Rol #${idRol}`
-                                    const nivel = rol.NIVEL_ROL ?? rol.nivel ?? '-'
+                                {roles.map((rol: AdminRol, index: number) => {
+                                    const idRol = Number(rol.ID_ROL)
+                                    const nombreRol = rol.NOMBRE_ROL || `Rol #${idRol}`
+                                    const nivel = rol.NIVEL_ROL ?? '-'
 
                                     return (
                                         <CTableRow key={idRol}>

@@ -162,7 +162,11 @@ const Supplier = () => {
                   </div>
                 ) : proveedoresFiltrados.length === 0 ? (
                   <div className="text-center text-muted py-5 small">
-                    No se encontraron proveedores coincidentes con &quot;{busquedaProveedor}&quot;.
+                    {busquedaProveedor ? (
+                      <>No se encontraron proveedores coincidentes con &quot;{busquedaProveedor}&quot;.</>
+                    ) : (
+                      <>No hay proveedores registrados en el catálogo.</>
+                    )}
                   </div>
                 ) : (
                   <div className="d-flex flex-column gap-2">

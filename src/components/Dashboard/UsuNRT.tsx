@@ -11,23 +11,7 @@ import {
 import CIcon from '@coreui/icons-react'
 import { cibLibreoffice } from '@coreui/icons'
 
-export interface PersonaReporteItem {
-    ID_PERSONA?: number | string
-    IDENTIFICACION_PERSONA?: string
-    NOMBRE_PERSONA?: string
-    APELLIDO_PERSONA?: string
-    FECHA_PERSONA?: string
-    EDAD_PERSONA?: number | string
-    CORREO_PERSONA?: string
-    ESTADOINSCRIPCION_PERSONA?: number
-    TELEFONO_PERSONA?: string
-    TIPO_PERSONA?: string
-    ESTADO_RENOVACIONES?: number
-    cantidad_prestamos?: number
-    [key: string]: any
-}
-
-import { UsuarioItem } from '@/models/dashboard/dashboard.model'
+import { UsuarioItem } from '@/slices/dashboardSlice'
 
 export interface UsuNRTProps {
     usuariosNuevos?: UsuarioItem[]

@@ -1,14 +1,21 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
 import Swal from 'sweetalert2'
+import { RootState, AppDispatch } from '@/store'
 import { AniosDisponibles, PersonaNueva } from '@/Service/tab/Persona'
 import { DashTotalPres } from '@/Service/rco/Prestamos'
 import {
   DashboardTotals,
   DashboardPrestamosTotals,
-} from '@/models/dashboard/dashboard.model'
+  setSelectedYear as setReduxSelectedYear,
+  setSelectedMonth as setReduxSelectedMonth,
+  setTotalesUsuarios,
+  setTotalesPrestamos,
+  resetDashboardFiltros,
+} from '@/slices/dashboardSlice'
 import { useEdadGenero } from './useEdadGenero'
 import { useUsuNRT } from './useUsuNRT'
-import { usePermissions } from '@/context/PermissionsContext'
+import { usePermissions } from '@/hooks/auth/usePermissions'
 
 export const MESES_DEL_ANIO = [
   'Enero',
@@ -33,13 +40,23 @@ export const useDashboard = () => {
   const canActualizar = canDoAction('btn_actualizar_info')
   const canExportarExcelUsuarios = canDoAction('btn_exportar_excel_usuario')
 
-  const [selectedYear, setSelectedYear] = useState<string>('2026')
-  const [selectedMonth, setSelectedMonth] = useState<string>('todos')
+  const dispatch = useDispatch<AppDispatch>()
+  const dashboardState = useSelector((state: RootState) => state.dashboard)
+
+  const selectedYear = dashboardState.selectedYear
+  const setSelectedYear = useCallback((val: string) => {
+    dispatch(setReduxSelectedYear(val))
+  }, [dispatch])
+
+  const selectedMonth = dashboardState.selectedMonth
+  const setSelectedMonth = useCallback((val: string) => {
+    dispatch(setReduxSelectedMonth(val))
+  }, [dispatch])
+
   const [aniosDisponibles, setAniosDisponibles] = useState<string[]>(['2026', '2025', '2024'])
 
   const [nuevosData, setNuevosData] = useState<number[]>(DEFAULT_NUEVOS)
   const [renovacionesData, setRenovacionesData] = useState<number[]>(DEFAULT_RENOVACIONES)
-  const [backendTotals, setBackendTotals] = useState<DashboardTotals | null>(null)
   const [loadingUsuarios, setLoadingUsuarios] = useState<boolean>(false)
   const [resetKey, setResetKey] = useState<number>(0)
 
@@ -60,14 +77,14 @@ export const useDashboard = () => {
   const [prestamosData, setPrestamosData] = useState<DashboardPrestamosTotals | undefined>(undefined)
   const [loadingPrestamos, setLoadingPrestamos] = useState<boolean>(false)
 
-  // 1. Cargar catálogo de años disponibles
+  // 1. Cargar catálogo de años disponibles (campo canónico ANIO)
   useEffect(() => {
     const fetchAnios = async () => {
       try {
         const res = await AniosDisponibles()
         const raw = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : []
         if (raw.length > 0) {
-          const mapped = raw.map((item: any) => String(item.anio || item.ANIO || item)).filter(Boolean)
+          const mapped = raw.map((item: any) => String(item?.ANIO ?? item?.anio ?? item)).filter(Boolean)
           if (!mapped.includes('2026')) mapped.unshift('2026')
           setAniosDisponibles(Array.from(new Set(mapped)))
         }
@@ -79,6 +96,7 @@ export const useDashboard = () => {
   }, [])
 
   // 2. Cargar datos de usuarios nuevos y renovaciones según año y mes
+  // Estructura canónica del backend: res.data = { anio, totales: { total_usuarios_nuevos, total_renovaciones, total_general }, datos: [{ MES, USUARIOS_NUEVOS, RENOVACIONES, TOTAL_GENERAL, DETALLE_USUARIOS_NUEVOS, DETALLE_RENOVACIONES }] }
   const fetchUsuariosData = useCallback(async (yearOverride?: string, monthOverride?: string) => {
     setLoadingUsuarios(true)
     try {
@@ -91,37 +109,26 @@ export const useDashboard = () => {
       }
 
       const res = await PersonaNueva(params)
-
-      // 1.1 Procesar respuesta mensual del gráfico y tarjetas
-      const rawDatos = Array.isArray(res?.data?.datos)
-        ? res.data.datos
-        : Array.isArray(res?.datos)
-        ? res.datos
-        : Array.isArray(res?.data)
-        ? res.data
-        : Array.isArray(res)
-        ? res
-        : []
+      const dataPayload = res?.data ?? res
+      const rawDatos: any[] = Array.isArray(dataPayload?.datos) ? dataPayload.datos : []
 
       const arrNuevos = Array(12).fill(0)
       const arrRenov = Array(12).fill(0)
       let sumNuevos = 0
       let sumRenov = 0
 
-      if (rawDatos.length > 0) {
-        rawDatos.forEach((item: any) => {
-          const m = parseInt(item.MES, 10) - 1
-          const n = parseInt(item.USUARIOS_NUEVOS, 10) || 0
-          const r = parseInt(item.RENOVACIONES, 10) || 0
+      rawDatos.forEach((item: any) => {
+        const m = parseInt(item.MES, 10) - 1
+        const n = Number(item.USUARIOS_NUEVOS) || 0
+        const r = Number(item.RENOVACIONES) || 0
 
-          if (m >= 0 && m < 12) {
-            arrNuevos[m] = n
-            arrRenov[m] = r
-          }
-          sumNuevos += n
-          sumRenov += r
-        })
-      }
+        if (m >= 0 && m < 12) {
+          arrNuevos[m] = n
+          arrRenov[m] = r
+        }
+        sumNuevos += n
+        sumRenov += r
+      })
 
       setNuevosData(arrNuevos)
       setRenovacionesData(arrRenov)
@@ -131,54 +138,40 @@ export const useDashboard = () => {
       const mesItem = targetMonth ? rawDatos.find((d: any) => parseInt(d.MES, 10) === targetMonth) : null
 
       if (isMonthFilter && mesItem) {
-        const mNuevos = parseInt(mesItem.USUARIOS_NUEVOS, 10) || (Array.isArray(mesItem.DETALLE_USUARIOS_NUEVOS) ? mesItem.DETALLE_USUARIOS_NUEVOS.length : 0)
-        const mRenov = parseInt(mesItem.RENOVACIONES, 10) || (Array.isArray(mesItem.DETALLE_RENOVACIONES) ? mesItem.DETALLE_RENOVACIONES.length : 0)
-        const mTotal = parseInt(mesItem.TOTAL_GENERAL, 10) || (mNuevos + mRenov)
+        const mNuevos = Number(mesItem.USUARIOS_NUEVOS) || 0
+        const mRenov = Number(mesItem.RENOVACIONES) || 0
+        const mTotal = Number(mesItem.TOTAL_GENERAL)
 
-        setBackendTotals({
+        const totals: DashboardTotals = {
           totalNuevos: mNuevos,
           totalRenovaciones: mRenov,
           sumatoriaTotal: mTotal,
-        })
+        }
+        dispatch(setTotalesUsuarios(totals))
       } else {
-        const directTotalNuevos =
-          res?.data?.totales?.total_usuarios_nuevos ??
-          res?.data?.totales?.usuarios_nuevos ??
-          res?.data?.totales?.total_nuevos ??
-          res?.totales?.total_usuarios_nuevos ??
-          res?.totales?.usuarios_nuevos ??
-          res?.totales?.total_nuevos ??
-          res?.data?.total_nuevos ??
-          res?.total_nuevos
-        const directTotalRenov =
-          res?.data?.totales?.total_renovaciones ??
-          res?.data?.totales?.usuarios_renovaciones ??
-          res?.data?.totales?.total_renovaciones ??
-          res?.totales?.total_renovaciones ??
-          res?.totales?.usuarios_renovaciones ??
-          res?.totales?.renovaciones ??
-          res?.data?.total_renovaciones ??
-          res?.total_renovaciones
-        const directTotalGeneral =
-          res?.data?.totales?.total_general ??
-          res?.totales?.total_general
+        const backendTotales = dataPayload?.totales
+        const totalNuevos = backendTotales?.total_usuarios_nuevos !== undefined
+          ? Number(backendTotales.total_usuarios_nuevos)
+          : sumNuevos
+        const totalRenovaciones = backendTotales?.total_renovaciones !== undefined
+          ? Number(backendTotales.total_renovaciones)
+          : sumRenov
+        const sumatoriaTotal = backendTotales?.total_general !== undefined
+          ? Number(backendTotales.total_general)
+          : (totalNuevos + totalRenovaciones)
 
-        const finalTotalNuevos = directTotalNuevos !== undefined ? Number(directTotalNuevos) : sumNuevos
-        const finalTotalRenov = directTotalRenov !== undefined ? Number(directTotalRenov) : sumRenov
-        const finalTotalGeneral = directTotalGeneral !== undefined ? Number(directTotalGeneral) : (finalTotalNuevos + finalTotalRenov)
-
-        setBackendTotals({
-          totalNuevos: finalTotalNuevos,
-          totalRenovaciones: finalTotalRenov,
-          sumatoriaTotal: finalTotalGeneral,
-        })
+        const finalTotals: DashboardTotals = {
+          totalNuevos,
+          totalRenovaciones,
+          sumatoriaTotal,
+        }
+        dispatch(setTotalesUsuarios(finalTotals))
       }
 
-      // 1.3 Alimentar la Tabla UsuNRT exclusivamente desde personasNuevas
-      let listNuevos: any[] = []
-      let listRenovaciones: any[] = []
+      // 1.3 Alimentar la Tabla UsuNRT exclusivamente desde los detalles mensuales reales
+      const listNuevos: any[] = []
+      const listRenovaciones: any[] = []
 
-      // Extraer usuarios del mes seleccionado o de todos los meses de personasNuevas
       const mesesAProcesar = isMonthFilter && targetMonth
         ? rawDatos.filter((d: any) => parseInt(d.MES, 10) === targetMonth)
         : rawDatos
@@ -196,23 +189,6 @@ export const useDashboard = () => {
         }
       })
 
-      // Soporte para estructura plana si el endpoint retornara los listados en la raíz
-      if (listNuevos.length === 0 && listRenovaciones.length === 0) {
-        const altNuevos =
-          res?.data?.usuarios_nuevos ??
-          res?.data?.detalle?.usuarios_nuevos ??
-          res?.usuarios_nuevos ??
-          res?.detalle?.usuarios_nuevos
-        const altRenov =
-          res?.data?.usuarios_renovaciones ??
-          res?.data?.detalle?.usuarios_renovaciones ??
-          res?.usuarios_renovaciones ??
-          res?.detalle?.usuarios_renovaciones
-
-        if (Array.isArray(altNuevos)) listNuevos = altNuevos
-        if (Array.isArray(altRenov)) listRenovaciones = altRenov
-      }
-
       procesarDetalleUsuarios(
         {
           usuarios_nuevos: listNuevos,
@@ -222,17 +198,19 @@ export const useDashboard = () => {
       )
     } catch (err) {
       console.warn('[useDashboard] Error al consultar datos de personasNuevas:', err)
+      dispatch(setTotalesUsuarios({ totalNuevos: 0, totalRenovaciones: 0, sumatoriaTotal: 0 }))
       procesarDetalleUsuarios({ usuarios_nuevos: [], usuarios_renovaciones: [] }, monthOverride)
     } finally {
       setLoadingUsuarios(false)
     }
-  }, [selectedYear, selectedMonth, procesarDetalleUsuarios])
+  }, [selectedYear, selectedMonth, procesarDetalleUsuarios, dispatch])
 
   useEffect(() => {
     fetchUsuariosData()
   }, [fetchUsuariosData])
 
-  // 3. Cargar datos de préstamos según año y mes desde /api/v1/prestamos/dashboard/totales (1 sola petición)
+  // 3. Cargar datos de préstamos según año y mes desde /api/v1/prestamos/dashboard/totales
+  // Estructura canónica del backend: { TotalPrestamos: number, TotalEntregados: number }
   const fetchPrestamosTotales = useCallback(async (yearOverride?: string, monthOverride?: string) => {
     setLoadingPrestamos(true)
     try {
@@ -240,37 +218,16 @@ export const useDashboard = () => {
       const month = monthOverride !== undefined ? monthOverride : selectedMonth
       const isMonthFilter = month !== 'todos' && month !== '' && month !== undefined
 
-      // Se realiza 1 sola petición HTTP hacia /api/v1/prestamos/dashboard/totales
       const params: Record<string, any> = { anio: year }
       if (isMonthFilter) {
         params.mes = parseInt(month, 10)
       }
 
       const res = await DashTotalPres(params)
-      const totalPrestamos = Number(res?.TotalPrestamos ?? res?.data?.TotalPrestamos ?? 0)
-      const totalEntregados = Number(res?.TotalEntregados ?? res?.data?.TotalEntregados ?? 0)
-
-      // Si el backend entrega series mensuales en el futuro
-      const directActivos = Array.isArray(res?.activos)
-        ? res.activos
-        : Array.isArray(res?.data?.activos)
-        ? res.data.activos
-        : null
-      const directEntregados = Array.isArray(res?.entregados)
-        ? res.entregados
-        : Array.isArray(res?.data?.entregados)
-        ? res.data.entregados
-        : null
-
-      if (directActivos && directEntregados) {
-        setPrestamosData({
-          activos: directActivos,
-          entregados: directEntregados,
-          totalPrestamos,
-          totalEntregados,
-        })
-        return
-      }
+      const dataPayload = res?.data ?? res
+      const totalPrestamos = Number(dataPayload?.TotalPrestamos ?? 0)
+      const totalEntregados = Number(dataPayload?.TotalEntregados ?? 0)
+      const totalGeneral = Number(dataPayload?.TotalGeneral ?? (totalPrestamos + totalEntregados))
 
       const arrActivos = Array(12).fill(0)
       const arrEntregados = Array(12).fill(0)
@@ -281,74 +238,41 @@ export const useDashboard = () => {
           arrActivos[mIdx] = totalPrestamos
           arrEntregados[mIdx] = totalEntregados
         }
-      } else {
-        const mBackend = typeof res?.mes === 'number' ? res.mes - 1 : Math.min(new Date().getMonth(), 11)
-        if (mBackend >= 0 && mBackend < 12) {
-          arrActivos[mBackend] = totalPrestamos
-          arrEntregados[mBackend] = totalEntregados
-        }
       }
 
-      setPrestamosData({
+      const pData: DashboardPrestamosTotals = {
         activos: arrActivos,
         entregados: arrEntregados,
         totalPrestamos,
         totalEntregados,
-      })
+        totalGeneral,
+      }
+      setPrestamosData(pData)
+      dispatch(setTotalesPrestamos({ totalPrestamos, totalEntregados, totalGeneral }))
     } catch (e) {
       console.warn('[useDashboard] Error al consultar totales de préstamos:', e)
-      setPrestamosData({
+      const emptyPData: DashboardPrestamosTotals = {
         activos: Array(12).fill(0),
         entregados: Array(12).fill(0),
         totalPrestamos: 0,
         totalEntregados: 0,
-      })
+        totalGeneral: 0,
+      }
+      setPrestamosData(emptyPData)
+      dispatch(setTotalesPrestamos({ totalPrestamos: 0, totalEntregados: 0, totalGeneral: 0 }))
     } finally {
       setLoadingPrestamos(false)
     }
-  }, [selectedYear, selectedMonth])
+  }, [selectedYear, selectedMonth, dispatch])
 
   useEffect(() => {
     fetchPrestamosTotales()
   }, [fetchPrestamosTotales])
 
-  const calcTotalNuevos = useMemo(() => {
-    if (selectedMonth !== 'todos' && selectedMonth !== '') {
-      const idx = parseInt(selectedMonth, 10) - 1
-      if (idx >= 0 && idx < 12 && nuevosData[idx] > 0) {
-        return nuevosData[idx]
-      }
-      return usuariosNuevosList.length
-    }
-    if (backendTotals?.totalNuevos !== undefined) {
-      return backendTotals.totalNuevos
-    }
-    return usuariosNuevosList.length
-  }, [selectedMonth, nuevosData, backendTotals, usuariosNuevosList])
-
-  const calcTotalRenovaciones = useMemo(() => {
-    if (selectedMonth !== 'todos' && selectedMonth !== '') {
-      const idx = parseInt(selectedMonth, 10) - 1
-      if (idx >= 0 && idx < 12 && renovacionesData[idx] > 0) {
-        return renovacionesData[idx]
-      }
-      return usuariosRenovacionesList.length
-    }
-    if (backendTotals?.totalRenovaciones !== undefined) {
-      return backendTotals.totalRenovaciones
-    }
-    return usuariosRenovacionesList.length
-  }, [selectedMonth, renovacionesData, backendTotals, usuariosRenovacionesList])
-
-  const calcSumatoriaTotal = useMemo(() => {
-    if (selectedMonth !== 'todos' && selectedMonth !== '') {
-      return calcTotalNuevos + calcTotalRenovaciones
-    }
-    if (backendTotals?.sumatoriaTotal !== undefined) {
-      return backendTotals.sumatoriaTotal
-    }
-    return calcTotalNuevos + calcTotalRenovaciones
-  }, [selectedMonth, calcTotalNuevos, calcTotalRenovaciones, backendTotals])
+  // Totales canónicos sincronizados con el estado de Redux
+  const calcTotalNuevos = dashboardState.totalesUsuarios.totalNuevos ?? 0
+  const calcTotalRenovaciones = dashboardState.totalesUsuarios.totalRenovaciones ?? 0
+  const calcSumatoriaTotal = dashboardState.totalesUsuarios.sumatoriaTotal ?? (calcTotalNuevos + calcTotalRenovaciones)
 
   const calcTotalPorMes = useMemo(() => {
     return Array.from({ length: 12 }, (_, i) => {
@@ -416,6 +340,7 @@ export const useDashboard = () => {
     }
 
     const defaultYear = aniosDisponibles[0] || '2026'
+    dispatch(resetDashboardFiltros())
     setSelectedYear(defaultYear)
     setSelectedMonth('todos')
     setResetKey((prev) => prev + 1)
@@ -433,7 +358,7 @@ export const useDashboard = () => {
       setLoadingUsuarios(false)
       setLoadingPrestamos(false)
     }
-  }, [canActualizar, verificarAccionEnServidor, aniosDisponibles, fetchUsuariosData, fetchPrestamosTotales, fetchRangoEdad, resetUsuarios])
+  }, [canActualizar, verificarAccionEnServidor, aniosDisponibles, fetchUsuariosData, fetchPrestamosTotales, fetchRangoEdad, resetUsuarios, dispatch, setSelectedYear, setSelectedMonth])
 
   return {
     resetKey,

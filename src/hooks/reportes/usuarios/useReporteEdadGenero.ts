@@ -1,29 +1,37 @@
 import { useState, useCallback, useEffect } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
 import Swal from 'sweetalert2'
+import { RootState, AppDispatch } from '@/store'
 import { ListarPersonaReport } from '@/Service/tab/Persona'
 import { ListarGenero } from '@/Service/tab/Genero'
 import { STORAGE_BASE_URL, descargarArchivo } from '@/utils/imageUtils'
-import { usePermissions } from '@/context/PermissionsContext'
+import { usePermissions } from '@/hooks/auth/usePermissions'
+import {
+  setReporteActivo,
+  limpiarReporte,
+  PersonaReporteItem,
+  GeneroOption,
+} from '@/slices/reporteSlice'
 
 export { STORAGE_BASE_URL, descargarArchivo }
-
-import { PersonaReporteItem, GeneroOption } from '@/models/reportes/usuarios'
-
 export type { PersonaReporteItem, GeneroOption }
 
 export const useReporteUsuariosEdadGenero = () => {
-  const { canDoAction, verificarAccionEnServidor } = usePermissions()
-  const canGenerarUsuariosInscritos = canDoAction('btn_generar_usuarios_inscritos')
-  const canDescargarUsuariosInscritos = canDoAction('btn_descargar_usuarios_inscritos')
+  const dispatch = useDispatch<AppDispatch>()
+  const reporteState = useSelector((state: RootState) => state.reportes)
 
+  const [usuarios, setUsuarios] = useState<PersonaReporteItem[]>([])
+  const [excelLink, setExcelLink] = useState<string | null>(null)
   const [generos, setGeneros] = useState<GeneroOption[]>([])
   const [generoId, setGeneroId] = useState<string>('')
   const [edadDesde, setEdadDesde] = useState<string>('1')
   const [edadHasta, setEdadHasta] = useState<string>('100')
-  const [usuarios, setUsuarios] = useState<PersonaReporteItem[]>([])
   const [isLoading, setIsLoading] = useState<boolean>(false)
-  const [excelLink, setExcelLink] = useState<string | null>(null)
   const [haBuscado, setHaBuscado] = useState<boolean>(false)
+
+  const { canDoAction, verificarAccionEnServidor } = usePermissions()
+  const canGenerarUsuariosInscritos = canDoAction('btn_generar_usuarios_inscritos')
+  const canDescargarUsuariosInscritos = canDoAction('btn_descargar_usuarios_inscritos')
 
   useEffect(() => {
     ListarGenero()
@@ -65,6 +73,17 @@ export const useReporteUsuariosEdadGenero = () => {
       return
     }
 
+    if (Number(edadDesde) > Number(edadHasta)) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Rango de edad inválido',
+        text: 'La edad mínima no puede ser mayor que la edad máxima.',
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Entendido',
+      })
+      return
+    }
+
     setIsLoading(true)
 
     const tienePermiso = await verificarAccionEnServidor('btn_generar_usuarios_inscritos')
@@ -80,19 +99,9 @@ export const useReporteUsuariosEdadGenero = () => {
       return
     }
 
-    if (Number(edadDesde) > Number(edadHasta)){
-      Swal.fire({
-        icon: 'warning',
-        title: 'Rango de edad inválido',
-        text: 'La edad mínima no puede ser mayor que la edad máxima.',
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
-      return
-    }
-
     setUsuarios([])
     setExcelLink(null)
+    dispatch(limpiarReporte())
 
     try {
       const params: Record<string, any> = {
@@ -105,15 +114,24 @@ export const useReporteUsuariosEdadGenero = () => {
 
       const data = await ListarPersonaReport(params)
       const rawList = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
-      const personasFiltradas = rawList
+      const personasFiltradas: PersonaReporteItem[] = rawList
         .filter((item: PersonaReporteItem) => item.ESTADOINSCRIPCION_PERSONA !== 1)
         .sort((a: PersonaReporteItem, b: PersonaReporteItem) => (a.EDAD_PERSONA || 0) - (b.EDAD_PERSONA || 0))
 
-      let rutaExcel: string | null = data?.excel?.nombre || data?.excel_path || null
+      const rutaExcel: string | null = data?.excel?.nombre || data?.excel_path || null
 
       setUsuarios(personasFiltradas)
       setExcelLink(rutaExcel)
       setHaBuscado(true)
+
+      dispatch(
+        setReporteActivo({
+          tipoReporte: 'usuarios_edad_genero',
+          archivoDescarga: rutaExcel,
+          total: personasFiltradas.length,
+          filtros: { edadDesde, edadHasta, generoId },
+        }),
+      )
 
       if (personasFiltradas.length === 0) {
         const generoSeleccionado = generos.find((g) => String(g.value) === String(generoId))?.label
@@ -132,6 +150,9 @@ export const useReporteUsuariosEdadGenero = () => {
     } catch (error: any) {
       setHaBuscado(true)
       console.error('Error al obtener las personas por edad y género:', error)
+      setUsuarios([])
+      setExcelLink(null)
+      dispatch(limpiarReporte())
       const respData = error?.response?.data
       const errStr = typeof respData === 'string' ? respData : JSON.stringify(respData || '')
       const errorMsg = error?.response?.data?.message || error?.message || ''
@@ -148,8 +169,6 @@ export const useReporteUsuariosEdadGenero = () => {
         errStr.toLowerCase().includes('no se encontr')
 
       if (isZeroResultsError) {
-        setUsuarios([])
-        setExcelLink(null)
         const generoSeleccionado = generos.find((g) => String(g.value) === String(generoId))?.label
         const detalleFiltro = generoSeleccionado
           ? `con el rango de edad (${edadDesde} a ${edadHasta} años) y género "${generoSeleccionado}".`
@@ -174,7 +193,7 @@ export const useReporteUsuariosEdadGenero = () => {
     } finally {
       setIsLoading(false)
     }
-  }, [edadDesde, edadHasta, generoId, generos, canGenerarUsuariosInscritos])
+  }, [edadDesde, edadHasta, generoId, generos, canGenerarUsuariosInscritos, verificarAccionEnServidor, dispatch])
 
   const handleDescargarExcel = useCallback(async () => {
     if (!canDescargarUsuariosInscritos) {
@@ -200,10 +219,11 @@ export const useReporteUsuariosEdadGenero = () => {
       return
     }
 
-    if (excelLink) {
-      await descargarArchivo(`${STORAGE_BASE_URL}/personas/${excelLink}`)
+    const downloadLink = excelLink || reporteState.archivoDescarga
+    if (downloadLink) {
+      await descargarArchivo(`${STORAGE_BASE_URL}/personas/${downloadLink}`)
     }
-  }, [canDescargarUsuariosInscritos, excelLink, verificarAccionEnServidor])
+  }, [canDescargarUsuariosInscritos, excelLink, reporteState.archivoDescarga, verificarAccionEnServidor])
 
   const handleReset = useCallback(() => {
     setEdadDesde('1')
@@ -212,7 +232,8 @@ export const useReporteUsuariosEdadGenero = () => {
     setUsuarios([])
     setExcelLink(null)
     setHaBuscado(false)
-  }, [])
+    dispatch(limpiarReporte())
+  }, [dispatch])
 
   return {
     generos,

@@ -1,176 +1,102 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Swal from 'sweetalert2'
-import { Rol } from '@/models/adm/rol.model'
+import { useDispatch, useSelector } from 'react-redux'
+import { RootState } from '@/store'
+import {
+  setRoles as setRolesSlice,
+  setRolSeleccionado,
+  agregarRol,
+  actualizarRolEnLista,
+  eliminarRolDeLista,
+} from '@/slices/adminSlice'
+import { AdminRol } from '@/models/adm/rol.model'
 import { actualizarRol, crearRol, eliminarRol, listarRoles } from '@/Service/adm/Rol'
-import { usePermissions, marcarCambioPermisos } from '@/context/PermissionsContext'
+import { usePermissions } from '@/hooks/auth/usePermissions'
+import { parseApiErrors } from '@/utils/errors'
 
-const formatApiError = (error: any, defaultMsg: string): string => {
-  const data = error?.response?.data
-  if (!data) return error?.message || defaultMsg
-  if (typeof data === 'string') return data
-  if (data.errors && typeof data.errors === 'object') {
-    const msgs = Object.entries(data.errors)
-      .map(([field, msgList]: [string, any]) => {
-        const text = Array.isArray(msgList) ? msgList.join(', ') : String(msgList)
-        return `${field}: ${text}`
-      })
-      .join(' | ')
-    if (msgs) return msgs
-  }
-  if (data.message && typeof data.message === 'string') return data.message
-  if (data.error && typeof data.error === 'string') return data.error
-  if (data.msg && typeof data.msg === 'string') return data.msg
-  return defaultMsg
-}
-
-export const ordenarRoles = (lista: any[]) => {
+// Ordena los roles por NIVEL_ROL ascendente
+export const ordenarRoles = (lista: AdminRol[]): AdminRol[] => {
   if (!Array.isArray(lista)) return []
-  return [...lista].sort((a: any, b: any) => {
-    const nivelA = Number(a.NIVEL_ROL ?? a.nivel ?? a.Nivel ?? 999)
-    const nivelB = Number(b.NIVEL_ROL ?? b.nivel ?? b.Nivel ?? 999)
-
+  return [...lista].sort((a, b) => {
+    const nivelA = Number(a.NIVEL_ROL ?? 999)
+    const nivelB = Number(b.NIVEL_ROL ?? 999)
     if (nivelA !== nivelB) {
       return nivelA - nivelB
     }
-
-    // Respaldo de seguridad
-    const idA = Number(a.ID_ROL ?? a.id ?? 0)
-    const idB = Number(b.ID_ROL ?? b.id ?? 0)
+    const idA = Number(a.ID_ROL ?? 0)
+    const idB = Number(b.ID_ROL ?? 0)
     return idA - idB
   })
 }
 
-export const useRoles = () => {
-  const { canDoAction, verificarAccionEnServidor } = usePermissions()
+const initialFormData: AdminRol = {
+  NOMBRE_ROL: '',
+  NIVEL_ROL: 2,
+}
 
+const initialEditFormData: AdminRol = {
+  ID_ROL: undefined,
+  NOMBRE_ROL: '',
+  NIVEL_ROL: 2,
+}
+
+export const useRoles = () => {
+  const dispatch = useDispatch()
+  const { canDoAction } = usePermissions()
+
+  // Permisos de roles
   const canCrearRol = canDoAction('btn_crear_rol')
   const canGuardarRol = canDoAction('btn_guardar_rol')
   const canEditarRol = canDoAction('btn_editar_rol')
   const canActualizarRol = canDoAction('btn_actualizar_rol')
   const canEliminarRol = canDoAction('btn_eliminar_rol')
 
-  const [roles, setRoles] = useState<Rol[]>([])
+  const roles = useSelector((state: RootState) => state.admin.roles)
+  const rolSeleccionado = useSelector((state: RootState) => state.admin.rolSeleccionado)
+
   const [loading, setLoading] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [modalEditar, setModalEditar] = useState(false)
   const [modalCrear, setModalCrear] = useState(false)
 
+  const [formData, setFormData] = useState<AdminRol>(initialFormData)
+  const [editFormData, setEditFormData] = useState<AdminRol>(initialEditFormData)
+  const isFetchingRolesRef = useRef<boolean>(false)
+
+  // Consultar lista de roles
   const fetchRoles = useCallback(async () => {
+    if (isFetchingRolesRef.current) return
+    isFetchingRolesRef.current = true
     setLoading(true)
     setErrorMsg(null)
     try {
       const response = await listarRoles()
-      let lista: any[] = []
-      if (Array.isArray(response)) {
-        lista = response
-      } else if (response && Array.isArray(response.data)) {
-        lista = response.data
-      } else if (response && Array.isArray(response.roles)) {
-        lista = response.roles
-      }
-      setRoles(ordenarRoles(lista))
+      const lista: AdminRol[] = Array.isArray(response)
+        ? response
+        : response?.data || []
+      dispatch(setRolesSlice(ordenarRoles(lista)))
     } catch (error: any) {
-      const msg = formatApiError(error, 'Error al obtener la lista de roles.')
-      setErrorMsg(msg)
+      const { title, messages } = parseApiErrors(error, 'Error al obtener roles')
+      setErrorMsg(messages.join(', '))
       Swal.fire({
         icon: 'error',
-        title: 'Error al cargar roles',
-        text: msg,
+        title,
+        text: messages.join('\n'),
         confirmButtonColor: '#dc3545',
         confirmButtonText: 'Entendido',
       })
     } finally {
+      isFetchingRolesRef.current = false
       setLoading(false)
     }
-  }, [])
+  }, [dispatch])
 
-  const handleCrearRol = async (formData: any): Promise<boolean> => {
-    if (!canGuardarRol && !canCrearRol) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Acceso Denegado',
-        text: 'No tienes permisos para crear o guardar roles.',
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
-      return false
+  useEffect(() => {
+    if (roles.length === 0) {
+      fetchRoles()
     }
-
-    const nombreLimpio = String(formData?.nombre || '').trim()
-    if (!nombreLimpio) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Campo requerido',
-        text: 'Por favor, ingresa el nombre del rol.',
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
-      return false
-    }
-
-    if (nombreLimpio.length > 25) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Nombre demasiado largo',
-        text: 'El nombre del rol no puede superar los 25 caracteres.',
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
-      return false
-    }
-
-    setGuardando(true)
-    try {
-      const payload = {
-        NOMBRE_ROL: formData.nombre,
-        DESCRIPCION_ROL: formData.descripcion,
-        NIVEL_ROL: Number(formData.nivel || 1),
-        NIVEL_ACCESO: Number(formData.nivel || 1),
-        ESTADO_ROL: formData.estado || 'Activo',
-      }
-      await crearRol(payload)
-      marcarCambioPermisos()
-      Swal.fire({
-        icon: 'success',
-        title: '¡Rol creado!',
-        text: `El rol "${formData.nombre}" ha sido creado exitosamente.`,
-        timer: 1800,
-        showConfirmButton: false,
-      })
-      await fetchRoles()
-      return true
-    } catch (error: any) {
-      const msg = formatApiError(error, 'No se pudo crear el rol')
-      Swal.fire({
-        icon: 'error',
-        title: 'Error al crear rol',
-        text: msg,
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
-      return false
-    } finally {
-      setGuardando(false)
-    }
-  }
-  const initialFormData = {
-    nombre: '',
-    descripcion: '',
-    nivel: 1,
-    estado: 'Activo'
-  }
-
-  const initialEditFormData = {
-    id: '',
-    nombre: '',
-    descripcion: '',
-    nivel: 1,
-    estado: 'Activo'
-  }
-
-  const [formData, setFormData] = useState(initialFormData)
-  const [editFormData, setEditFormData] = useState(initialEditFormData)
+  }, [fetchRoles, roles.length])
 
   const resetFormData = useCallback(() => {
     setFormData(initialFormData)
@@ -180,7 +106,7 @@ export const useRoles = () => {
     setEditFormData(initialEditFormData)
   }, [])
 
-  const handleAbrirCrear = useCallback(async () => {
+  const handleAbrirCrear = useCallback(() => {
     if (!canCrearRol) {
       Swal.fire({
         icon: 'error',
@@ -191,85 +117,46 @@ export const useRoles = () => {
       })
       return
     }
-
     resetFormData()
     setModalCrear(true)
-  }, [resetFormData, canCrearRol, verificarAccionEnServidor])
+  }, [canCrearRol, resetFormData])
 
   const handleCerrarCrear = useCallback(() => {
-    setModalCrear(false)
     resetFormData()
+    setModalCrear(false)
   }, [resetFormData])
 
-  const handleCerrarEditar = useCallback(() => {
-    setModalEditar(false)
-    resetEditFormData()
-    setGuardando(false)
-  }, [resetEditFormData])
-
-  const handleListarRoles = async () => {
-    try {
-      setLoading(true)
-      setErrorMsg(null)
-      const res = await listarRoles()
-      const lista = Array.isArray(res) ? res : (res?.data || res?.roles || [])
-      setRoles(ordenarRoles(lista))
-    } catch (error: any) {
-      console.error('Error al listar roles:', error)
-      if (error?.response?.status === 401) {
-        setErrorMsg('El servidor rechazó la autenticación (401: Unauthenticated). Inicia sesión nuevamente.')
-      } else {
-        setErrorMsg('No se pudo conectar con el servidor para obtener los roles.')
+  const handleAbrirEditar = useCallback(
+    (rol: AdminRol) => {
+      if (!canEditarRol) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Acceso Denegado',
+          text: 'No tienes permisos para editar roles.',
+          confirmButtonColor: '#dc3545',
+          confirmButtonText: 'Entendido',
+        })
+        return
       }
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    handleListarRoles()
-  }, [])
-
-  const handleAbrirEditar = useCallback(async (item: any) => {
-    if (!canEditarRol) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Acceso Denegado',
-        text: 'No tienes permisos para editar este rol.',
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
+      dispatch(setRolSeleccionado(rol))
+      setEditFormData({
+        ID_ROL: rol.ID_ROL,
+        NOMBRE_ROL: rol.NOMBRE_ROL || '',
+        NIVEL_ROL: Number(rol.NIVEL_ROL) || 2,
       })
-      return
-    }
+      setModalEditar(true)
+    },
+    [canEditarRol, dispatch],
+  )
 
+  const handleCerrarEditar = useCallback(() => {
+    dispatch(setRolSeleccionado(null))
+    resetEditFormData()
+    setModalEditar(false)
+  }, [dispatch, resetEditFormData])
 
-    if (!item) return
-    const r = item.raw || item
-    const id = String(r.ID_ROL ?? r.id ?? item.ID ?? '')
-    const nombre = String(r.NOMBRE_ROL ?? r.nombre ?? r.name ?? item.Nombre ?? '')
-    const rawDesc = r.DESCRIPCION_ROL ?? r.DESCRIPCION ?? r.descripcion ?? ''
-    const descripcion = String(item.Descripcion && item.Descripcion !== '-' ? item.Descripcion : rawDesc)
-    const nivel = Number(r.NIVEL_ROL ?? r.nivel ?? item.Nivel ?? 1)
-
-    // Normalizar Estado de forma robusta
-    const rawEstado = r.ESTADO_ROL ?? r.estado ?? r.ESTADO ?? item.Estado
-    const estado =
-      rawEstado === 0 || rawEstado === '0' || rawEstado === 'Inactivo' || rawEstado === false
-        ? 'Inactivo'
-        : 'Activo'
-
-    setEditFormData({
-      id,
-      nombre,
-      descripcion,
-      nivel: isNaN(nivel) || nivel < 1 ? 1 : nivel,
-      estado,
-    })
-    setGuardando(false)
-    setModalEditar(true)
-  }, [canEditarRol, verificarAccionEnServidor])
-
-  const handleGuardarRol = async () => {
+  // Guardar nuevo rol
+  const handleGuardarRol = async (): Promise<boolean> => {
     if (!canGuardarRol && !canCrearRol) {
       Swal.fire({
         icon: 'error',
@@ -278,22 +165,10 @@ export const useRoles = () => {
         confirmButtonColor: '#dc3545',
         confirmButtonText: 'Entendido',
       })
-      return
+      return false
     }
 
-    const tienePermiso = (await verificarAccionEnServidor('btn_guardar_rol'))
-    if (!tienePermiso) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Acceso Denegado',
-        text: 'No tienes permisos para guardar roles.',
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
-      return
-    }
-
-    const nombreLimpio = formData.nombre.trim()
+    const nombreLimpio = String(formData.NOMBRE_ROL || '').trim()
     if (!nombreLimpio) {
       Swal.fire({
         icon: 'warning',
@@ -302,7 +177,7 @@ export const useRoles = () => {
         confirmButtonColor: '#dc3545',
         confirmButtonText: 'Entendido',
       })
-      return
+      return false
     }
 
     if (nombreLimpio.length > 25) {
@@ -313,76 +188,68 @@ export const useRoles = () => {
         confirmButtonColor: '#dc3545',
         confirmButtonText: 'Entendido',
       })
-      return
+      return false
     }
 
-    // Validar que no exista ya un rol con el mismo nombre
-    const nombreNormalizado = nombreLimpio.toLowerCase()
-    const existeDuplicadoCrear = roles.some((r: any) => {
-      const rNombre = String(r.NOMBRE_ROL ?? r.nombre ?? r.name ?? '').trim().toLowerCase()
-      return rNombre === nombreNormalizado
-    })
-
-    if (existeDuplicadoCrear) {
+    // Validar nombre duplicado
+    const existeDuplicado = roles.some(
+      (r) => String(r.NOMBRE_ROL || '').trim().toLowerCase() === nombreLimpio.toLowerCase(),
+    )
+    if (existeDuplicado) {
       Swal.fire({
         icon: 'warning',
-        title: 'Rol ya existente',
-        text: `Ya existe un rol con el nombre "${nombreLimpio}". Por favor, ingresa un nombre diferente.`,
+        title: 'Rol duplicado',
+        text: 'Ya existe un rol registrado con este nombre.',
         confirmButtonColor: '#dc3545',
         confirmButtonText: 'Entendido',
       })
-      return
+      return false
     }
 
+    setGuardando(true)
     try {
-      setGuardando(true)
-      const estadoNum = (formData.estado === 'Activo' || formData.estado === '1') ? 1 : 0
-      const nivelNum = Number(formData.nivel) || 1
-      const payload: any = {
-        NOMBRE_ROL: formData.nombre.trim(),
-        DESCRIPCION_ROL: formData.descripcion.trim(),
-        DESCRIPCION: formData.descripcion.trim(),
-        descripcion_rol: formData.descripcion.trim(),
-        descripcion: formData.descripcion.trim(),
-        description: formData.descripcion.trim(),
-        DETALLE_ROL: formData.descripcion.trim(),
-        NIVEL_ROL: nivelNum,
-        nivel_rol: nivelNum,
-        nivel: nivelNum,
-        ESTADO_ROL: estadoNum,
-        estado: estadoNum,
-        nombre: formData.nombre.trim(),
-        name: formData.nombre.trim()
+      const payload: Partial<AdminRol> = {
+        NOMBRE_ROL: nombreLimpio.toUpperCase(),
+        NIVEL_ROL: Number(formData.NIVEL_ROL) || 2,
       }
 
-      await crearRol(payload)
-      marcarCambioPermisos()
-      setModalCrear(false)
-      resetFormData()
-      await handleListarRoles()
+      const res = await crearRol(payload)
+      const nuevoRol: AdminRol = res?.data || res || {
+        ...payload,
+        ID_ROL: res?.ID_ROL ?? res?.data?.ID_ROL,
+      }
+
+      dispatch(agregarRol(nuevoRol))
+
       Swal.fire({
         icon: 'success',
         title: '¡Rol creado!',
-        text: `El rol "${formData.nombre.trim()}" ha sido registrado exitosamente.`,
+        text: 'El rol se registró exitosamente.',
         timer: 1800,
         showConfirmButton: false,
       })
+
+      handleCerrarCrear()
+      await fetchRoles()
+      return true
     } catch (error: any) {
       console.error('Error al crear rol:', error)
-      const msg = formatApiError(error, 'Error al crear el rol')
+      const { title, messages } = parseApiErrors(error, 'Error al crear el rol')
       Swal.fire({
         icon: 'error',
-        title: 'Error al crear rol',
-        text: msg,
+        title,
+        text: messages.join('\n'),
         confirmButtonColor: '#dc3545',
         confirmButtonText: 'Entendido',
       })
+      return false
     } finally {
       setGuardando(false)
     }
   }
 
-  const handleActualizarRol = async () => {
+  // Actualizar rol existente
+  const handleActualizarRol = async (): Promise<boolean> => {
     if (!canActualizarRol && !canEditarRol) {
       Swal.fire({
         icon: 'error',
@@ -391,31 +258,22 @@ export const useRoles = () => {
         confirmButtonColor: '#dc3545',
         confirmButtonText: 'Entendido',
       })
-      return
+      return false
     }
 
-    const tienePermiso = (await verificarAccionEnServidor('btn_actualizar_rol')) || (await verificarAccionEnServidor('btn_editar_rol'))
-    if (!tienePermiso) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Acceso Denegado',
-        text: 'No tienes permisos para actualizar roles.',
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
-      return
-    }
+    const id = editFormData.ID_ROL
+    if (!id) return false
 
-    const nombreLimpio = editFormData.nombre.trim()
+    const nombreLimpio = String(editFormData.NOMBRE_ROL || '').trim()
     if (!nombreLimpio) {
       Swal.fire({
         icon: 'warning',
         title: 'Campo requerido',
-        text: 'Por favor, ingresa el nombre del rol.',
+        text: 'El nombre del rol no puede quedar vacío.',
         confirmButtonColor: '#dc3545',
         confirmButtonText: 'Entendido',
       })
-      return
+      return false
     }
 
     if (nombreLimpio.length > 25) {
@@ -426,77 +284,66 @@ export const useRoles = () => {
         confirmButtonColor: '#dc3545',
         confirmButtonText: 'Entendido',
       })
-      return
+      return false
     }
 
-    // Validar que no exista otro rol con el mismo nombre (excluyendo el rol que se está editando)
-    const nombreNormalizado = nombreLimpio.toLowerCase()
-    const existeDuplicadoEditar = roles.some((r: any) => {
-      const rId = String(r.ID_ROL ?? r.id ?? '')
-      const rNombre = String(r.NOMBRE_ROL ?? r.nombre ?? r.name ?? '').trim().toLowerCase()
-      return rId !== String(editFormData.id) && rNombre === nombreNormalizado
-    })
-
-    if (existeDuplicadoEditar) {
+    // Validar nombre duplicado en otros roles
+    const existeDuplicado = roles.some(
+      (r) =>
+        String(r.ID_ROL) !== String(id) &&
+        String(r.NOMBRE_ROL || '').trim().toLowerCase() === nombreLimpio.toLowerCase(),
+    )
+    if (existeDuplicado) {
       Swal.fire({
         icon: 'warning',
-        title: 'Rol ya existente',
-        text: `Ya existe un rol con el nombre "${nombreLimpio}". Por favor, ingresa un nombre diferente.`,
+        title: 'Rol duplicado',
+        text: 'Ya existe otro rol registrado con este nombre.',
         confirmButtonColor: '#dc3545',
         confirmButtonText: 'Entendido',
       })
-      return
+      return false
     }
 
+    setGuardando(true)
     try {
-      setGuardando(true)
-      const estadoNum = (editFormData.estado === 'Activo' || editFormData.estado === '1') ? 1 : 0
-      const nivelNum = Number(editFormData.nivel) || 1
-      const payload: any = {
-        NOMBRE_ROL: editFormData.nombre.trim(),
-        DESCRIPCION_ROL: editFormData.descripcion.trim(),
-        DESCRIPCION: editFormData.descripcion.trim(),
-        descripcion_rol: editFormData.descripcion.trim(),
-        descripcion: editFormData.descripcion.trim(),
-        description: editFormData.descripcion.trim(),
-        DETALLE_ROL: editFormData.descripcion.trim(),
-        NIVEL_ROL: nivelNum,
-        nivel_rol: nivelNum,
-        nivel: nivelNum,
-        ESTADO_ROL: estadoNum,
-        estado: estadoNum,
-        nombre: editFormData.nombre.trim(),
-        name: editFormData.nombre.trim()
+      const payload: Partial<AdminRol> = {
+        NOMBRE_ROL: nombreLimpio.toUpperCase(),
+        NIVEL_ROL: Number(editFormData.NIVEL_ROL) || 2,
       }
 
-      await actualizarRol(editFormData.id, payload)
-      marcarCambioPermisos()
-      setModalEditar(false)
-      resetEditFormData()
-      await handleListarRoles()
+      await actualizarRol(id, payload)
+
+      dispatch(actualizarRolEnLista({ ...editFormData, ...payload }))
+
       Swal.fire({
         icon: 'success',
         title: '¡Rol actualizado!',
-        text: `El rol "${editFormData.nombre.trim()}" se actualizó exitosamente.`,
+        text: 'El rol se actualizó exitosamente.',
         timer: 1800,
         showConfirmButton: false,
       })
+
+      handleCerrarEditar()
+      await fetchRoles()
+      return true
     } catch (error: any) {
       console.error('Error al actualizar rol:', error)
-      const msg = formatApiError(error, 'Error al actualizar el rol')
+      const { title, messages } = parseApiErrors(error, 'Error al actualizar el rol')
       Swal.fire({
         icon: 'error',
-        title: 'Error al actualizar rol',
-        text: msg,
+        title,
+        text: messages.join('\n'),
         confirmButtonColor: '#dc3545',
         confirmButtonText: 'Entendido',
       })
+      return false
     } finally {
       setGuardando(false)
     }
   }
 
-  const handleEliminarRol = async (id: string | number, nombre?: string) => {
+  // Eliminar rol
+  const handleEliminarRol = async (id: string | number, nombre?: string): Promise<boolean> => {
     if (!canEliminarRol) {
       Swal.fire({
         icon: 'error',
@@ -505,85 +352,63 @@ export const useRoles = () => {
         confirmButtonColor: '#dc3545',
         confirmButtonText: 'Entendido',
       })
-      return
+      return false
     }
 
-    const rolEncontrado = roles.find((r: any) => Number(r.ID_ROL ?? r.id) === Number(id))
-    const nivelRol = Number(rolEncontrado?.NIVEL_ROL ?? rolEncontrado?.nivel ?? editFormData.nivel ?? 0)
+    const rolEncontrado = roles.find((r) => String(r.ID_ROL) === String(id))
+    const nivelRol = Number(rolEncontrado?.NIVEL_ROL ?? 0)
 
     if (nivelRol === 1) {
       Swal.fire({
         icon: 'warning',
-        title: 'Acción no permitida',
-        text: 'El rol con Nivel 1 no puede ser eliminado del sistema.',
+        title: 'Operación no permitida',
+        text: 'El rol de Administrador (Nivel 1) no puede ser eliminado.',
         confirmButtonColor: '#dc3545',
         confirmButtonText: 'Entendido',
       })
-      return
+      return false
     }
 
     const result = await Swal.fire({
-      title: '¿Estás seguro?',
-      text: `¿Deseas eliminar el rol ${nombre ? `"${nombre}"` : ''}? Esta acción no se puede deshacer.`,
+      title: '¿Eliminar este rol?',
+      html: `¿Estás seguro de que deseas eliminar el rol <strong>"${nombre || rolEncontrado?.NOMBRE_ROL || id}"</strong>?<br/><br/><span class="text-danger small">Esta acción no se puede deshacer.</span>`,
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#dc3545',
       cancelButtonColor: '#6c757d',
       confirmButtonText: 'Sí, eliminar',
-      cancelButtonText: 'Cancelar'
+      cancelButtonText: 'Cancelar',
     })
 
-    if (!result.isConfirmed) return
+    if (!result.isConfirmed) return false
 
-    const tienePermiso = await verificarAccionEnServidor('btn_eliminar_rol')
-    if (!tienePermiso) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Acceso Denegado',
-        text: 'No tienes permisos para eliminar roles.',
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Entendido',
-      })
-      return
-    }
-
+    setGuardando(true)
     try {
-      setGuardando(true)
       await eliminarRol(id)
-      marcarCambioPermisos()
-      setModalEditar(false)
-      resetEditFormData()
-      await handleListarRoles()
+      dispatch(eliminarRolDeLista(id))
+
       Swal.fire({
         icon: 'success',
         title: '¡Rol eliminado!',
-        text: `El rol ${nombre ? `"${nombre}"` : ''} ha sido eliminado del sistema.`,
+        text: 'El rol ha sido eliminado correctamente.',
         timer: 1800,
         showConfirmButton: false,
       })
+
+      handleCerrarEditar()
+      await fetchRoles()
+      return true
     } catch (error: any) {
       console.error('Error al eliminar rol:', error)
-      let msg = formatApiError(error, 'Error al eliminar el rol')
-
-      const msgLower = (msg || '').toLowerCase()
-      if (
-        msgLower.includes('registros relacionados') ||
-        msgLower.includes('restricción') ||
-        msgLower.includes('foreign key') ||
-        msgLower.includes('constraint') ||
-        error?.response?.status === 400 ||
-        error?.response?.status === 409
-      ) {
-        msg = 'No se puede eliminar el rol porque actualmente se encuentra asignado a uno o más usuarios.'
-      }
-
+      const { title, messages } = parseApiErrors(error, 'Error al eliminar el rol')
       Swal.fire({
         icon: 'error',
-        title: 'No se puede eliminar el rol',
-        text: msg,
+        title,
+        text: messages.join('\n'),
         confirmButtonColor: '#dc3545',
         confirmButtonText: 'Entendido',
       })
+      return false
     } finally {
       setGuardando(false)
     }
@@ -603,7 +428,7 @@ export const useRoles = () => {
     editFormData,
     setEditFormData,
     fetchRoles,
-    handleCrearRol,
+    handleGuardarRol,
     handleActualizarRol,
     handleEliminarRol,
     handleAbrirEditar,
@@ -612,13 +437,12 @@ export const useRoles = () => {
     handleCerrarCrear,
     resetFormData,
     resetEditFormData,
-    handleGuardarRol,
-    handleListarRoles,
     canCrearRol,
     canGuardarRol,
     canEditarRol,
     canActualizarRol,
     canEliminarRol,
+    rolSeleccionado,
   }
 }
 

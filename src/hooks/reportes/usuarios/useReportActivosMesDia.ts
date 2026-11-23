@@ -1,28 +1,34 @@
 import { useState, useCallback } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
 import Swal from 'sweetalert2'
+import { RootState, AppDispatch } from '@/store'
 import { PersonasActivasMesReport } from '@/Service/tab/Persona'
 import { STORAGE_BASE_URL, descargarArchivo } from '@/utils/imageUtils'
-import { usePermissions } from '@/context/PermissionsContext'
+import { usePermissions } from '@/hooks/auth/usePermissions'
+import {
+  setReporteActivo,
+  limpiarReporte,
+  PersonaReporteItem,
+} from '@/slices/reporteSlice'
 
 export { STORAGE_BASE_URL, descargarArchivo }
-
-import { PersonaReporteItem } from '@/models/reportes/usuarios'
-
 export type { PersonaReporteItem }
 
 export const useReportActivosMesDia = () => {
-  const { canDoAction, verificarAccionEnServidor } = usePermissions()
-  const canGenerarUsuariosActivosMesDia = canDoAction('btn_generar_usuarios_activos_mes_dia')
-  const canDescargarUsuariosActivosMesDia = canDoAction('btn_descargar_usuarios_activos_mes_dia')
+  const dispatch = useDispatch<AppDispatch>()
+  const reporteState = useSelector((state: RootState) => state.reportes)
 
+  const [usuarios, setUsuarios] = useState<PersonaReporteItem[]>([])
+  const [excelLink, setExcelLink] = useState<string | null>(null)
   const [diaRegistro, setDiaRegistro] = useState<string>('')
   const [mesRegistro, setMesRegistro] = useState<string>('')
   const [anoRegistro, setAnoRegistro] = useState<string>('')
-  const [usuarios, setUsuarios] = useState<PersonaReporteItem[]>([])
   const [isLoading, setIsLoading] = useState<boolean>(false)
-  const [excelLink, setExcelLink] = useState<string | null>(null)
   const [haBuscado, setHaBuscado] = useState<boolean>(false)
 
+  const { canDoAction, verificarAccionEnServidor } = usePermissions()
+  const canGenerarUsuariosActivosMesDia = canDoAction('btn_generar_usuarios_activos_mes_dia')
+  const canDescargarUsuariosActivosMesDia = canDoAction('btn_descargar_usuarios_activos_mes_dia')
 
   const handleGetActivasMes = useCallback(async () => {
     if (!canGenerarUsuariosActivosMesDia) {
@@ -64,6 +70,7 @@ export const useReportActivosMesDia = () => {
 
     setUsuarios([])
     setExcelLink(null)
+    dispatch(limpiarReporte())
 
     try {
       const params: Record<string, any> = {
@@ -78,14 +85,20 @@ export const useReportActivosMesDia = () => {
         .filter((item: PersonaReporteItem) => item.ESTADOINSCRIPCION_PERSONA !== 1)
         .sort((a: PersonaReporteItem, b: PersonaReporteItem) => (a.EDAD_PERSONA || 0) - (b.EDAD_PERSONA || 0))
 
+      const rutaExcel: string | null = data?.excel?.nombre || data?.excel_path || null
 
       setUsuarios(personasFiltradas)
-
-      const rutaExcel: string | null = data?.excel?.nombre || data?.excel_path || null
       setExcelLink(rutaExcel)
-
       setHaBuscado(true)
 
+      dispatch(
+        setReporteActivo({
+          tipoReporte: 'usuarios_activos_mes_dia',
+          archivoDescarga: rutaExcel,
+          total: personasFiltradas.length,
+          filtros: { diaRegistro, mesRegistro, anoRegistro },
+        }),
+      )
 
       if (personasFiltradas.length === 0) {
         Swal.fire({
@@ -98,25 +111,23 @@ export const useReportActivosMesDia = () => {
       }
     } catch (error: any) {
       setHaBuscado(true)
-
-      console.error('Error al obtener las personas activas por mes/día', error)
+      console.error('Error al obtener los usuarios activos por mes y día:', error)
       setUsuarios([])
       setExcelLink(null)
+      dispatch(limpiarReporte())
       const respData = error?.response?.data
       const errStr = typeof respData === 'string' ? respData : JSON.stringify(respData || '')
       const errorMsg = error?.response?.data?.message || error?.message || ''
-      const isZeroResultsError =
+      const isNotFound =
         error?.response?.status === 404 ||
-        (error?.response?.status === 500 &&
-          ((typeof respData === 'string' && (respData.includes('PersonasExport') || respData.includes('toArray() on null'))) ||
-            (errorMsg && errorMsg.includes('toArray() on null')))) ||
+        (error?.response?.status === 500 && (errStr.includes('toArray() on null') || errStr.includes('PersonasExport'))) ||
         errorMsg.toLowerCase().includes('no existe') ||
         errorMsg.toLowerCase().includes('no se encontr') ||
         errorMsg.toLowerCase().includes('sin registros') ||
         errStr.toLowerCase().includes('no existe') ||
         errStr.toLowerCase().includes('no se encontr')
 
-      if (isZeroResultsError) {
+      if (isNotFound) {
         Swal.fire({
           icon: 'info',
           title: 'Sin usuarios activos',
@@ -128,7 +139,7 @@ export const useReportActivosMesDia = () => {
         Swal.fire({
           icon: 'error',
           title: 'Error al consultar',
-          text: errorMsg || 'Hubo un problema al obtener los usuarios activos.',
+          text: 'Hubo un problema al consultar los usuarios activos. Por favor, inténtelo de nuevo más tarde.',
           confirmButtonColor: '#dc3545',
           confirmButtonText: 'Entendido',
         })
@@ -136,7 +147,7 @@ export const useReportActivosMesDia = () => {
     } finally {
       setIsLoading(false)
     }
-  }, [canGenerarUsuariosActivosMesDia, diaRegistro, mesRegistro, anoRegistro])
+  }, [diaRegistro, mesRegistro, anoRegistro, canGenerarUsuariosActivosMesDia, verificarAccionEnServidor, dispatch])
 
   const handleDescargarExcel = useCallback(async () => {
     if (!canDescargarUsuariosActivosMesDia) {
@@ -162,10 +173,11 @@ export const useReportActivosMesDia = () => {
       return
     }
 
-    if (excelLink) {
-      await descargarArchivo(`${STORAGE_BASE_URL}/personas/${excelLink}`)
+    const downloadLink = excelLink || reporteState.archivoDescarga
+    if (downloadLink) {
+      await descargarArchivo(`${STORAGE_BASE_URL}/personas/${downloadLink}`)
     }
-  }, [canDescargarUsuariosActivosMesDia, excelLink, verificarAccionEnServidor])
+  }, [canDescargarUsuariosActivosMesDia, excelLink, reporteState.archivoDescarga, verificarAccionEnServidor])
 
   const handleReset = useCallback(() => {
     setDiaRegistro('')
@@ -174,7 +186,8 @@ export const useReportActivosMesDia = () => {
     setUsuarios([])
     setExcelLink(null)
     setHaBuscado(false)
-  }, [])
+    dispatch(limpiarReporte())
+  }, [dispatch])
 
   return {
     diaRegistro,
@@ -186,15 +199,15 @@ export const useReportActivosMesDia = () => {
     usuarios,
     isLoading,
     excelLink,
+    haBuscado,
     handleGetActivasMes,
     handleDescargarExcel,
     handleReset,
-    haBuscado,
     canGenerarUsuariosActivosMesDia,
     canDescargarUsuariosActivosMesDia,
     verificarAccionEnServidor,
   }
 }
 
-export const useReporteUsuariosActivosMesDia = useReportActivosMesDia
 export default useReportActivosMesDia
+export const useReporteUsuariosActivosMesDia = useReportActivosMesDia

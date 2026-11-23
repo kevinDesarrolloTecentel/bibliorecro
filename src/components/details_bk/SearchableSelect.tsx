@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react'
 import Select, { SingleValue, components } from 'react-select'
-import { CatalogoOption } from '@/models/rco/libros'
+import { CatalogoOption } from '@/models/rco/libros.model'
 
 const CustomInput = (props: any) => (
   <components.Input {...props} maxLength={props.selectProps?.maxLength} />
@@ -12,7 +12,7 @@ const selectComponents = {
 
 interface SearchableSelectProps {
   name: string
-  value: string | number
+  value?: string | number | null
   onChange: (value: string | number) => void
   options: CatalogoOption[]
   placeholder?: string

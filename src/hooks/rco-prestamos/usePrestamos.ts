@@ -1,10 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
 import Swal from 'sweetalert2'
-import { PrestamoItem } from '@/models/rco/prestamos'
+import { RootState, AppDispatch } from '@/store'
+import {
+  setPrestamos as setPrestamosSlice,
+  setPrestamoSeleccionado as setPrestamoSeleccionadoSlice,
+  setPaginacionPrestamos,
+  PrestamoItem,
+} from '@/slices/prestamoSlice'
 import { CambioEstadoLibro, ExtenderFecha, buscarPrestamos } from '@/Service/rco/Prestamos'
 import { ActualizarEstado } from '@/Service/rco/Libros'
 import { formatFecha } from '@/utils/dateUtils'
-import { usePermissions } from '@/context/PermissionsContext'
+import { usePermissions } from '@/hooks/auth/usePermissions'
 
 export const getBadgeColor = (status: string | number): string => {
   const s = String(status || '').toLowerCase().trim()
@@ -35,8 +42,10 @@ export const getBadgeColor = (status: string | number): string => {
 }
 
 export const usePrestamos = (autoFetch: boolean = true) => {
+  const dispatch = useDispatch<AppDispatch>()
   const { canDoAction, verificarAccionEnServidor } = usePermissions()
 
+  // Permisos
   const canCrearPrestamo = canDoAction('btn_crear_prestamo')
   const canExtenderPrestamo = canDoAction('btn_extender_prestamo')
   const canNoDevuelto = canDoAction('btn_no_devuelto')
@@ -47,11 +56,16 @@ export const usePrestamos = (autoFetch: boolean = true) => {
   const canMostrarInfoPrestamo = canDoAction('btn_mostrar_info_prestamo')
   const canConfirmarDarBaja = canDoAction('btn_confirmar_dar_baja')
 
-  const [prestamos, setPrestamos] = useState<PrestamoItem[]>([])
+  // Redux Domain State
+  const prestamos = useSelector((state: RootState) => state.prestamos.prestamos)
+  const prestamoSeleccionado = useSelector((state: RootState) => state.prestamos.prestamoSeleccionado)
+  const paginacion = useSelector((state: RootState) => state.prestamos.paginacionPrestamos)
+  const currentPage = paginacion.current_page
+  const totalPages = paginacion.last_page
+  const totalItems = paginacion.total
+
+  // UI Ephemeral State
   const [loading, setLoading] = useState(false)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const [totalItems, setTotalItems] = useState(0)
   const [searchTerm, setSearchTerm] = useState('')
   const [activeQuery, setActiveQuery] = useState('')
   const [tableKey, setTableKey] = useState(0)
@@ -69,104 +83,117 @@ export const usePrestamos = (autoFetch: boolean = true) => {
     setDetails((prev) => (prev.includes(id) ? [] : [id]))
   }
 
+  // Parseo canónico sin parches: exclusivamente nombres oficiales de la base de datos
+  const parsePrestamo = (item: any): PrestamoItem => {
+    const estadoPrestamo = item.ESTADO_PRESTAMO ?? 1
+
+    const tieneSancion = Boolean(
+      Number(item.ESTADO_SANCION) === 1 ||
+      Number(item.TIENE_SANCION) === 1 ||
+      item.FECHAFIN_SANCION ||
+      item.FECHAINICIO_SANCION ||
+      item.DETALLE_SANCION ||
+      String(item.DETALLE_PRESTAMO || '').toLowerCase().includes('sancion') ||
+      String(item.DETALLE_PRESTAMO || '').toLowerCase().includes('sanción')
+    )
+
+    let status = 'En préstamo'
+    const numEstado = Number(estadoPrestamo)
+
+    if (
+      numEstado === 2 ||
+      String(estadoPrestamo).toLowerCase().includes('dañado') ||
+      String(estadoPrestamo).toLowerCase().includes('danado') ||
+      String(estadoPrestamo).toLowerCase().includes('no devuelto') ||
+      String(estadoPrestamo).toLowerCase().includes('baja')
+    ) {
+      status = 'Devuelto pero dañado'
+    } else if (
+      numEstado === 0 ||
+      String(estadoPrestamo) === '0' ||
+      String(estadoPrestamo).toLowerCase().includes('devuelto') ||
+      String(estadoPrestamo).toLowerCase().includes('disponible')
+    ) {
+      status = 'Devuelto'
+    } else if (
+      numEstado === 1 ||
+      String(estadoPrestamo) === '1' ||
+      String(estadoPrestamo).toLowerCase().includes('prestamo') ||
+      String(estadoPrestamo).toLowerCase().includes('préstamo')
+    ) {
+      status = 'En préstamo'
+    } else if (tieneSancion) {
+      status = 'Sancionado'
+    } else {
+      status = String(estadoPrestamo || 'En préstamo')
+    }
+
+    return {
+      ID_PRESTAMO: item.ID_PRESTAMO,
+      ID_LIBROS: item.ID_LIBROS,
+      ID_INSCRIPCION: item.ID_INSCRIPCION,
+      ID_PERSONA: item.ID_PERSONA,
+      TITULO_LIBROS: item.TITULO_LIBROS || 'Sin título',
+      ISBN_LIBROS: item.ISBN_LIBROS || 'S/N',
+      NOMBRE_PERSONA: item.NOMBRE_PERSONA || '',
+      APELLIDO_PERSONA: item.APELLIDO_PERSONA || '',
+      IDENTIFICACION_PERSONA: item.IDENTIFICACION_PERSONA || '-',
+      TELEFONO_PERSONA: item.TELEFONO_PERSONA || '-',
+      CELULAR_PERSONA: item.CELULAR_PERSONA || '-',
+      FECHAINICIO_PRESTAMO: item.FECHAINICIO_PRESTAMO ? formatFecha(item.FECHAINICIO_PRESTAMO) : '-',
+      FECHAFIN_PRESTAMO: item.FECHAFIN_PRESTAMO ? formatFecha(item.FECHAFIN_PRESTAMO) : '-',
+      FECHAENTREGA_PRESTAMO: item.FECHAENTREGA_PRESTAMO ? formatFecha(item.FECHAENTREGA_PRESTAMO) : null,
+      DETALLE_PRESTAMO: item.DETALLE_PRESTAMO || '',
+      ESTADO_PRESTAMO: numEstado,
+      EXTENDER_PRESTAMO: Number(item.EXTENDER_PRESTAMO ?? 0),
+      ESTADO_SANCION: item.ESTADO_SANCION ?? null,
+      FECHAINICIO_SANCION: item.FECHAINICIO_SANCION ?? null,
+      FECHAFIN_SANCION: item.FECHAFIN_SANCION ?? null,
+      DETALLE_SANCION: item.DETALLE_SANCION ?? null,
+      TIENE_SANCION: tieneSancion,
+      ESTADO_TEXTO: status,
+    }
+  }
+
   const fetchPrestamos = useCallback(
     async (pageToFetch?: number, queryToSearch?: string) => {
       setLoading(true)
-      const targetPage = typeof pageToFetch === 'number' && pageToFetch > 0 ? pageToFetch : currentPageRef.current
-      const query = typeof queryToSearch === 'string' ? queryToSearch : currentSearchRef.current
+      const targetPage =
+        typeof pageToFetch === 'number' && pageToFetch > 0 ? pageToFetch : currentPageRef.current
+      const query =
+        typeof queryToSearch === 'string' ? queryToSearch : currentSearchRef.current
+
       try {
         const response = await buscarPrestamos(query, targetPage)
         const rawData = response?.data || []
+        const parsedList = rawData.map(parsePrestamo)
 
-        const parsedList: PrestamoItem[] = rawData.map((item: any, index: number) => {
-          const id = item.ID_PRESTAMO ?? item.id ?? index + 1
-          const estadoPrestamo = item.ESTADO_PRESTAMO ?? item.estado_prestamo ?? item.estado ?? 1
+        dispatch(
+          setPrestamosSlice({
+            data: parsedList,
+            pagination: response?.pagination || {
+              current_page: response?.current_page || targetPage,
+              total: response?.total || rawData.length,
+              per_page: response?.per_page || 10,
+              last_page: response?.last_page || 1,
+            },
+          }),
+        )
 
-          const tieneSancion = Boolean(
-            Number(item.ESTADO_SANCION ?? item.estado_sancion) === 1 ||
-            Number(item.TIENE_SANCION ?? item.sancion) === 1 ||
-            item.FECHAFIN_SANCION ||
-            item.FECHAINICIO_SANCION ||
-            item.DETALLE_SANCION ||
-            item.detalle_sancion ||
-            String(item.DETALLE_PRESTAMO || '').toLowerCase().includes('sancion') ||
-            String(item.DETALLE_PRESTAMO || '').toLowerCase().includes('sanción')
-          )
-
-          let status = 'En préstamo'
-          const numEstado = Number(estadoPrestamo)
-
-          if (
-            numEstado === 2 ||
-            String(estadoPrestamo).toLowerCase().includes('dañado') ||
-            String(estadoPrestamo).toLowerCase().includes('danado') ||
-            String(estadoPrestamo).toLowerCase().includes('no devuelto') ||
-            String(estadoPrestamo).toLowerCase().includes('baja')
-          ) {
-            status = 'Devuelto pero dañado'
-          } else if (
-            numEstado === 0 ||
-            String(estadoPrestamo) === '0' ||
-            String(estadoPrestamo).toLowerCase().includes('devuelto') ||
-            String(estadoPrestamo).toLowerCase().includes('disponible')
-          ) {
-            status = 'Devuelto'
-          } else if (
-            numEstado === 1 ||
-            String(estadoPrestamo) === '1' ||
-            String(estadoPrestamo).toLowerCase().includes('prestamo') ||
-            String(estadoPrestamo).toLowerCase().includes('préstamo')
-          ) {
-            status = 'En préstamo'
-          } else if (tieneSancion) {
-            status = 'Sancionado'
-          } else {
-            status = String(estadoPrestamo || 'En préstamo')
-          }
-
-          return {
-            id,
-            ID_PRESTAMO: id,
-            ID_LIBROS: item.ID_LIBROS ?? item.id_libros,
-            ID_INSCRIPCION: item.ID_INSCRIPCION ?? item.id_inscripcion,
-            ID_PERSONA: item.ID_PERSONA ?? item.id_persona,
-            id_persona: item.ID_PERSONA ?? item.id_persona,
-            id_inscripcion: item.ID_INSCRIPCION ?? item.id_inscripcion,
-            Libro: item.TITULO_LIBROS || 'Sin título',
-            ISBN: item.ISBN_LIBROS || 'S/N',
-            Nombres: item.NOMBRE_PERSONA || '',
-            Apellidos: item.APELLIDO_PERSONA || '',
-            Cedula: item.IDENTIFICACION_PERSONA || '-',
-            Telefono: item.TELEFONO_PERSONA || '-',
-            Celular: item.CELULAR_PERSONA || '-',
-            Fecha_prestamo: formatFecha(item.FECHAINICIO_PRESTAMO),
-            Fecha_entrega: formatFecha(item.FECHAFIN_PRESTAMO),
-            status,
-            ESTADO_PRESTAMO: item.ESTADO_PRESTAMO,
-            EXTENDER_PRESTAMO: item.EXTENDER_PRESTAMO ?? item.extender_prestamo ?? item.raw?.EXTENDER_PRESTAMO ?? item.raw?.extender_prestamo,
-            ESTADO_SANCION: item.ESTADO_SANCION,
-            TIENE_SANCION: item.TIENE_SANCION,
-            sancion: item.sancion,
-            FECHAINICIO_SANCION: item.FECHAINICIO_SANCION,
-            FECHAFIN_SANCION: item.FECHAFIN_SANCION,
-            DETALLE_SANCION: item.DETALLE_SANCION,
-            Detalle: item.DETALLE_PRESTAMO || '',
-            raw: item,
-          }
-        })
-
-        setPrestamos(parsedList)
-        setCurrentPage(response?.current_page || targetPage)
-        setTotalPages(response?.last_page || 1)
-        setTotalItems(response?.total || rawData.length)
+        currentPageRef.current = response?.current_page || targetPage
       } catch (err) {
         console.error('Error al obtener préstamos:', err)
-        setPrestamos([])
+        dispatch(
+          setPrestamosSlice({
+            data: [],
+            pagination: { current_page: 1, total: 0, per_page: 10, last_page: 1 },
+          }),
+        )
       } finally {
         setLoading(false)
       }
     },
-    [],
+    [dispatch],
   )
 
   useEffect(() => {
@@ -198,6 +225,7 @@ export const usePrestamos = (autoFetch: boolean = true) => {
       clearTimeout(searchDebounceRef.current)
     }
     currentSearchRef.current = ''
+    currentPageRef.current = 1
     setSearchTerm('')
     setTableKey((k) => k + 1)
     setDetails([])
@@ -215,6 +243,9 @@ export const usePrestamos = (autoFetch: boolean = true) => {
   }
 
   const handlePageChange = (page: number) => {
+    currentPageRef.current = page
+    setDetails([])
+    dispatch(setPaginacionPrestamos({ current_page: page }))
     fetchPrestamos(page, currentSearchRef.current)
   }
 
@@ -223,7 +254,9 @@ export const usePrestamos = (autoFetch: boolean = true) => {
   }
 
   const handleExtenderPrestamo = async (item: PrestamoItem) => {
+    dispatch(setPrestamoSeleccionadoSlice(item))
     if (!canExtenderPrestamo) {
+      dispatch(setPrestamoSeleccionadoSlice(null))
       Swal.fire({
         icon: 'error',
         title: 'Acceso Denegado',
@@ -234,31 +267,24 @@ export const usePrestamos = (autoFetch: boolean = true) => {
       return
     }
 
-    const id = item.ID_PRESTAMO ?? item.id
+    const id = item.ID_PRESTAMO
     if (!id) return
 
     // 1. Verificar si ya alcanzó el límite de extensiones
-    const yaExtendido = Boolean(
-      Number(
-        item.EXTENDER_PRESTAMO ??
-        (item as any).extender_prestamo ??
-        item.raw?.EXTENDER_PRESTAMO ??
-        (item.raw as any)?.extender_prestamo
-      ) === 1
-    )
+    const yaExtendido = Number(item.EXTENDER_PRESTAMO) === 1
 
     if (yaExtendido) {
       await Swal.fire({
         icon: 'info',
         title: 'Préstamo ya extendido',
-        text: `El préstamo del libro "${item.Libro}" ya fue extendido previamente y no permite más extensiones.`,
+        text: `El préstamo del libro "${item.TITULO_LIBROS || 'este libro'}" ya fue extendido previamente y no permite más extensiones.`,
         confirmButtonColor: '#044c8c',
       })
       return
     }
 
     // 2. Verificar si aún se encuentra dentro de la fecha límite
-    const rawEntrega = item.raw?.FECHAFIN_PRESTAMO || item.Fecha_entrega
+    const rawEntrega = item.FECHAFIN_PRESTAMO
     let fechaEntregaDate: Date | null = null
     if (rawEntrega) {
       const clean = String(rawEntrega).trim()
@@ -277,13 +303,13 @@ export const usePrestamos = (autoFetch: boolean = true) => {
     const aunEnFecha = fechaEntregaDate ? fechaEntregaDate >= hoy : false
 
     let confirmTitle = '¿Confirmar extensión?'
-    let confirmText = `¿Estás seguro de extender la fecha de préstamo para "${item.Libro}"?`
+    let confirmText = `¿Estás seguro de extender la fecha de préstamo para "${item.TITULO_LIBROS || 'este libro'}"?`
     let iconAlert: 'question' | 'warning' = 'question'
 
     if (aunEnFecha) {
       confirmTitle = 'Aún dentro de la fecha'
       iconAlert = 'warning'
-      confirmText = `Este préstamo aún se encuentra dentro de la fecha límite (vence el ${item.Fecha_entrega || 'plazo acordado'}). ¿Deseas extender la fecha de entrega antes de su vencimiento?`
+      confirmText = `Este préstamo aún se encuentra dentro de la fecha límite (vence el ${item.FECHAFIN_PRESTAMO || 'plazo acordado'}). ¿Deseas extender la fecha de entrega antes de su vencimiento?`
     }
 
     const confirmResult = await Swal.fire({
@@ -314,10 +340,8 @@ export const usePrestamos = (autoFetch: boolean = true) => {
     try {
       await ExtenderFecha(id, {
         ID_PRESTAMO: id,
-        ID_LIBROS: item.ID_LIBROS ?? item.raw?.ID_LIBROS,
+        ID_LIBROS: item.ID_LIBROS,
       })
-      item.EXTENDER_PRESTAMO = 1
-      if (item.raw) item.raw.EXTENDER_PRESTAMO = 1
       Swal.fire({
         icon: 'success',
         title: '¡Fecha extendida!',
@@ -325,7 +349,7 @@ export const usePrestamos = (autoFetch: boolean = true) => {
         timer: 1800,
         showConfirmButton: false,
       })
-      fetchPrestamos(currentPage, currentSearchRef.current)
+      fetchPrestamos(currentPageRef.current, currentSearchRef.current)
     } catch (err: any) {
       console.error('Error al extender préstamo:', err)
       const errData = err?.response?.data
@@ -357,17 +381,19 @@ export const usePrestamos = (autoFetch: boolean = true) => {
           confirmButtonText: 'Entendido',
         })
       }
+    } finally {
+      dispatch(setPrestamoSeleccionadoSlice(null))
     }
   }
 
   const handleMarcarNoDevuelto = async (item: PrestamoItem) => {
-    const idPrestamo = item.ID_PRESTAMO ?? item.id
-    const idLibro = item.ID_LIBROS ?? item.raw?.ID_LIBROS
+    const idPrestamo = item.ID_PRESTAMO
+    const idLibro = item.ID_LIBROS
     if (!idPrestamo) return
 
     const confirmResult = await Swal.fire({
       title: '¿Registrar como Devuelto pero Dañado?',
-      text: `¿Estás seguro de que deseas registrar el libro "${item.Libro}" prestado a ${item.Nombres} ${item.Apellidos} como Devuelto pero Dañado / Dado de baja?`,
+      text: `¿Estás seguro de que deseas registrar el libro "${item.TITULO_LIBROS || 'este libro'}" prestado a ${item.NOMBRE_PERSONA || ''} ${item.APELLIDO_PERSONA || ''} como Devuelto pero Dañado / Dado de baja?`,
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#d33',
@@ -418,7 +444,7 @@ export const usePrestamos = (autoFetch: boolean = true) => {
         timer: 1800,
         showConfirmButton: false,
       })
-      fetchPrestamos()
+      fetchPrestamos(currentPageRef.current, currentSearchRef.current)
     } catch (err: any) {
       console.error('Error al marcar no devuelto:', err)
       Swal.fire({
@@ -446,6 +472,8 @@ export const usePrestamos = (autoFetch: boolean = true) => {
     fetchPrestamos,
     modalRegister,
     setModalRegister,
+    prestamoSeleccionado,
+    setPrestamoSeleccionado: (p: PrestamoItem | null) => dispatch(setPrestamoSeleccionadoSlice(p)),
     details,
     setDetails,
     toggleDetails,

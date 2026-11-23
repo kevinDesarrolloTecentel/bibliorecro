@@ -3,8 +3,8 @@ import apiClient, { BACKEND_API_BASE } from "@/Service/ApiClient";
 const API_BASE_URL_EDITLIB = `${BACKEND_API_BASE}/v1/editorialLib`;
 
 // Metodo GET
-export const ListarEditLib = async () => {
-    const { data } = await apiClient.get(`${API_BASE_URL_EDITLIB}/editorials`);
+export const ListarEditLib = async (params?: { page?: number; search?: string; per_page?: number }) => {
+    const { data } = await apiClient.get(`${API_BASE_URL_EDITLIB}/editorials`, { params });
     return data;
 };
 

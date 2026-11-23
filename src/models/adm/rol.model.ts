@@ -1,13 +1,13 @@
-// interface base rol
-export interface Rol {
-  ID_ROL?: number | string
-  NOMBRE_ROL?: string
-  DESCRIPCION_ROL?: string
-  NIVEL_ROL?: number | string
-  ESTADO_ROL?: number | string
-  id?: number | string
-  nombre?: string
-  name?: string
-  [key: string]: any
-}
+// Modelo de admin_rol
+import { AdminPermiso } from './permiso.model'
+import { AdminPermisoAccion } from './permisoAccion.model'
 
+export interface AdminRol {
+  ID_ROL?: number | string
+  NOMBRE_ROL?: string | null
+  NIVEL_ROL?: number | string | null
+
+  // Relaciones
+  PERMISOS?: AdminPermiso[]
+  ACCIONES?: AdminPermisoAccion[]
+}

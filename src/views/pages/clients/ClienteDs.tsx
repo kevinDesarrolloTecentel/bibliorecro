@@ -18,16 +18,13 @@ import Modal_Register from '@/components/clients/Modal_Register'
 import Modal_Edit from '@/components/clients/Modal_Edit'
 import HeaderCliente from '@/components/clients/HeaderCliente'
 import ModalRenova from '@/components/clients/ModalRenovaciones'
-import useClienteDs from '@/hooks/tab-persona/useClienteDs'
+import usePersonas from '@/hooks/tab-persona/usePersonas'
 import ClienteAvatar from '@/components/clients/ClienteAvatar'
 import { buscarPrestamos } from '@/Service/rco/Prestamos'
-import { useCatalogos } from '@/hooks/tab-catalogos/useCatalogos'
 
 const ClienteDs = () => {
-  useCatalogos(true)
-
+  const personaState = usePersonas()
   const {
-    personaState,
     items,
     getBadge,
     getBadgeSancion,
@@ -37,30 +34,30 @@ const ClienteDs = () => {
     canRenovar,
     canGuardarRenovacion,
     tieneAcciones,
-  } = useClienteDs()
+  } = personaState
 
   const tableColumns = useMemo(
     () => [
       {
-        key: 'identificacion',
+        key: 'IDENTIFICACION_PERSONA',
         label: 'Identificación',
         _style: { width: '14%' },
         filter: false,
       },
       {
-        key: 'nombre',
+        key: 'NOMBRE_PERSONA',
         label: 'Nombres',
         _style: { width: '18%' },
         filter: false,
       },
       {
-        key: 'apellido',
+        key: 'APELLIDO_PERSONA',
         label: 'Apellidos',
         _style: { width: '18%' },
         filter: false,
       },
       {
-        key: 'email',
+        key: 'CORREO_PERSONA',
         label: 'Email',
         _style: { width: '22%' },
         filter: false,
@@ -116,11 +113,13 @@ const ClienteDs = () => {
       return
     }
 
-    const idPersona = item.id || item.raw?.ID_PERSONA
+    const idPersona = item.ID_PERSONA
     if (!idPersona) return
 
+    const nombreCompleto = `${item.NOMBRE_PERSONA || ''} ${item.APELLIDO_PERSONA || ''}`.trim()
+
     // 1. Verificar si el usuario se encuentra con libros en préstamo
-    const cedula = item.identificacion || item.raw?.IDENTIFICACION_PERSONA
+    const cedula = item.IDENTIFICACION_PERSONA
     if (cedula) {
       try {
         const resp = await buscarPrestamos(cedula)
@@ -144,7 +143,7 @@ const ClienteDs = () => {
           Swal.fire({
             icon: 'warning',
             title: 'No se puede eliminar',
-            text: `No se puede eliminar el usuario ${item.nombre} ${item.apellido} porque se encuentra en préstamo.`,
+            text: `No se puede eliminar el usuario ${nombreCompleto} porque se encuentra en préstamo.`,
             confirmButtonColor: '#3085d6',
             confirmButtonText: 'Entendido',
           })
@@ -158,7 +157,7 @@ const ClienteDs = () => {
     // 2. Si no tiene préstamos activos, solicitar confirmación
     const result = await Swal.fire({
       title: '¿Eliminar usuario?',
-      text: `¿Estás seguro de que deseas eliminar a ${item.nombre} ${item.apellido}? Esta acción no se puede deshacer.`,
+      text: `¿Estás seguro de que deseas eliminar a ${nombreCompleto}? Esta acción no se puede deshacer.`,
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#dc3545',
@@ -173,7 +172,7 @@ const ClienteDs = () => {
         Swal.fire({
           icon: 'success',
           title: '¡Usuario eliminado!',
-          text: `El usuario ${item.nombre} ${item.apellido} fue eliminado correctamente.`,
+          text: `El usuario ${nombreCompleto} fue eliminado correctamente.`,
           timer: 1800,
           showConfirmButton: false,
         })
@@ -218,35 +217,35 @@ const ClienteDs = () => {
               )
             }
             onRowClick={(item: any) => {
-              if (canVerDetalles && item?.id) {
-                personaState.toggleDetails(item.id)
+              if (canVerDetalles && item?.ID_PERSONA) {
+                personaState.toggleDetails(item.ID_PERSONA)
               }
             }}
             scopedColumns={{
-              identificacion: (item: any) => (
+              IDENTIFICACION_PERSONA: (item: any) => (
                 <td>
                   <div className="text-body font-monospace">
-                    <span>{item.identificacion}</span>
+                    <span>{item.IDENTIFICACION_PERSONA}</span>
                   </div>
                 </td>
               ),
-              nombre: (item: any) => (
+              NOMBRE_PERSONA: (item: any) => (
                 <td>
                   <div className="text-body font-monospace">
-                    <span className="fw-semibold">{item.nombre}</span>
+                    <span className="fw-semibold">{item.NOMBRE_PERSONA}</span>
                   </div>
                 </td>
               ),
-              apellido: (item: any) => (
+              APELLIDO_PERSONA: (item: any) => (
                 <td>
                   <div className="text-body font-monospace">
-                    <span className="fw-semibold">{item.apellido}</span>
+                    <span className="fw-semibold">{item.APELLIDO_PERSONA}</span>
                   </div>
                 </td>
               ),
-              email: (item: any) => (
+              CORREO_PERSONA: (item: any) => (
                 <td>
-                  <span className='font-monospace'>{item.email}</span>
+                  <span className='font-monospace'>{item.CORREO_PERSONA}</span>
                 </td>
               ),
               estado: (item: any) => (
@@ -271,17 +270,17 @@ const ClienteDs = () => {
                 if (!canVerDetalles) {
                   return null
                 }
-                const isVisible = personaState.details.includes(item.id)
+                const isVisible = personaState.details.includes(item.ID_PERSONA)
                 return (
                   <CCollapse visible={isVisible} className="user-details-collapse">
                     <div className="user-details-content p-3 p-md-4 bg-body-tertiary border-top border-bottom rounded-bottom">
                       <CRow className="g-3">
                         <CCol xs={12} md={4} lg={3} className="d-flex flex-column align-items-center justify-content-center font-monospace text-center border-end-md pb-3 pb-md-0">
-                          <ClienteAvatar key={`${item.id}_${item.fotografia || 'no_foto'}`} src={item.fotografia} nombre={item.nombre} apellido={item.apellido} />
+                          <ClienteAvatar key={`${item.ID_PERSONA}_${item.fotografia || 'no_foto'}`} src={item.fotografia} nombre={item.NOMBRE_PERSONA} apellido={item.APELLIDO_PERSONA} />
                           <h5 className="fw-bold mb-0 text-body">
-                            {item.nombre} {item.apellido}
+                            {item.NOMBRE_PERSONA} {item.APELLIDO_PERSONA}
                           </h5>
-                          <span className="text-muted small mb-2">{item.email}</span>
+                          <span className="text-muted small mb-2">{item.CORREO_PERSONA}</span>
                           <div className="d-flex flex-wrap gap-1 justify-content-center">
                             <CBadge color={getBadge(item.estado)} shape="rounded-pill" className="px-3 py-1">
                               {item.estado}
@@ -302,7 +301,7 @@ const ClienteDs = () => {
                               <CCard className="h-100 shadow-sm border-0 bg-body">
                                 <CCardBody className="p-3">
                                   <span className="text-body small d-block mb-1">Nº Identificación</span>
-                                  <span className='font-monospace text-body badge bg-body border rounded-pill'>{item.identificacion}</span>
+                                  <span className='font-monospace text-body badge bg-body border rounded-pill'>{item.IDENTIFICACION_PERSONA}</span>
                                 </CCardBody>
                               </CCard>
                             </CCol>
@@ -386,10 +385,10 @@ const ClienteDs = () => {
                                   <div className="d-flex align-items-center gap-1">
                                     <CIcon icon={cilUser} className="text-info" />
                                     <span className="badge bg-body rounded-pill border text-body font-monospace">
-                                      {(item.edad || item.raw?.EDAD_PERSONA)
-                                        ? (String(item.edad || item.raw?.EDAD_PERSONA).toLowerCase().includes('año')
-                                          ? String(item.edad || item.raw?.EDAD_PERSONA)
-                                          : `${item.edad || item.raw?.EDAD_PERSONA} años`)
+                                      {item.EDAD_PERSONA
+                                        ? (String(item.EDAD_PERSONA).toLowerCase().includes('año')
+                                          ? String(item.EDAD_PERSONA)
+                                          : `${item.EDAD_PERSONA} años`)
                                         : 'No registrada'}
                                     </span>
                                   </div>
@@ -403,9 +402,9 @@ const ClienteDs = () => {
                                   <span className="text-muted small d-block mb-1">Dirección Domiciliaria</span>
                                   <span
                                     className="small text-body fw-medium d-block text-break"
-                                    title={item.direccion || item.raw?.DIRECCION_PERSONA || 'No registrada'}
+                                    title={item.DIRECCION_PERSONA || 'No registrada'}
                                   >
-                                    {item.direccion || item.raw?.DIRECCION_PERSONA || 'No registrada'}
+                                    {item.DIRECCION_PERSONA || 'No registrada'}
                                   </span>
                                 </CCardBody>
                               </CCard>
@@ -440,7 +439,7 @@ const ClienteDs = () => {
                                       </div>
                                       <div className="small text-body pt-1 border-top">
                                         <span className="text-muted fw-semibold me-1">Motivo:</span>
-                                        <span>{item.motivo_sancion_actual || item.sancion || 'Sanción registrada en el sistema'}</span>
+                                        <span>{item.motivo_sancion_actual || 'Sanción registrada en el sistema'}</span>
                                       </div>
                                     </CCardBody>
                                   </CCard>
@@ -514,7 +513,7 @@ const ClienteDs = () => {
                                       </div>
                                       <div className="small text-body pt-1 border-top">
                                         <span className="text-muted fw-semibold me-1">Motivo registrado:</span>
-                                        <span>{item.motivo_sancion_actual || item.sancion || 'Sanción anterior registrada en el sistema'}</span>
+                                        <span>{item.motivo_sancion_actual || 'Sanción anterior registrada en el sistema'}</span>
                                       </div>
                                     </CCardBody>
                                   </CCard>

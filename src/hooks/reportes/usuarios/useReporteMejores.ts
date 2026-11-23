@@ -1,25 +1,32 @@
 import { useState, useCallback } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
 import Swal from 'sweetalert2'
+import { RootState, AppDispatch } from '@/store'
 import { PersonasMejoresReport } from '@/Service/tab/Persona'
 import { STORAGE_BASE_URL, descargarArchivo } from '@/utils/imageUtils'
-import { usePermissions } from '@/context/PermissionsContext'
+import { usePermissions } from '@/hooks/auth/usePermissions'
+import {
+  setReporteActivo,
+  limpiarReporte,
+  PersonaReporteItem,
+} from '@/slices/reporteSlice'
 
 export { STORAGE_BASE_URL, descargarArchivo }
-
-import { PersonaReporteItem } from '@/models/reportes/usuarios'
-
 export type { PersonaReporteItem }
 
-const useReporteMejores = () => {
+export const useReporteMejores = () => {
+  const dispatch = useDispatch<AppDispatch>()
+  const reporteState = useSelector((state: RootState) => state.reportes)
+
+  const [usuarios, setUsuarios] = useState<PersonaReporteItem[]>([])
+  const [excelLink, setExcelLink] = useState<string | null>(null)
+  const [anoMejor, setAnoMejor] = useState<string>('')
+  const [isLoading, setIsLoading] = useState<boolean>(false)
+  const [haBuscado, setHaBuscado] = useState<boolean>(false)
+
   const { canDoAction, verificarAccionEnServidor } = usePermissions()
   const canGenerarRankingUsuarios = canDoAction('btn_generar_ranking_usuarios')
   const canDescargarRankingUsuarios = canDoAction('btn_descargar_ranking_usuarios')
-
-  const [anoMejor, setAnoMejor] = useState<string>('')
-  const [usuarios, setUsuarios] = useState<PersonaReporteItem[]>([])
-  const [isLoading, setIsLoading] = useState<boolean>(false)
-  const [excelLink, setExcelLink] = useState<string | null>(null)
-  const [haBuscado, setHaBuscado] = useState<boolean>(false)
 
   const handleGetMejores = useCallback(async () => {
     if (!canGenerarRankingUsuarios) {
@@ -62,6 +69,7 @@ const useReporteMejores = () => {
 
     setUsuarios([])
     setExcelLink(null)
+    dispatch(limpiarReporte())
 
     try {
       const params = {
@@ -73,16 +81,38 @@ const useReporteMejores = () => {
 
       const personasFiltradas: PersonaReporteItem[] = rawList
         .filter((item: PersonaReporteItem) => item.ESTADOINSCRIPCION_PERSONA !== 1)
+        .map((item: any) => ({
+          ...item,
+          ID_PERSONA: item.ID_PERSONA,
+          IDENTIFICACION_PERSONA: item.IDENTIFICACION_PERSONA,
+          NOMBRE_PERSONA: item.NOMBRE_PERSONA,
+          APELLIDO_PERSONA: item.APELLIDO_PERSONA,
+          CELULAR_PERSONA: item.CELULAR_PERSONA,
+          CORREO_PERSONA: item.CORREO_PERSONA,
+          EDAD_PERSONA: item.EDAD_PERSONA,
+          NOMBRE_GENERO: item.NOMBRE_GENERO,
+          CANTIDAD_PRESTAMOS: item.CANTIDAD_PRESTAMOS ?? item.cantidad_prestamos,
+          TOTAL_PRESTAMOS: item.TOTAL_PRESTAMOS ?? item.total_prestamos,
+        }))
         .sort(
           (a: PersonaReporteItem, b: PersonaReporteItem) =>
-            Number(b.cantidad_prestamos || 0) - Number(a.cantidad_prestamos || 0),
+            Number(b.CANTIDAD_PRESTAMOS || 0) - Number(a.CANTIDAD_PRESTAMOS || 0),
         )
 
-      setUsuarios(personasFiltradas)
       const rutaExcel: string | null = data?.excel?.nombre || data?.excel_path || null
-      setExcelLink(rutaExcel)      
+
+      setUsuarios(personasFiltradas)
+      setExcelLink(rutaExcel)
       setHaBuscado(true)
 
+      dispatch(
+        setReporteActivo({
+          tipoReporte: 'usuarios_mejores',
+          archivoDescarga: rutaExcel,
+          total: personasFiltradas.length,
+          filtros: { anoMejor: anio },
+        }),
+      )
 
       if (personasFiltradas.length === 0) {
         Swal.fire({
@@ -95,27 +125,26 @@ const useReporteMejores = () => {
       }
     } catch (error: any) {
       setHaBuscado(true)
-      console.error('Error al obtener los mejores usuarios:', error)
+      console.error('Error al obtener ranking de mejores usuarios:', error)
       setUsuarios([])
       setExcelLink(null)
+      dispatch(limpiarReporte())
       const respData = error?.response?.data
       const errStr = typeof respData === 'string' ? respData : JSON.stringify(respData || '')
       const errorMsg = error?.response?.data?.message || error?.message || ''
-      const isZeroResultsError =
+      const isNotFound =
         error?.response?.status === 404 ||
-        (error?.response?.status === 500 &&
-          ((typeof respData === 'string' && (respData.includes('PersonasExport') || respData.includes('toArray() on null'))) ||
-            (errorMsg && errorMsg.includes('toArray() on null')))) ||
+        (error?.response?.status === 500 && (errStr.includes('toArray() on null') || errStr.includes('PersonasExport'))) ||
         errorMsg.toLowerCase().includes('no existe') ||
         errorMsg.toLowerCase().includes('no se encontr') ||
         errorMsg.toLowerCase().includes('sin registros') ||
         errStr.toLowerCase().includes('no existe') ||
         errStr.toLowerCase().includes('no se encontr')
 
-      if (isZeroResultsError) {
+      if (isNotFound) {
         Swal.fire({
           icon: 'info',
-          title: 'Sin usuarios en el ranking',
+          title: 'Sin registros',
           text: 'No se encontraron usuarios en el ranking para el año seleccionado.',
           confirmButtonColor: '#044c8c',
           confirmButtonText: 'Entendido',
@@ -124,7 +153,7 @@ const useReporteMejores = () => {
         Swal.fire({
           icon: 'error',
           title: 'Error al consultar',
-          text: 'Hubo un problema al obtener los datos de mejores usuarios.',
+          text: 'Hubo un problema al consultar el ranking de usuarios. Por favor, inténtelo de nuevo más tarde.',
           confirmButtonColor: '#dc3545',
           confirmButtonText: 'Entendido',
         })
@@ -132,7 +161,7 @@ const useReporteMejores = () => {
     } finally {
       setIsLoading(false)
     }
-  }, [canGenerarRankingUsuarios, anoMejor])
+  }, [anoMejor, canGenerarRankingUsuarios, verificarAccionEnServidor, dispatch])
 
   const handleDescargarExcel = useCallback(async () => {
     if (!canDescargarRankingUsuarios) {
@@ -158,17 +187,19 @@ const useReporteMejores = () => {
       return
     }
 
-    if (excelLink) {
-      await descargarArchivo(`${STORAGE_BASE_URL}/personas/${excelLink}`)
+    const downloadLink = excelLink || reporteState.archivoDescarga
+    if (downloadLink) {
+      await descargarArchivo(`${STORAGE_BASE_URL}/personas/${downloadLink}`)
     }
-  }, [canDescargarRankingUsuarios, excelLink, verificarAccionEnServidor])
+  }, [canDescargarRankingUsuarios, excelLink, reporteState.archivoDescarga, verificarAccionEnServidor])
 
   const handleReset = useCallback(() => {
     setAnoMejor('')
     setUsuarios([])
     setExcelLink(null)
     setHaBuscado(false)
-  }, [])
+    dispatch(limpiarReporte())
+  }, [dispatch])
 
   return {
     anoMejor,
@@ -176,15 +207,15 @@ const useReporteMejores = () => {
     usuarios,
     isLoading,
     excelLink,
+    haBuscado,
     handleGetMejores,
     handleDescargarExcel,
     handleReset,
-    haBuscado,
     canGenerarRankingUsuarios,
     canDescargarRankingUsuarios,
     verificarAccionEnServidor,
   }
 }
 
-export const useReporteMejoresUsuarios = useReporteMejores
 export default useReporteMejores
+export const useReporteMejoresUsuarios = useReporteMejores

@@ -1,8 +1,15 @@
 import { useState, useCallback } from 'react'
+import { useDispatch } from 'react-redux'
 import Swal from 'sweetalert2'
+import { AppDispatch } from '@/store'
 import { ReporteIngresos } from '@/Service/rco/Libros'
-import { LibroIngresoItem, UseLibrosIngReturn } from '@/models/dashboard/dashboard.model'
-import { usePermissions } from '@/context/PermissionsContext'
+import {
+  setReporteActivo,
+  limpiarReporte,
+  LibroIngresoItem,
+  UseLibrosIngReturn,
+} from '@/slices/reporteSlice'
+import { usePermissions } from '@/hooks/auth/usePermissions'
 import { generarExcelEstilizado } from '@/utils/dashboardExcel'
 
 export type { LibroIngresoItem, UseLibrosIngReturn }
@@ -69,69 +76,31 @@ export const parseDatePickerValue = (val: Date | string | null): string => {
   return ''
 }
 
-const extractBooksList = (res: any): any[] => {
-  if (!res) return []
-  if (Array.isArray(res)) return res
-  const candidates = [
-    res.data,
-    res.libros,
-    res.data?.libros,
-    res.data?.data,
-    res.reporte,
-    res.data?.reporte,
-    res.ingresos,
-    res.data?.ingresos,
-    res.items,
-    res.data?.items,
-  ]
-  const found = candidates.find(Array.isArray)
-  if (found) return found
-
-  if (typeof res === 'object') {
-    const direct = Object.values(res).find(Array.isArray)
-    if (direct) return direct as any[]
-    if (res.data && typeof res.data === 'object') {
-      const nested = Object.values(res.data).find(Array.isArray)
-      if (nested) return nested as any[]
-    }
-  }
-  return []
-}
-
 const cleanDateString = (val?: string | Date | null): string => {
   if (!val) return '-'
   if (val instanceof Date) return val.toISOString().slice(0, 10)
   return String(val).slice(0, 10)
 }
 
+// Normalización limpia y exacta a partir de las columnas canónicas de la base de datos
 const normalizeLibro = (item: any): LibroIngresoItem => {
-  const isbn = item.ISBN_LIBROS || item.isbn || 'S/N'
-  const titulo = item.TITULO_LIBROS || item.titulo || item.TITULO || 'Sin título'
-  const autor = item.AUTORTEJUELO_LIBROS || item.autor || item.NOMBRE_AUTOR || '-'
-  const editorial = item.editorial || item.EDITORIAL_LIBROS || item.Editorial || item.NOMBRE_EDITORIAL || '-'
-  const proveedor = item.proveedor || item.PROVEEDOR_LIBROS || item.Proveedor || item.NOMBRE_PROVEEDOR || '-'
-  const categoria = item.Categoria || item.categoria || item.CATEGORIA_LIBROS || item.NOMBRE_CATEGORIA || '-'
-  const genero = item.Genero || item.genero || item.GENERO_LIBROS || item.NOMBRE_RCOGENERO || '-'
-  const formato = item.Formatos || item.formato || item.FORMATOS_LIBROS || item.FORMATO_LIBROS || item.NOMBRE_FORMATOS || '-'
-  const volumen = item.VOLUMEN_LIBROS || item.volumen || 'S/N'
-  const pais = item.PAIS_LIBROS || item.pais || item.Pais || '-'
-  const fechaEdicion = cleanDateString(item.FECHAEDICION_LIBROS || item.FechaEdicion || item.fechaEdicion)
-  const fechaIngreso = cleanDateString(item.FECHAREGISTRO_LIBROS || item.FechaRegistro || item.fechaIngreso || item.created_at)
-
-  let estado = 'Activo'
-  if (item.ESTADO_LIBROS !== undefined && item.ESTADO_LIBROS !== null) {
-    estado = (item.ESTADO_LIBROS === 1 || item.ESTADO_LIBROS === '1' || item.ESTADO_LIBROS === 'Activo') ? 'Activo' : 'Inactivo'
-  } else if (item.Estado) {
-    estado = item.Estado
-  } else if (item.estado) {
-    estado = item.estado
-  }
-
-  const precio = item.PRECIO_LIBROS || item.precio || '0.00'
+  const isbn = item.ISBN_LIBROS || 'S/N'
+  const titulo = item.TITULO_LIBROS || 'Sin título'
+  const autor = item.NOMBRE_AUTOR || item.AUTORTEJUELO_LIBROS || '-'
+  const editorial = item.NOMBRE_EDITORIAL || '-'
+  const proveedor = item.NOMBRE_PROVEEDOR ? String(item.NOMBRE_PROVEEDOR).trim() : '-'
+  const categoria = item.NOMBRE_CATEGORIA || '-'
+  const genero = item.NOMBRE_RCOGENERO || '-'
+  const formato = item.NOMBRE_FORMATOS || '-'
+  const volumen = item.VOLUMEN_LIBROS || 'S/N'
+  const pais = item.PAIS_LIBROS || '-'
+  const fechaEdicion = cleanDateString(item.FECHAEDICION_LIBROS)
+  const fechaIngreso = cleanDateString(item.FECHAREGISTRO_LIBROS)
+  const estado = Number(item.ESTADO_LIBROS) === 1 ? 'Activo' : 'Inactivo'
 
   return {
     ...item,
-    id: item.ID_LIBROS || item.id,
+    id: item.ID_LIBROS,
     isbn,
     titulo,
     autor,
@@ -145,25 +114,11 @@ const normalizeLibro = (item: any): LibroIngresoItem => {
     fechaEdicion,
     fechaIngreso,
     estado,
-    precio,
-    // Alias de compatibilidad para evitar roturas
-    ISBN_LIBROS: isbn,
-    TITULO_LIBROS: titulo,
-    AUTORTEJUELO_LIBROS: autor,
-    EDITORIAL_LIBROS: editorial,
-    Editorial: editorial,
-    FORMATOS_LIBROS: formato,
-    Formatos: formato,
-    VOLUMEN_LIBROS: volumen,
-    PAIS_LIBROS: pais,
-    Pais: pais,
-    FechaEdicion: fechaEdicion,
-    FechaRegistro: fechaIngreso,
-    Estado: estado,
   }
 }
 
 export const useLibrosIng = (): UseLibrosIngReturn => {
+  const dispatch = useDispatch<AppDispatch>()
   const { canDoAction, verificarAccionEnServidor } = usePermissions()
   const canBuscar = canDoAction('btn_buscar_reporte_libros')
   const canExportar = canDoAction('btn_exportar_excel_libros')
@@ -231,38 +186,25 @@ export const useLibrosIng = (): UseLibrosIngReturn => {
         fechaHasta,
       }
 
-      let list: any[] = []
-      try {
-        const res = await ReporteIngresos(params)
-        list = extractBooksList(res)
-      } catch (apiErr) {
-        console.warn('[useLibrosIng] Error al consultar ReporteIngresos:', apiErr)
-      }
+      const res = await ReporteIngresos(params)
+      const rawLibros: any[] = Array.isArray(res?.libros)
+        ? res.libros
+        : Array.isArray(res?.data)
+          ? res.data
+          : []
 
-      // Si vienen datos del backend, asegurar filtrado estricto dentro del rango de fechas
-      if (list.length > 0 && fechaDesde && fechaHasta) {
-        const dInicio = fechaDesde.slice(0, 10)
-        const dFin = fechaHasta.slice(0, 10)
-        list = list.filter((item) => {
-          const rawFecha =
-            item.FECHAREGISTRO_LIBROS ||
-            item.FechaRegistro ||
-            item.fechaIngreso ||
-            item.created_at ||
-            item.FECHA_INGRESO ||
-            item.FECHAEDICION_LIBROS
-          if (!rawFecha) return true
-          const f = String(rawFecha).slice(0, 10)
-          if (/^\d{4}-\d{2}-\d{2}/.test(f)) {
-            return f >= dInicio && f <= dFin
-          }
-          return true
-        })
-      }
+      const librosMapeados = rawLibros.map(normalizeLibro)
+      setLibros(librosMapeados)
 
-      setLibros(list.map(normalizeLibro))
+      dispatch(
+        setReporteActivo({
+          tipoReporte: 'libros_ingreso',
+          total: librosMapeados.length,
+          filtros: { fechaDesde, fechaHasta },
+        }),
+      )
 
-      if (list.length === 0) {
+      if (librosMapeados.length === 0) {
         Swal.fire({
           icon: 'info',
           title: 'Sin registros',
@@ -274,10 +216,11 @@ export const useLibrosIng = (): UseLibrosIngReturn => {
     } catch (err) {
       console.error('Error al cargar reporte de libros:', err)
       setLibros([])
+      dispatch(limpiarReporte())
     } finally {
       setLoading(false)
     }
-  }, [fechaDesde, fechaHasta, canBuscar, verificarAccionEnServidor])
+  }, [fechaDesde, fechaHasta, canBuscar, verificarAccionEnServidor, dispatch])
 
   const handleDateChange = useCallback(
     (val: Date | string | null, field: 'desde' | 'hasta') => {

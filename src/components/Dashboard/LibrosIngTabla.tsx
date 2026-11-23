@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { cilBookmark } from '@coreui/icons'
 import CIcon from '@coreui/icons-react'
 import { CCard, CCardBody, CCardHeader, CSmartTable } from '@coreui/react-pro'
-import { LibroIngresoItem } from '@/models/dashboard/dashboard.model'
+import { LibroIngresoItem } from '@/slices/reporteSlice'
 
 export interface LibrosIngTablaProps {
   libros: LibroIngresoItem[]
