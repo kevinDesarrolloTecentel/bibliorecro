@@ -2,10 +2,11 @@ import { cibFacebook, cibInstagram, cibTwitter } from '@coreui/icons'
 import CIcon from '@coreui/icons-react'
 import { CFooter } from '@coreui/react-pro'
 const AppFooter = () => {
+  const currentYear = new Date().getFullYear()
   return (
     <CFooter className="px-4">
       <div className='text-center text-md-start'>
-        <span className="ms-1">&copy; 2026 <strong> CC EL RECREO.</strong> <p>Todos los derechos reservados.</p></span>
+        <span className="ms-1">&copy; {currentYear} <strong> CC EL RECREO.</strong> <p>Todos los derechos reservados.</p></span>
       </div>
       <div className="text-center mb-3">
         <a

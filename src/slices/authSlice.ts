@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
-import { getStoredUser, getRawAuthCookie } from '@/utils/auth'
+import { getStoredUser } from '@/utils/auth'
 import { AdminUsuario } from '@/models/adm/user.model'
 import { AdminRol } from '@/models/adm/rol.model'
 import { ModuloGrupo, ModuloPantalla } from '@/models/adm/catalogo.model'
@@ -40,27 +40,23 @@ export interface LoginCredentials {
 // Payload estricto para loginSuccess
 export interface LoginPayload {
   user: AuthUser
-  token: string
   permisos: MisPermisosData
 }
 
 // El Estado Global de Autenticación
 export interface AuthState {
   user: AuthUser | null
-  token: string | null
   permisos: MisPermisosData | null
   isAuthenticated: boolean
 }
 
 // Recupera la sesión activa al recargar
 const initialUser: AuthUser | null = typeof window !== 'undefined' ? getStoredUser() : null
-const initialToken: string | null = typeof window !== 'undefined' ? getRawAuthCookie() : null
 
 const initialState: AuthState = {
   user: initialUser,
-  token: initialToken,
   permisos: null,
-  isAuthenticated: Boolean(initialUser && initialToken),
+  isAuthenticated: Boolean(initialUser),
 }
 
 export const authSlice = createSlice({
@@ -70,7 +66,6 @@ export const authSlice = createSlice({
     // Asigna el payload limpio directamente al estado en memoria
     loginSuccess: (state, action: PayloadAction<LoginPayload>) => {
       state.user = action.payload.user
-      state.token = action.payload.token
       state.permisos = action.payload.permisos
       state.isAuthenticated = true
     },
@@ -93,7 +88,6 @@ export const authSlice = createSlice({
     // Al cerrar sesión manualmente
     logoutSuccess: (state) => {
       state.user = null
-      state.token = null
       state.permisos = null
       state.isAuthenticated = false
     },
@@ -101,7 +95,6 @@ export const authSlice = createSlice({
     // Cuando caduca la sesión o se recibe 401 del servidor
     sessionExpired: (state) => {
       state.user = null
-      state.token = null
       state.permisos = null
       state.isAuthenticated = false
     },

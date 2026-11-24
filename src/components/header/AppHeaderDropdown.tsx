@@ -43,7 +43,7 @@ const AppHeaderDropdown = () => {
       cancelButtonText: 'Cancelar',
     })
     if (result.isConfirmed) {
-      logout()
+      await logout()
     }
   }
 

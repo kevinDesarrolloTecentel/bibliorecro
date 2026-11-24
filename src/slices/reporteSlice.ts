@@ -1,16 +1,15 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
+import { RcoLibros } from '@/models/rco/libros.model'
+import { RcoPrestamo } from '@/models/rco/prestamos.model'
+import { TabPersona } from '@/models/tab/persona.model'
 
-export interface ReporteItemLibro {
-  ID_LIBROS?: number | string
+// Reporte de Libros: hereda campos base de RcoLibros y añade agregaciones/JOINs
+export interface ReporteItemLibro extends Omit<Partial<RcoLibros>, 'ISBN_LIBROS' | 'CODIGODEBARRAS_LIBROS'> {
   ISBN_LIBROS?: string
-  TITULO_LIBROS?: string
   CODIGODEBARRAS_LIBROS?: string
-  TITULOTEJUELO_LIBROS?: string
-  AUTORTEJUELO_LIBROS?: string
   NOMBRE_AUTOR?: string
   NOMBRE_CATEGORIA?: string
   NOMBRE_EDITORIAL?: string
-  PRECIO_LIBROS?: number | string
   FECHAINGRESO_LIBROS?: string
   FECHABAJA_LIBROS?: string
   MOTIVO_BAJA?: string
@@ -20,9 +19,8 @@ export interface ReporteItemLibro {
   [key: string]: any
 }
 
-export interface ReporteItemPrestamo {
-  ID_PRESTAMO?: number | string
-  ID_LIBROS?: number | string
+// Reporte de Préstamos: hereda campos base de RcoPrestamo y añade datos del usuario y libro asociado
+export interface ReporteItemPrestamo extends Partial<RcoPrestamo> {
   ID_PERSONA?: number | string
   TITULO_LIBROS?: string
   ISBN_LIBROS?: string
@@ -35,7 +33,6 @@ export interface ReporteItemPrestamo {
   CORREO_PERSONA?: string
   FECHAPRESTAMO_PRESTAMO?: string
   FECHADEVOLUCION_PRESTAMO?: string
-  ESTADO_PRESTAMO?: number | string
   ESTADOINSCRIPCION_PERSONA?: number
   CANTIDAD_PRESTAMOS?: number
   TOTAL_PRESTAMOS?: number
@@ -48,20 +45,13 @@ export interface ReporteItemPrestamo {
   [key: string]: any
 }
 
-export interface ReporteItemUsuario {
-  ID_PERSONA?: number | string
-  IDENTIFICACION_PERSONA?: string
-  CEDULA_PERSONA?: string
-  NOMBRE_PERSONA?: string
-  APELLIDO_PERSONA?: string
-  GENERO_PERSONA?: string
+// Reporte de Usuarios: hereda campos base de TabPersona y añade métricas de préstamos/inscripción
+export interface ReporteItemUsuario extends Omit<Partial<TabPersona>, 'EDAD_PERSONA'> {
   EDAD_PERSONA?: number
-  CELULAR_PERSONA?: string
-  CORREO_PERSONA?: string
-  DIRECCION_PERSONA?: string
+  CEDULA_PERSONA?: string
+  GENERO_PERSONA?: string
   OCUPACION_PERSONA?: string
   INSTITUCION_PERSONA?: string
-  ESTADOINSCRIPCION_PERSONA?: number
   FECHAINSCRIPCION_INSCRIPCION?: string
   FECHAFIN_INSCRIPCION?: string
   FECHA_INSCRIPCION?: string
@@ -78,13 +68,10 @@ export interface ReporteItemUsuario {
   [key: string]: any
 }
 
-export interface ReporteItemTejuelo {
-  ID_LIBROS?: number | string
+// Reporte de Tejuelos: hereda campos base de RcoLibros
+export interface ReporteItemTejuelo extends Omit<Partial<RcoLibros>, 'ISBN_LIBROS' | 'CODIGODEBARRAS_LIBROS'> {
   ISBN_LIBROS?: string
-  TITULO_LIBROS?: string
   CODIGODEBARRAS_LIBROS?: string
-  TITULOTEJUELO_LIBROS?: string
-  AUTORTEJUELO_LIBROS?: string
   NOMBRE_AUTOR?: string
   NOMBRE_CATEGORIA?: string
   CODIGO_CATEGORIA?: string

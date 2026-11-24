@@ -20,7 +20,7 @@ export const ChartLineExample: React.FC<ChartLineExampleProps> = ({
   data: propData,
   loading,
   selectedMonth = 'todos',
-  selectedYear = '2026',
+  selectedYear = new Date().getFullYear().toString(),
 }) => {
   const chartRef = useRef<any>(null)
 

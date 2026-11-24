@@ -58,17 +58,6 @@ export const saveAuthCookie = (rawToken: string, expSeconds: number = 3600): voi
 }
 
 /**
- * Obtiene el valor crudo encriptado de la cookie 'tk' (para mostrar en Redux)
- */
-export const getRawAuthCookie = (): string | null => {
-  try {
-    return Cookies.get(AUTH_COOKIE_NAME) || null
-  } catch {
-    return null
-  }
-}
-
-/**
  * Obtiene el token de autenticación desencriptado para su consumo en llamadas API
  */
 export const getStoredToken = (): string | null => {
@@ -85,14 +74,17 @@ export const getStoredToken = (): string | null => {
 }
 
 /**
- * Elimina la cookie de autenticación de forma segura
+ * Elimina las cookies de autenticación locales de forma segura
  */
 export const removeAuthCookie = (): void => {
   try {
     Cookies.remove(AUTH_COOKIE_NAME, { path: '/' })
     Cookies.remove(AUTH_COOKIE_NAME)
+    Cookies.remove('__Host-biblio_access_token', { path: '/' })
+    Cookies.remove('__Host-biblio_access_token')
     if (typeof document !== 'undefined') {
       document.cookie = `${AUTH_COOKIE_NAME}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0;`
+      document.cookie = `__Host-biblio_access_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0;`
     }
   } catch {}
 }
@@ -184,16 +176,31 @@ export const isUserActive = (user?: UserData | null): boolean => {
 }
 
 /**
- * Valida si la sesión actual del usuario es válida (tiene token y está activo).
+ * Valida si la sesión actual del usuario es válida localmente.
+ * Cuando el backend opera con cookie HttpOnly (__Host-biblio_access_token),
+ * JavaScript no puede leer el token directamente por protección de seguridad del navegador.
+ * La validez y vigencia de la sesión la garantiza el servidor en cada llamada API (devolviendo 401 si expiró).
+ * Localmente se verifica que exista el usuario y que su estado no sea inactivo.
  */
 export const isSessionValid = (user?: UserData | null): boolean => {
-  const token = getStoredToken()
-  if (!token) return false
-
   const targetUser = user || getUserStorage()
-  if (!targetUser) return true
+  if (!targetUser) return false
 
-  return isUserActive(targetUser)
+  if (!isUserActive(targetUser)) return false
+
+  // Si existe un token accesible por JS (modo de compatibilidad/fallback), verificar si expiró en cliente
+  const token = getStoredToken()
+  if (token) {
+    const payload = decodeJWT<any>(token)
+    if (payload && typeof payload.exp === 'number') {
+      const nowInSeconds = Math.floor(Date.now() / 1000)
+      if (payload.exp < nowInSeconds) {
+        return false
+      }
+    }
+  }
+
+  return true
 }
 
 /**

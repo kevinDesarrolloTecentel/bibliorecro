@@ -1,22 +1,13 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 import { TabPersona } from '@/models/tab/persona.model'
+import { TabSancion } from '@/models/tab/sancion.model'
 
-// Estructura de presentación de cada usuario sancionado
-export interface SancionItem extends Partial<TabPersona> {
-  // Llaves principales
-  ID_PERSONA?: number | string
-  ID_SANCION?: number | string | null
-  ID_INSCRIPCION?: number | string | null
+// Estructura de presentación de cada usuario sancionado (combina TabPersona y TabSancion)
+export interface SancionItem extends Partial<TabPersona>, Omit<Partial<TabSancion>, 'ID_PERSONA'> {
+  // Llaves foráneas adicionales
   ID_PRESTAMO?: number | string | null
 
-  // Información personal canónica
-  IDENTIFICACION_PERSONA?: string | null
-  NOMBRE_PERSONA?: string | null
-  APELLIDO_PERSONA?: string | null
-  CELULAR_PERSONA?: string | null
-  TELEFONO_PERSONA?: string | null
-
-  // Información de la sanción canónica
+  // Información de la sanción canónica / visual
   FECHA_INICIO_SANCION?: string
   FECHA_FIN_SANCION?: string
   MOTIVO_SANCION?: string

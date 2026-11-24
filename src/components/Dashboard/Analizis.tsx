@@ -33,7 +33,7 @@ export const ChartBarExample: React.FC<ChartBarExampleProps> = ({
   nuevos,
   renovaciones,
   loading = false,
-  selectedYear = '2026',
+  selectedYear = new Date().getFullYear().toString(),
   selectedMonth = 'todos',
 }) => {
   const chartRef = useRef<any>(null)

@@ -1,12 +1,12 @@
 import { useSelector, useDispatch } from 'react-redux'
-import { clearAuthSession, encryptCredentials, saveAuthCookie, getRawAuthCookie, saveUserStorage } from '@/utils/auth'
+import { clearAuthSession, saveAuthCookie, saveUserStorage } from '@/utils/auth'
 import { RootState } from '@/store'
 import { loginSuccess, logoutSuccess, AuthUser, MisPermisosData, LoginCredentials } from '@/slices/authSlice'
 import { AdminRol } from '@/models/adm/rol.model'
 import { ModuloGrupo, ModuloPantalla } from '@/models/adm/catalogo.model'
 import { useNavigate } from 'react-router-dom'
 import Swal from 'sweetalert2'
-import { login } from '@/Service/adm/AdminUser'
+import { login, logout as apiLogout } from '@/Service/adm/AdminUser'
 import { obtenerMisPermisos } from '@/Service/adm/Permisos'
 import { normalizePath } from '@/hooks/auth/usePermissions'
 
@@ -15,13 +15,18 @@ export const useAuth = () => {
   const navigate = useNavigate()
 
   const user = useSelector((state: RootState) => state.auth.user)
-  const token = useSelector((state: RootState) => state.auth.token)
   const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated)
 
-  const logout = () => {
-    clearAuthSession()
-    dispatch(logoutSuccess())
-    navigate('/login', { replace: true })
+  const logout = async () => {
+    try {
+      await apiLogout()
+    } catch (error) {
+      console.warn('[useAuth] Error al cerrar sesión en el servidor:', error)
+    } finally {
+      clearAuthSession()
+      dispatch(logoutSuccess())
+      navigate('/login', { replace: true })
+    }
   }
 
   const handleLoginSubmit = async (data: LoginCredentials) => {
@@ -29,20 +34,23 @@ export const useAuth = () => {
       const cleanNick = (data.NICK_USUARIO || '').trim()
       const cleanPassword = data.PASSWORD_USUARIO || ''
 
-      const response = await login(
-        encryptCredentials({
-          NICK_USUARIO: cleanNick,
-          PASSWORD_USUARIO: cleanPassword,
-        }),
-      )
+      const response = await login({
+        NICK_USUARIO: cleanNick,
+        PASSWORD_USUARIO: cleanPassword,
+      })
 
       if (response && response.success === false) {
         throw new Error(response.message || response.error || 'Credenciales inválidas')
       }
 
-      const rawUser = response?.user || response?.data?.user
+      const rawUser =
+        response?.user ||
+        response?.data?.user ||
+        (response?.data && (response.data.ID_USUARIO !== undefined || response.data.NICK_USUARIO !== undefined)
+          ? response.data
+          : null)
       const rawToken = response?.token || response?.data?.token
-      const rawExpiresIn = Number(response?.expires_in || 3600)
+      const rawExpiresIn = Number(response?.expires_in || response?.data?.expires_in || 3600)
 
       const rawEstado = rawUser?.ESTADO_USUARIO
       if (
@@ -61,7 +69,7 @@ export const useAuth = () => {
         return
       }
 
-      // 1. Guardar token inmediatamente para que apiClient esté autenticado
+      // 1. Guardar token si viene en el cuerpo JSON (fallback); en modo HttpOnly el navegador ya lo recibió vía Set-Cookie
       if (rawToken) {
         saveAuthCookie(rawToken, rawExpiresIn)
       }
@@ -88,10 +96,10 @@ export const useAuth = () => {
       // Usuario depurado estricto
       const fullUserData: AuthUser = {
         ID_USUARIO: rawUser?.ID_USUARIO,
-        NICK_USUARIO: rawUser?.NICK_USUARIO,
-        NOMBRES_USUARIO: rawUser?.NOMBRES_USUARIO,
+        NICK_USUARIO: rawUser?.NICK_USUARIO || cleanNick,
+        NOMBRES_USUARIO: rawUser?.NOMBRES_USUARIO || rawUser?.NICK_USUARIO || cleanNick,
         FECHA_REGISTRO: rawUser?.FECHA_REGISTRO,
-        ESTADO_USUARIO: rawUser?.ESTADO_USUARIO,
+        ESTADO_USUARIO: rawUser?.ESTADO_USUARIO ?? 1,
         expires_in: rawExpiresIn,
       }
 
@@ -142,7 +150,6 @@ export const useAuth = () => {
       dispatch(
         loginSuccess({
           user: fullUserData,
-          token: getRawAuthCookie() || '',
           permisos: cleanPermisos,
         }),
       )
@@ -188,7 +195,6 @@ export const useAuth = () => {
 
   return {
     user,
-    token,
     isAuthenticated,
     logout,
     clearAuthSession,

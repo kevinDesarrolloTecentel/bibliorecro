@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import Swal from 'sweetalert2'
 import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from '@/store'
-import { setUsuarios } from '@/slices/adminSlice'
+import { setUsuarios, actualizarRolesUsuario } from '@/slices/adminSlice'
 import { asignarRolesUsuario, listarUsuariosConRoles } from '@/Service/adm/Rol'
 import { AdminUsuario } from '@/models/adm/user.model'
 import { AdminRol } from '@/models/adm/rol.model'
@@ -176,6 +176,13 @@ export const useRolesUsuariosMatriz = (_rolesList: AdminRol[] = [], fetchRoles?:
       }
       setUserRolesMap(updatedMap)
 
+      // Sincronizar inmediatamente en Redux (lista de usuarios y usuarioSeleccionado)
+      const updatedRolesObjects: AdminRol[] = cleanRolesArray
+        .map((rId) => _rolesList.find((r) => Number(r.ID_ROL) === rId))
+        .filter(Boolean) as AdminRol[]
+
+      dispatch(actualizarRolesUsuario({ idUsuario: usuarioId, roles: updatedRolesObjects }))
+
       marcarCambioPermisos()
 
       Swal.fire({
@@ -186,6 +193,8 @@ export const useRolesUsuariosMatriz = (_rolesList: AdminRol[] = [], fetchRoles?:
         showConfirmButton: false,
       })
 
+      // Sincronizar en segundo plano con el backend
+      await fetchUsuarios()
     } catch (error: any) {
       console.error('Error al actualizar roles del usuario:', error)
       const { title, messages } = parseApiErrors(error, 'Error al actualizar roles del usuario')
@@ -193,7 +202,7 @@ export const useRolesUsuariosMatriz = (_rolesList: AdminRol[] = [], fetchRoles?:
     } finally {
       setSavingUserId(null)
     }
-  }, [userRolesMap, user, canCheckboxRoles])
+  }, [userRolesMap, user, canCheckboxRoles, _rolesList, dispatch, fetchUsuarios])
 
   // Filtrado de usuarios por búsqueda
   const usuariosFiltrados = useMemo(() => {

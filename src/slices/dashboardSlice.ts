@@ -1,4 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
+import { TabPersona } from '@/models/tab/persona.model'
 
 // --- Interfaces de Entidades y Datos del Dashboard ---
 
@@ -33,7 +34,7 @@ export interface DashboardUsuarioItem {
   tipo: 'Nuevo' | 'Renovación'
   tipoBadgeColor: 'success' | 'info'
   fecha: string
-  raw: Record<string, any>
+  raw: Partial<TabPersona> & Record<string, any>
 }
 
 export type UsuarioItem = DashboardUsuarioItem
@@ -51,8 +52,10 @@ export interface DashboardState {
   }
 }
 
+const getCurrentCalendarYear = (): string => new Date().getFullYear().toString()
+
 const initialState: DashboardState = {
-  selectedYear: '2026',
+  selectedYear: getCurrentCalendarYear(),
   selectedMonth: 'todos',
   totalesUsuarios: { totalNuevos: 0, totalRenovaciones: 0, sumatoriaTotal: 0 },
   totalesPrestamos: { totalPrestamos: 0, totalEntregados: 0, totalGeneral: 0 },
@@ -78,7 +81,7 @@ export const dashboardSlice = createSlice({
       state.totalesPrestamos = action.payload
     },
     resetDashboardFiltros: (state) => {
-      state.selectedYear = '2026'
+      state.selectedYear = getCurrentCalendarYear()
       state.selectedMonth = 'todos'
     },
   },

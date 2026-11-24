@@ -40,3 +40,6 @@ yarn-error.log*
 .demos
 .sh
 .zip
+
+# Configuración local de Antigravity
+/.agents/

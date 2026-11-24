@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import Swal from 'sweetalert2'
 import { RootState, AppDispatch } from '@/store'
@@ -53,7 +53,9 @@ export const useDashboard = () => {
     dispatch(setReduxSelectedMonth(val))
   }, [dispatch])
 
-  const [aniosDisponibles, setAniosDisponibles] = useState<string[]>(['2026', '2025', '2024'])
+  const currentCalendarYear = String(new Date().getFullYear())
+  const [aniosDisponibles, setAniosDisponibles] = useState<string[]>([currentCalendarYear])
+  const initialYearLoadedRef = useRef(false)
 
   const [nuevosData, setNuevosData] = useState<number[]>(DEFAULT_NUEVOS)
   const [renovacionesData, setRenovacionesData] = useState<number[]>(DEFAULT_RENOVACIONES)
@@ -77,23 +79,37 @@ export const useDashboard = () => {
   const [prestamosData, setPrestamosData] = useState<DashboardPrestamosTotals | undefined>(undefined)
   const [loadingPrestamos, setLoadingPrestamos] = useState<boolean>(false)
 
-  // 1. Cargar catálogo de años disponibles (campo canónico ANIO)
+  // 1. Cargar catálogo de años disponibles directamente desde el backend (solo una vez al montar)
   useEffect(() => {
+    let isMounted = true
     const fetchAnios = async () => {
       try {
         const res = await AniosDisponibles()
+        if (!isMounted) return
         const raw = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : []
         if (raw.length > 0) {
-          const mapped = raw.map((item: any) => String(item?.ANIO ?? item?.anio ?? item)).filter(Boolean)
-          if (!mapped.includes('2026')) mapped.unshift('2026')
-          setAniosDisponibles(Array.from(new Set(mapped)))
+          const mapped: string[] = raw.map((item: any) => String(item?.ANIO ?? item?.anio ?? item)).filter(Boolean)
+          const aniosUnicos: string[] = Array.from(new Set<string>(mapped))
+          setAniosDisponibles(aniosUnicos)
+
+          // Solo en la carga inicial: auto-seleccionar el año más reciente registrado en el backend
+          if (!initialYearLoadedRef.current) {
+            initialYearLoadedRef.current = true
+            const anioMasReciente = aniosUnicos[0]
+            if (anioMasReciente) {
+              setSelectedYear(anioMasReciente)
+            }
+          }
         }
       } catch (err) {
         console.warn('[useDashboard] No se pudo cargar años del backend, usando lista predeterminada', err)
       }
     }
     fetchAnios()
-  }, [])
+    return () => {
+      isMounted = false
+    }
+  }, [setSelectedYear])
 
   // 2. Cargar datos de usuarios nuevos y renovaciones según año y mes
   // Estructura canónica del backend: res.data = { anio, totales: { total_usuarios_nuevos, total_renovaciones, total_general }, datos: [{ MES, USUARIOS_NUEVOS, RENOVACIONES, TOTAL_GENERAL, DETALLE_USUARIOS_NUEVOS, DETALLE_RENOVACIONES }] }
@@ -339,7 +355,7 @@ export const useDashboard = () => {
       return
     }
 
-    const defaultYear = aniosDisponibles[0] || '2026'
+    const defaultYear = aniosDisponibles[0] || currentCalendarYear
     dispatch(resetDashboardFiltros())
     setSelectedYear(defaultYear)
     setSelectedMonth('todos')

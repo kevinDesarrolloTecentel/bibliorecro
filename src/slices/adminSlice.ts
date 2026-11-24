@@ -27,6 +27,14 @@ export const adminSlice = createSlice({
     // Usuarios
     setUsuarios: (state, action: PayloadAction<AdminUsuario[]>) => {
       state.usuarios = action.payload
+      if (state.usuarioSeleccionado) {
+        const matching = action.payload.find(
+          (u) => String(u.ID_USUARIO) === String(state.usuarioSeleccionado?.ID_USUARIO),
+        )
+        if (matching) {
+          state.usuarioSeleccionado = matching
+        }
+      }
     },
     setUsuarioSeleccionado: (state, action: PayloadAction<AdminUsuario | null>) => {
       state.usuarioSeleccionado = action.payload
@@ -43,6 +51,25 @@ export const adminSlice = createSlice({
       }
       if (String(state.usuarioSeleccionado?.ID_USUARIO) === String(action.payload.ID_USUARIO)) {
         state.usuarioSeleccionado = { ...state.usuarioSeleccionado, ...action.payload }
+      }
+    },
+    actualizarRolesUsuario: (
+      state,
+      action: PayloadAction<{ idUsuario: number | string; roles: AdminRol[] }>,
+    ) => {
+      const { idUsuario, roles } = action.payload
+      const idx = state.usuarios.findIndex((u) => String(u.ID_USUARIO) === String(idUsuario))
+      if (idx !== -1) {
+        state.usuarios[idx] = {
+          ...state.usuarios[idx],
+          ROLES: roles,
+        }
+      }
+      if (String(state.usuarioSeleccionado?.ID_USUARIO) === String(idUsuario)) {
+        state.usuarioSeleccionado = {
+          ...state.usuarioSeleccionado,
+          ROLES: roles,
+        }
       }
     },
     eliminarUsuarioDeLista: (state, action: PayloadAction<number | string>) => {
@@ -94,6 +121,7 @@ export const {
   setUsuarioSeleccionado,
   agregarUsuario,
   actualizarUsuarioEnLista,
+  actualizarRolesUsuario,
   eliminarUsuarioDeLista,
   setRoles,
   setRolSeleccionado,

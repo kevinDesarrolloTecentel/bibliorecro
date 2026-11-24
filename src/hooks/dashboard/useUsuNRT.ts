@@ -87,7 +87,7 @@ export const useUsuNRT = () => {
     setTodosUsuariosList(todos)
   }, [])
 
-  const handleExportarExcel = useCallback(async (year: string = '2026', month: string = 'todos') => {
+  const handleExportarExcel = useCallback(async (year: string = new Date().getFullYear().toString(), month: string = 'todos') => {
     const listToExport =
       todosUsuariosList.length > 0
         ? todosUsuariosList
